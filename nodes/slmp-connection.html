@@ -1,0 +1,142 @@
+<script type="text/javascript">
+  function slmpValidateIntegerInRange(value, min, max, options) {
+    const text = String(value == null ? "" : value).trim();
+    const base = options && options.base ? options.base : 10;
+    if (!text) {
+      return false;
+    }
+    if (base === 16 && !/^(?:0x)?[0-9a-f]+$/i.test(text)) {
+      return false;
+    }
+    if (base === 10 && !/^\d+$/.test(text)) {
+      return false;
+    }
+    const parsed = Number.parseInt(text, base);
+    return Number.isInteger(parsed) && parsed >= min && parsed <= max;
+  }
+
+  RED.nodes.registerType("slmp-connection", {
+    category: "config",
+    defaults: {
+      name: { value: "" },
+      host: { value: "", required: true },
+      port: {
+        value: 5000,
+        required: true,
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 1, 65535);
+        }
+      },
+      transport: { value: "tcp", required: true },
+      timeout: {
+        value: 3000,
+        required: true,
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 1, 2147483647);
+        }
+      },
+      plcSeries: { value: "ql", required: true },
+      frameType: { value: "4e", required: true },
+      monitoringTimer: {
+        value: 16,
+        required: true,
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 0, 65535);
+        }
+      },
+      network: {
+        value: "0",
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 0, 255);
+        }
+      },
+      station: {
+        value: "255",
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 0, 255);
+        }
+      },
+      moduleIO: {
+        value: "03FF",
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 0, 65535, { base: 16 });
+        }
+      },
+      multidrop: {
+        value: "0",
+        validate: function (value) {
+          return slmpValidateIntegerInRange(value, 0, 255);
+        }
+      }
+    },
+    label: function () {
+      return this.name || this.host + ":" + this.port;
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="slmp-connection">
+  <div class="form-row">
+    <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-config-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-host"><i class="fa fa-globe"></i> Host</label>
+    <input type="text" id="node-config-input-host" placeholder="192.168.0.10" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-port"><i class="fa fa-plug"></i> Port</label>
+    <input type="text" id="node-config-input-port" placeholder="1025" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-transport"><i class="fa fa-random"></i> Transport</label>
+    <select id="node-config-input-transport">
+      <option value="tcp">TCP</option>
+      <option value="udp">UDP</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout ms</label>
+    <input type="text" id="node-config-input-timeout" placeholder="3000" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-plcSeries"><i class="fa fa-cog"></i> PLC series</label>
+    <select id="node-config-input-plcSeries">
+      <option value="ql">Q/L compatible</option>
+      <option value="iqr">iQ-R/iQ-L compatible</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-frameType"><i class="fa fa-code"></i> Frame type</label>
+    <select id="node-config-input-frameType">
+      <option value="4e">4E binary</option>
+      <option value="3e">3E binary</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-monitoringTimer"><i class="fa fa-hourglass-half"></i> Monitor timer</label>
+    <input type="text" id="node-config-input-monitoringTimer" placeholder="16" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-network"><i class="fa fa-sitemap"></i> Network</label>
+    <input type="text" id="node-config-input-network" placeholder="0" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-station"><i class="fa fa-sitemap"></i> Station</label>
+    <input type="text" id="node-config-input-station" placeholder="255" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-moduleIO"><i class="fa fa-sitemap"></i> Module I/O</label>
+    <input type="text" id="node-config-input-moduleIO" placeholder="03FF" />
+  </div>
+  <div class="form-row">
+    <label for="node-config-input-multidrop"><i class="fa fa-sitemap"></i> Multidrop</label>
+    <input type="text" id="node-config-input-multidrop" placeholder="0" />
+  </div>
+</script>
+
+<script type="text/html" data-help-name="slmp-connection">
+  <p>Reusable SLMP connection profile for Mitsubishi PLC access over binary 3E or 4E frames.</p>
+  <p>Choose the same frame type and PLC series you would use with <code>plc-comm-slmp-python</code>.</p>
+  <p><code>slmp-read</code> and <code>slmp-write</code> can send <code>connect</code>, <code>disconnect</code>, and <code>reinitialize</code> control messages through this shared connection.</p>
+</script>

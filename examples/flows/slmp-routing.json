@@ -1,0 +1,118 @@
+[
+  {
+    "id": "tab-slmp-routing",
+    "type": "tab",
+    "label": "SLMP Per Request Routing",
+    "disabled": false,
+    "info": "Update the host, port, and route object before deploy."
+  },
+  {
+    "id": "comment-slmp-routing",
+    "type": "comment",
+    "z": "tab-slmp-routing",
+    "name": "Read with msg-provided addresses and per-request route target",
+    "info": "",
+    "x": 300,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "inject-routing-read",
+    "type": "inject",
+    "z": "tab-slmp-routing",
+    "name": "Read with route override",
+    "props": [
+      {
+        "p": "lookup",
+        "v": "D300,4\nDSTR320,10",
+        "vt": "str"
+      },
+      {
+        "p": "target",
+        "v": "{\"network\":0,\"station\":255,\"moduleIO\":\"03FF\",\"multidrop\":0}",
+        "vt": "json"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 140,
+    "y": 140,
+    "wires": [
+      [
+        "read-routing"
+      ]
+    ]
+  },
+  {
+    "id": "read-routing",
+    "type": "slmp-read",
+    "z": "tab-slmp-routing",
+    "name": "Read from msg.lookup + msg.target",
+    "connection": "cfg-slmp-routing",
+    "addresses": "lookup",
+    "addressesType": "msg",
+    "routeTarget": "",
+    "routeTargetType": "str",
+    "outputMode": "array",
+    "errorHandling": "output2",
+    "x": 430,
+    "y": 140,
+    "wires": [
+      [
+        "debug-routing-ok"
+      ],
+      [
+        "debug-routing-error"
+      ]
+    ]
+  },
+  {
+    "id": "debug-routing-ok",
+    "type": "debug",
+    "z": "tab-slmp-routing",
+    "name": "Read OK",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "x": 690,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug-routing-error",
+    "type": "debug",
+    "z": "tab-slmp-routing",
+    "name": "Read Error",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "x": 700,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "cfg-slmp-routing",
+    "type": "slmp-connection",
+    "name": "PLC TCP 4E",
+    "host": "192.168.250.100",
+    "port": "1025",
+    "transport": "tcp",
+    "timeout": "3000",
+    "plcSeries": "iqr",
+    "frameType": "4e",
+    "monitoringTimer": "16",
+    "network": "0",
+    "station": "255",
+    "moduleIO": "03FF",
+    "multidrop": "0"
+  }
+]

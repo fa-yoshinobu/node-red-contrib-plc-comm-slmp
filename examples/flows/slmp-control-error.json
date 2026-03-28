@@ -1,0 +1,211 @@
+[
+  {
+    "id": "tab-slmp-control-error",
+    "type": "tab",
+    "label": "SLMP Control And Error",
+    "disabled": false,
+    "info": "Update the connection host, port, and msg-provided addresses before deploy."
+  },
+  {
+    "id": "comment-slmp-control-error",
+    "type": "comment",
+    "z": "tab-slmp-control-error",
+    "name": "Control messages, msg source, and second-output error routing",
+    "info": "",
+    "x": 280,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "inject-control-connect",
+    "type": "inject",
+    "z": "tab-slmp-control-error",
+    "name": "Connect",
+    "props": [
+      {
+        "p": "connect",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 90,
+    "y": 100,
+    "wires": [
+      [
+        "read-control-error"
+      ]
+    ]
+  },
+  {
+    "id": "inject-control-reinit",
+    "type": "inject",
+    "z": "tab-slmp-control-error",
+    "name": "Reinitialize",
+    "props": [
+      {
+        "p": "reinitialize",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 100,
+    "y": 140,
+    "wires": [
+      [
+        "read-control-error"
+      ]
+    ]
+  },
+  {
+    "id": "inject-control-disconnect",
+    "type": "inject",
+    "z": "tab-slmp-control-error",
+    "name": "Disconnect",
+    "props": [
+      {
+        "p": "disconnect",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 100,
+    "y": 180,
+    "wires": [
+      [
+        "read-control-error"
+      ]
+    ]
+  },
+  {
+    "id": "inject-control-read-good",
+    "type": "inject",
+    "z": "tab-slmp-control-error",
+    "name": "Read via msg.lookup",
+    "props": [
+      {
+        "p": "lookup",
+        "v": "D300,4\nDSTR320,10",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 120,
+    "y": 260,
+    "wires": [
+      [
+        "read-control-error"
+      ]
+    ]
+  },
+  {
+    "id": "inject-control-read-bad",
+    "type": "inject",
+    "z": "tab-slmp-control-error",
+    "name": "Bad address",
+    "props": [
+      {
+        "p": "lookup",
+        "v": "BAD100",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 100,
+    "y": 300,
+    "wires": [
+      [
+        "read-control-error"
+      ]
+    ]
+  },
+  {
+    "id": "read-control-error",
+    "type": "slmp-read",
+    "z": "tab-slmp-control-error",
+    "name": "Read from msg.lookup",
+    "connection": "cfg-slmp-control-error",
+    "addresses": "lookup",
+    "addressesType": "msg",
+    "outputMode": "array",
+    "errorHandling": "output2",
+    "x": 360,
+    "y": 260,
+    "wires": [
+      [
+        "debug-control-ok"
+      ],
+      [
+        "debug-control-error"
+      ]
+    ]
+  },
+  {
+    "id": "debug-control-ok",
+    "type": "debug",
+    "z": "tab-slmp-control-error",
+    "name": "OK",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "x": 580,
+    "y": 240,
+    "wires": []
+  },
+  {
+    "id": "debug-control-error",
+    "type": "debug",
+    "z": "tab-slmp-control-error",
+    "name": "Error",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "x": 590,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "cfg-slmp-control-error",
+    "type": "slmp-connection",
+    "name": "PLC TCP 4E",
+    "host": "192.168.250.100",
+    "port": "1025",
+    "transport": "tcp",
+    "timeout": "3000",
+    "plcSeries": "iqr",
+    "frameType": "4e",
+    "monitoringTimer": "16",
+    "network": "0",
+    "station": "255",
+    "moduleIO": "03FF",
+    "multidrop": "0"
+  }
+]

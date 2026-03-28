@@ -1,0 +1,53 @@
+{
+  "name": "node-red-contrib-plc-comm-slmp",
+  "version": "0.2.0",
+  "description": "Node-RED nodes for Mitsubishi PLC communication over SLMP binary 3E/4E frames.",
+  "author": "fa-yoshinobu",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "docsrc/",
+    "examples/",
+    "lib/",
+    "nodes/"
+  ],
+  "keywords": [
+    "node-red",
+    "node-red-contrib",
+    "node-red-flow",
+    "slmp",
+    "mitsubishi",
+    "melsec",
+    "plc"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/issues"
+  },
+  "homepage": "https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "check": "node test/run-tests.js",
+    "test": "node test/run-tests.js",
+    "pack:dry-run": "npm pack --dry-run"
+  },
+  "node-red": {
+    "version": ">=3.0.0",
+    "nodes": {
+      "slmp-connection": "nodes/slmp-connection.js",
+      "slmp-read": "nodes/slmp-read.js",
+      "slmp-write": "nodes/slmp-write.js"
+    }
+  }
+}
