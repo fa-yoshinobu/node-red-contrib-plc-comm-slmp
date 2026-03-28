@@ -19,6 +19,10 @@ See also:
 3. Drop in `slmp-read` and try a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. Once reads work, add `slmp-write` and verify with known-safe test devices.
 
+npm package:
+
+- <https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp>
+
 If you are starting from the example flows in this repository, import these in this order:
 
 - [`slmp-basic-read-write.json`](../../examples/flows/slmp-basic-read-write.json)
@@ -53,6 +57,12 @@ Configure these explicitly on the connection node:
 - PLC series: `ql` or `iqr`
 - frame type: `3e` or `4e`
 - route fields: network, station, module I/O, multidrop
+
+Validated PLC models:
+
+- `FX5UC-32MT/D`
+- `Q06UDVCPU`
+- `R08CPU`
 
 ## Supported devices
 

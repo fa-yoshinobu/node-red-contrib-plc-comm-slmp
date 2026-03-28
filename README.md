@@ -43,10 +43,10 @@ If you are working from this repository, import one of the ready-to-run flows un
 
 - package name: `node-red-contrib-plc-comm-slmp`
 - package version: `0.2.0`
+- npm package: <https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
 - changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- CI workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
 Install from npm:
 
@@ -66,7 +66,7 @@ npm install /path/to/node-red-contrib-plc-comm-slmp
 
 - [User Guide](docsrc/user/USER_GUIDE.md)
 - [Example Flows](examples/flows/README.md)
-- [Future Device Support](TODO.md)
+- [Future Device Support](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
 - [Maintainer Notes](docsrc/maintainer/ARCHITECTURE.md)
 - [Validation Reports Directory](docsrc/validation/reports/README.md)
 - [Documentation Index](docsrc/index.md)
@@ -89,6 +89,12 @@ npm install /path/to/node-red-contrib-plc-comm-slmp
 - Local tests for codec and high-level helpers
 
 Set `frame type` and `PLC series` explicitly for each connection.
+
+Validated PLC models:
+
+- `FX5UC-32MT/D`
+- `Q06UDVCPU`
+- `R08CPU`
 
 ## Supported devices
 
@@ -115,7 +121,7 @@ Address notes:
 - word devices support `.bit`, for example `D50.3`
 - count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the high-level nodes
-- future device support candidates such as `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`, `G`, and `HG` are tracked in [`TODO.md`](TODO.md)
+- future device support candidates such as `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`, `G`, and `HG` are tracked in the [Future Device Support list](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
 
 ## Nodes
 
