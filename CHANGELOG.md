@@ -2,7 +2,7 @@
 
 ## 0.2.1 - 2026-03-28
 
-- move npm package publishing to the scoped name `@fa-yoshinobu/node-red-contrib-plc-comm-slmp`
+- move npm package publishing to the scoped name `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
 - refresh README and user documentation for Flow Library submission, npm badges, and scoped install commands
 
 ## 0.2.0 - 2026-03-28

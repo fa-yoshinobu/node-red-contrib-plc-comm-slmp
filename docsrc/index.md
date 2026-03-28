@@ -1,6 +1,6 @@
 # Documentation Index
 
-Documentation landing page for `@fa-yoshinobu/node-red-contrib-plc-comm-slmp`.
+Documentation landing page for `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`.
 
 - [Project README](../README.md)
 - [Changelog](../CHANGELOG.md)

@@ -1,5 +1,5 @@
 {
-  "name": "@fa-yoshinobu/node-red-contrib-plc-comm-slmp",
+  "name": "@fa_yoshinobu/node-red-contrib-plc-comm-slmp",
   "version": "0.2.1",
   "description": "Node-RED nodes for Mitsubishi PLC communication over SLMP binary 3E/4E frames.",
   "author": "fa-yoshinobu",
