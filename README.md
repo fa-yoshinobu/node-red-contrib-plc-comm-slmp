@@ -1,8 +1,8 @@
 # Node-RED SLMP Nodes for Mitsubishi PLCs
 
 [![CI](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml/badge.svg)](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/node-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp)
-[![npm downloads](https://img.shields.io/npm/dm/node-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp)
+[![npm version](https://img.shields.io/npm/v/%40fa-yoshinobu%2Fnode-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/@fa-yoshinobu/node-red-contrib-plc-comm-slmp)
+[![npm downloads](https://img.shields.io/npm/dm/%40fa-yoshinobu%2Fnode-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/@fa-yoshinobu/node-red-contrib-plc-comm-slmp)
 ![Node-RED version](https://img.shields.io/badge/Node--RED-%E2%89%A53.0-B41F27?logo=nodered&logoColor=white)
 ![Node.js version](https://img.shields.io/badge/Node.js-%E2%89%A518-339933?logo=node.js&logoColor=white)
 ![SLMP frame](https://img.shields.io/badge/SLMP-Binary%203E%20%2F%204E-005BAC)
@@ -42,9 +42,9 @@ If you are working from this repository, import one of the ready-to-run flows un
 
 ## Release information
 
-- package name: `node-red-contrib-plc-comm-slmp`
-- package version: `0.2.0`
-- npm package: <https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp>
+- package name: `@fa-yoshinobu/node-red-contrib-plc-comm-slmp`
+- package version: `0.2.1`
+- npm package: <https://www.npmjs.com/package/@fa-yoshinobu/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
 - changelog: <https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/CHANGELOG.md>
@@ -53,7 +53,7 @@ Install from npm:
 
 ```bash
 cd ~/.node-red
-npm install node-red-contrib-plc-comm-slmp
+npm install @fa-yoshinobu/node-red-contrib-plc-comm-slmp
 ```
 
 Install from this repository:
@@ -62,6 +62,10 @@ Install from this repository:
 cd ~/.node-red
 npm install /path/to/node-red-contrib-plc-comm-slmp
 ```
+
+Legacy note:
+
+- the original unscoped `node-red-contrib-plc-comm-slmp@0.2.0` remains on npm, but new releases move to the scoped package name above
 
 ## Documentation
 

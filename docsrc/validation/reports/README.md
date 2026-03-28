@@ -6,7 +6,7 @@ See also:
 - [User Guide](../../user/USER_GUIDE.md)
 - [Documentation Index](../../index.md)
 
-Place captured validation reports for `node-red-contrib-plc-comm-slmp` in this directory.
+Place captured validation reports for `@fa-yoshinobu/node-red-contrib-plc-comm-slmp` in this directory.
 
 Typical content:
 

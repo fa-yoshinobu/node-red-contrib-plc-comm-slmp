@@ -10,7 +10,7 @@ See also:
 
 ## Purpose
 
-`node-red-contrib-plc-comm-slmp` provides Node-RED nodes for Mitsubishi PLC communication over binary SLMP 3E/4E.
+`@fa-yoshinobu/node-red-contrib-plc-comm-slmp` provides Node-RED nodes for Mitsubishi PLC communication over binary SLMP 3E/4E.
 
 ## Quick start
 
@@ -21,7 +21,7 @@ See also:
 
 npm package:
 
-- <https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp>
+- <https://www.npmjs.com/package/@fa-yoshinobu/node-red-contrib-plc-comm-slmp>
 
 If you are starting from the example flows in this repository, import these in this order:
 
