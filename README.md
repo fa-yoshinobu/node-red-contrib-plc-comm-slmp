@@ -1,14 +1,15 @@
 # Node-RED SLMP Nodes for Mitsubishi PLCs
 
 [![CI](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml/badge.svg)](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml)
-![Package version](https://img.shields.io/badge/Package-0.2.0-1F6FEB)
+[![npm version](https://img.shields.io/npm/v/node-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp)
+[![npm downloads](https://img.shields.io/npm/dm/node-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp)
 ![Node-RED version](https://img.shields.io/badge/Node--RED-%E2%89%A53.0-B41F27?logo=nodered&logoColor=white)
 ![Node.js version](https://img.shields.io/badge/Node.js-%E2%89%A518-339933?logo=node.js&logoColor=white)
 ![SLMP frame](https://img.shields.io/badge/SLMP-Binary%203E%20%2F%204E-005BAC)
 ![Transport](https://img.shields.io/badge/Transport-TCP%20%2F%20UDP-0A7D5C)
 ![License](https://img.shields.io/badge/License-MIT-1F6FEB)
 
-![Node-RED SLMP hero](docsrc/assets/node-red-slmp.png)
+![Node-RED SLMP hero](https://raw.githubusercontent.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/main/docsrc/assets/node-red-slmp.png)
 
 Node-RED nodes for Mitsubishi PLC communication over SLMP binary 3E/4E frames.
 
@@ -32,12 +33,12 @@ This package uses the same named-device foundation as the SLMP libraries, extend
 3. Add `slmp-read` for the first smoke test, using a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. When read works, add `slmp-write` and use known-safe test devices before moving to production addresses.
 
-If you are working from this repository, import one of the ready-to-run flows under [`examples/flows/`](examples/flows/README.md) first. The safest first choices are:
+If you are working from this repository, import one of the ready-to-run flows under [examples/flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md) first. The safest first choices are:
 
-- [`slmp-basic-read-write.json`](examples/flows/slmp-basic-read-write.json) for plain TCP scalar read/write
-- [`slmp-array-string.json`](examples/flows/slmp-array-string.json) for `,count` and string access
-- [`slmp-device-matrix.json`](examples/flows/slmp-device-matrix.json) for one-by-one high-level coverage across the matrix catalog
-- [`slmp-udp-read-write.json`](examples/flows/slmp-udp-read-write.json) for UDP validation
+- [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json) for plain TCP scalar read/write
+- [`slmp-array-string.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-array-string.json) for `,count` and string access
+- [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json) for one-by-one high-level coverage across the matrix catalog
+- [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json) for UDP validation
 
 ## Release information
 
@@ -46,7 +47,7 @@ If you are working from this repository, import one of the ready-to-run flows un
 - npm package: <https://www.npmjs.com/package/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
-- changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- changelog: <https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/CHANGELOG.md>
 
 Install from npm:
 
@@ -64,12 +65,12 @@ npm install /path/to/node-red-contrib-plc-comm-slmp
 
 ## Documentation
 
-- [User Guide](docsrc/user/USER_GUIDE.md)
-- [Example Flows](examples/flows/README.md)
+- [User Guide](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/user/USER_GUIDE.md)
+- [Example Flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md)
 - [Future Device Support](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
-- [Maintainer Notes](docsrc/maintainer/ARCHITECTURE.md)
-- [Validation Reports Directory](docsrc/validation/reports/README.md)
-- [Documentation Index](docsrc/index.md)
+- [Maintainer Notes](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/maintainer/ARCHITECTURE.md)
+- [Validation Reports Directory](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/tree/main/docsrc/validation/reports)
+- [Documentation Index](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/index.md)
 
 ## Current scope
 
@@ -251,22 +252,29 @@ Write:
 }
 ```
 
-Import one of the ready-to-run flows under [`examples/flows/`](examples/flows/README.md):
+Import one of the ready-to-run flows under [examples/flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md):
 
-- [`slmp-demo.json`](examples/flows/slmp-demo.json): combined demo
-- [`slmp-basic-read-write.json`](examples/flows/slmp-basic-read-write.json): scalar, float, and bit read/write over TCP
-- [`slmp-array-string.json`](examples/flows/slmp-array-string.json): array and string read/write over TCP
-- [`slmp-control-error.json`](examples/flows/slmp-control-error.json): control messages, `msg` source, and second-output errors
-- [`slmp-device-matrix.json`](examples/flows/slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with completed-result history, run summary, and JSONL logging
-- [`slmp-routing.json`](examples/flows/slmp-routing.json): per-request routing with `msg.target`
-- [`slmp-udp-read-write.json`](examples/flows/slmp-udp-read-write.json): basic UDP read/write
+- [`slmp-demo.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-demo.json): combined demo
+- [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json): scalar, float, and bit read/write over TCP
+- [`slmp-array-string.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-array-string.json): array and string read/write over TCP
+- [`slmp-control-error.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-control-error.json): control messages, `msg` source, and second-output errors
+- [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with completed-result history, run summary, and JSONL logging in `Node-RED userDir/logs/slmp-device-matrix-<session>.jsonl`
+- [`slmp-routing.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-routing.json): per-request routing with `msg.target`
+- [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
 Recommended first import:
 
-- start with [`slmp-basic-read-write.json`](examples/flows/slmp-basic-read-write.json) if you only need to confirm a single PLC over TCP
-- use [`slmp-array-string.json`](examples/flows/slmp-array-string.json) when you want to validate `,count` and string handling immediately
-- use [`slmp-device-matrix.json`](examples/flows/slmp-device-matrix.json) when you need to step through the matrix catalog one by one from the high-level nodes and keep a persistent verification log
-- use [`slmp-control-error.json`](examples/flows/slmp-control-error.json) when you need `msg`-driven addresses, control messages, or second-output error routing
+- start with [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json) if you only need to confirm a single PLC over TCP
+- use [`slmp-array-string.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-array-string.json) when you want to validate `,count` and string handling immediately
+- use [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json) when you need to step through the matrix catalog one by one from the high-level nodes and keep a persistent verification log
+- use [`slmp-control-error.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-control-error.json) when you need `msg`-driven addresses, control messages, or second-output error routing
+
+## Known limitations
+
+- Set `frame type` and `PLC series` explicitly for each connection
+- `.bit,count` is not supported
+- A single client connection keeps requests serialized by default
+- Future high-level device support candidates are tracked in the [Future Device Support list](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
 
 ## Development
 
@@ -279,7 +287,5 @@ cmd /c npm.cmd test
 ## Notes
 
 - `.bit` notation is only valid for word devices such as `D50.3`
-- `.bit,count` is not supported
 - Direct bit devices should be addressed directly as `M1000`, `X1F`, `Y20`
 - Random read batching follows the Python helper layer for batchable word devices
-- Requests on a single client connection are serialized by default

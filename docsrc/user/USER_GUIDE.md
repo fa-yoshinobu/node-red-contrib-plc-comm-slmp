@@ -4,7 +4,7 @@ See also:
 
 - [Project README](../../README.md)
 - [Changelog](../../CHANGELOG.md)
-- [Future Device Support](../../TODO.md)
+- [Future Device Support](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
 - [Documentation Index](../index.md)
 - [Example Flows](../../examples/flows/README.md)
 
@@ -217,7 +217,7 @@ Import one of these into Node-RED, then update the connection host, port, transp
 - [`slmp-basic-read-write.json`](../../examples/flows/slmp-basic-read-write.json): scalar, float, and bit read/write over TCP
 - [`slmp-array-string.json`](../../examples/flows/slmp-array-string.json): array and string read/write over TCP
 - [`slmp-control-error.json`](../../examples/flows/slmp-control-error.json): control messages, configured `msg` source, and second-output errors
-- [`slmp-device-matrix.json`](../../examples/flows/slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with completed-result history, run summary, and JSONL logging
+- [`slmp-device-matrix.json`](../../examples/flows/slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with completed-result history, run summary, and JSONL logging under `Node-RED userDir/logs/slmp-device-matrix-<session>.jsonl`
 - [`slmp-routing.json`](../../examples/flows/slmp-routing.json): per-request routing with `msg.target`
 - [`slmp-udp-read-write.json`](../../examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
