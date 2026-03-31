@@ -32,3 +32,10 @@ Observed from the high-level `slmp-device-matrix` verification flow:
 
 - This file tracks future device support work only.
 - Validation logs remain the source of truth for observed runtime behavior.
+
+## Cross-Stack Alignment
+
+- [x] **Keep control-message behavior aligned**: `connect`, `disconnect`, and `reinitialize` control handling is exposed consistently through the shared connection node and the read/write nodes.
+- [x] **Stabilize metadata schema**: The user-facing metadata modes now stay aligned around connection profile, effective target, and item-count summaries.
+- [x] **Keep route options explicit**: Target-routing fields remain explicit connection or message-level options; there is no hidden route auto-detection layer.
+- [x] **Preserve semantic atomicity by default**: Read and write nodes keep the caller-visible logical request shape. Protocol-defined segmentation, when it exists below the node surface, must stay documented and must not be hidden behind fallback semantic changes.

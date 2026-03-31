@@ -234,5 +234,6 @@ Recommended first import:
 - `.bit,count` is not supported
 - direct bit devices should be addressed directly as `M1000`, `X1F`, or `Y20`
 - a single client connection keeps requests serialized by default
+- the read and write nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior
 - read/write errors can throw, attach to `msg.error`, or go to a second output
 - the editor validates connection ranges, literal address lists, literal update payloads, and literal route JSON before save

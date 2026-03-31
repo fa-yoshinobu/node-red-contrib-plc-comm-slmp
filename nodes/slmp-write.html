@@ -263,5 +263,6 @@
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
   <p>You can also send a single write with <code>msg.address</code>, optional <code>msg.dtype</code>, and the value in <code>msg.value</code> or <code>msg.payload</code>. If <code>msg.address</code> already includes <code>,count</code>, the dtype is inserted before the count suffix.</p>
   <p>Send <code>msg.connect</code>, <code>msg.disconnect</code>, or <code>msg.reinitialize</code> as <code>true</code>, or send the same words in <code>msg.topic</code>, to control the shared connection.</p>
+  <p>The node keeps the caller-visible logical write shape. It does not silently retry one logical update as a different fallback split request.</p>
   <p>Error handling can throw, attach the error to <code>msg.error</code>, or emit the failed message on the second output.</p>
 </script>

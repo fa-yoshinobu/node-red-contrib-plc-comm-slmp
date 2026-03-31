@@ -278,6 +278,7 @@ Recommended first import:
 - Set `frame type` and `PLC series` explicitly for each connection
 - `.bit,count` is not supported
 - A single client connection keeps requests serialized by default
+- The read and write nodes keep the caller-visible logical request shape and do not silently retry with a different fallback split semantics
 - Future high-level device support candidates are tracked in the [Future Device Support list](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
 
 ## Development
