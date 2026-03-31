@@ -1,185 +1,195 @@
 [
-  {
-    "id": "tab-slmp-array-string",
-    "type": "tab",
-    "label": "SLMP Array And String",
-    "disabled": false,
-    "info": "Update the connection host, port, and safe array/string addresses before deploy."
-  },
-  {
-    "id": "comment-slmp-array-string",
-    "type": "comment",
-    "z": "tab-slmp-array-string",
-    "name": "TCP array and string examples using ,count and DSTR",
-    "info": "",
-    "x": 270,
-    "y": 40,
-    "wires": []
-  },
-  {
-    "id": "inject-array-read",
-    "type": "inject",
-    "z": "tab-slmp-array-string",
-    "name": "Read array + string",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "payloadType": "date",
-    "x": 120,
-    "y": 120,
-    "wires": [
-      [
-        "read-array-string"
-      ]
-    ]
-  },
-  {
-    "id": "read-array-string",
-    "type": "slmp-read",
-    "z": "tab-slmp-array-string",
-    "name": "Read array + float array + string",
-    "connection": "cfg-slmp-array-string",
-    "addresses": "D300,10\nD200:F,2\nDSTR320,10",
-    "addressesType": "str",
-    "outputMode": "array",
-    "errorHandling": "output2",
-    "x": 380,
-    "y": 120,
-    "wires": [
-      [
-        "debug-array-read-ok"
-      ],
-      [
-        "debug-array-read-error"
-      ]
-    ]
-  },
-  {
-    "id": "inject-array-write",
-    "type": "inject",
-    "z": "tab-slmp-array-string",
-    "name": "Write array + string",
-    "props": [
-      {
-        "p": "payload",
-        "v": "{\"D300,10\":[0,1,2,3,4,5,6,7,8,9],\"D200:F,2\":[1.25,-2.5],\"DSTR320,10\":\"HELLO12345\"}",
-        "vt": "json"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 120,
-    "y": 200,
-    "wires": [
-      [
-        "write-array-string"
-      ]
-    ]
-  },
-  {
-    "id": "write-array-string",
-    "type": "slmp-write",
-    "z": "tab-slmp-array-string",
-    "name": "Write array + float array + string",
-    "connection": "cfg-slmp-array-string",
-    "updates": "",
-    "updatesType": "str",
-    "errorHandling": "output2",
-    "x": 380,
-    "y": 200,
-    "wires": [
-      [
-        "debug-array-write-ok"
-      ],
-      [
-        "debug-array-write-error"
-      ]
-    ]
-  },
-  {
-    "id": "debug-array-read-ok",
-    "type": "debug",
-    "z": "tab-slmp-array-string",
-    "name": "Read OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 640,
-    "y": 100,
-    "wires": []
-  },
-  {
-    "id": "debug-array-read-error",
-    "type": "debug",
-    "z": "tab-slmp-array-string",
-    "name": "Read Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 650,
-    "y": 140,
-    "wires": []
-  },
-  {
-    "id": "debug-array-write-ok",
-    "type": "debug",
-    "z": "tab-slmp-array-string",
-    "name": "Write OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 640,
-    "y": 180,
-    "wires": []
-  },
-  {
-    "id": "debug-array-write-error",
-    "type": "debug",
-    "z": "tab-slmp-array-string",
-    "name": "Write Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 650,
-    "y": 220,
-    "wires": []
-  },
-  {
-    "id": "cfg-slmp-array-string",
-    "type": "slmp-connection",
-    "name": "PLC TCP 4E",
-    "host": "192.168.250.100",
-    "port": "1025",
-    "transport": "tcp",
-    "timeout": "3000",
-    "plcSeries": "iqr",
-    "frameType": "4e",
-    "monitoringTimer": "16",
-    "network": "0",
-    "station": "255",
-    "moduleIO": "03FF",
-    "multidrop": "0"
-  }
+    {
+        "id":  "tab-slmp-array-string",
+        "type":  "tab",
+        "label":  "SLMP Array And String",
+        "disabled":  false,
+        "info":  "Update the connection host, port, and safe array/string addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+    },
+    {
+        "id":  "comment-slmp-array-string",
+        "type":  "comment",
+        "z":  "tab-slmp-array-string",
+        "name":  "TCP array and string examples using ,count and DSTR",
+        "info":  "",
+        "x":  270,
+        "y":  40,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "inject-array-read",
+        "type":  "inject",
+        "z":  "tab-slmp-array-string",
+        "name":  "Read array + string",
+        "props":  [
+                      {
+                          "p":  "payload"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "payloadType":  "date",
+        "x":  120,
+        "y":  120,
+        "wires":  [
+                      [
+                          "read-array-string"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-array-string",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-array-string",
+        "name":  "Read array + float array + string",
+        "connection":  "cfg-slmp-array-string",
+        "addresses":  "D300,10\nD200:F,2\nD320:STR,10",
+        "addressesType":  "str",
+        "outputMode":  "array",
+        "errorHandling":  "output2",
+        "x":  380,
+        "y":  120,
+        "wires":  [
+                      [
+                          "debug-array-read-ok"
+                      ],
+                      [
+                          "debug-array-read-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-array-write",
+        "type":  "inject",
+        "z":  "tab-slmp-array-string",
+        "name":  "Write array + string",
+        "props":  [
+                      {
+                          "p":  "payload",
+                          "v":  "{\"D300,10\":[0,1,2,3,4,5,6,7,8,9],\"D200:F,2\":[1.25,-2.5],\"D320:STR,10\":\"HELLO12345\"}",
+                          "vt":  "json"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  120,
+        "y":  200,
+        "wires":  [
+                      [
+                          "write-array-string"
+                      ]
+                  ]
+    },
+    {
+        "id":  "write-array-string",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-array-string",
+        "name":  "Write array + float array + string",
+        "connection":  "cfg-slmp-array-string",
+        "updates":  "",
+        "updatesType":  "str",
+        "errorHandling":  "output2",
+        "x":  380,
+        "y":  200,
+        "wires":  [
+                      [
+                          "debug-array-write-ok"
+                      ],
+                      [
+                          "debug-array-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "debug-array-read-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-array-string",
+        "name":  "Read OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  640,
+        "y":  100,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-array-read-error",
+        "type":  "debug",
+        "z":  "tab-slmp-array-string",
+        "name":  "Read Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  650,
+        "y":  140,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-array-write-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-array-string",
+        "name":  "Write OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  640,
+        "y":  180,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-array-write-error",
+        "type":  "debug",
+        "z":  "tab-slmp-array-string",
+        "name":  "Write Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  650,
+        "y":  220,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "cfg-slmp-array-string",
+        "type":  "slmp-connection",
+        "name":  "PLC TCP 4E",
+        "host":  "192.168.250.100",
+        "port":  "1025",
+        "transport":  "tcp",
+        "timeout":  "3000",
+        "plcSeries":  "iqr",
+        "frameType":  "4e",
+        "monitoringTimer":  "16",
+        "network":  "0",
+        "station":  "255",
+        "moduleIO":  "03FF",
+        "multidrop":  "0"
+    }
 ]

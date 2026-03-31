@@ -92,6 +92,7 @@ Legacy note:
 - editor-side validation for connection ranges, literal addresses, literal updates, and route JSON
 - importable example flow under `examples/flows/`
 - Local tests for codec and high-level helpers
+- helper exports also include `normalizeAddress`, `formatParsedAddress`, and `normalizeAddressList` for canonical address handling
 
 Set `frame type` and `PLC series` explicitly for each connection.
 

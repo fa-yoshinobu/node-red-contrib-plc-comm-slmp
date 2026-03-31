@@ -1,260 +1,270 @@
 [
-  {
-    "id": "tab-slmp-demo",
-    "type": "tab",
-    "label": "SLMP Demo",
-    "disabled": false,
-    "info": "Update the slmp-connection host, port, and safe device addresses before deploy."
-  },
-  {
-    "id": "comment-slmp-demo",
-    "type": "comment",
-    "z": "tab-slmp-demo",
-    "name": "Update connection and safe device addresses before deploy",
-    "info": "",
-    "x": 270,
-    "y": 40,
-    "wires": []
-  },
-  {
-    "id": "inject-connect",
-    "type": "inject",
-    "z": "tab-slmp-demo",
-    "name": "Connect",
-    "props": [
-      {
-        "p": "connect",
-        "v": "true",
-        "vt": "bool"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 110,
-    "y": 100,
-    "wires": [
-      [
-        "read-demo"
-      ]
-    ]
-  },
-  {
-    "id": "inject-reinit",
-    "type": "inject",
-    "z": "tab-slmp-demo",
-    "name": "Reinitialize",
-    "props": [
-      {
-        "p": "reinitialize",
-        "v": "true",
-        "vt": "bool"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 120,
-    "y": 140,
-    "wires": [
-      [
-        "read-demo"
-      ]
-    ]
-  },
-  {
-    "id": "inject-disconnect",
-    "type": "inject",
-    "z": "tab-slmp-demo",
-    "name": "Disconnect",
-    "props": [
-      {
-        "p": "disconnect",
-        "v": "true",
-        "vt": "bool"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 120,
-    "y": 180,
-    "wires": [
-      [
-        "read-demo"
-      ]
-    ]
-  },
-  {
-    "id": "inject-read",
-    "type": "inject",
-    "z": "tab-slmp-demo",
-    "name": "Read snapshot",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "payloadType": "date",
-    "x": 120,
-    "y": 260,
-    "wires": [
-      [
-        "read-demo"
-      ]
-    ]
-  },
-  {
-    "id": "read-demo",
-    "type": "slmp-read",
-    "z": "tab-slmp-demo",
-    "name": "Read array + string",
-    "connection": "cfg-slmp-demo",
-    "addresses": "D300,3\nD200:F,2\nDSTR320,10",
-    "addressesType": "str",
-    "outputMode": "array",
-    "errorHandling": "output2",
-    "x": 340,
-    "y": 260,
-    "wires": [
-      [
-        "debug-read-ok"
-      ],
-      [
-        "debug-read-error"
-      ]
-    ]
-  },
-  {
-    "id": "inject-write",
-    "type": "inject",
-    "z": "tab-slmp-demo",
-    "name": "Write array + string",
-    "props": [
-      {
-        "p": "payload",
-        "v": "{\"D300,3\":[10,11,12],\"DSTR320,10\":\"HELLO\"}",
-        "vt": "json"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 120,
-    "y": 340,
-    "wires": [
-      [
-        "write-demo"
-      ]
-    ]
-  },
-  {
-    "id": "write-demo",
-    "type": "slmp-write",
-    "z": "tab-slmp-demo",
-    "name": "Write array + string",
-    "connection": "cfg-slmp-demo",
-    "updates": "",
-    "updatesType": "str",
-    "errorHandling": "output2",
-    "x": 340,
-    "y": 340,
-    "wires": [
-      [
-        "debug-write-ok"
-      ],
-      [
-        "debug-write-error"
-      ]
-    ]
-  },
-  {
-    "id": "debug-read-ok",
-    "type": "debug",
-    "z": "tab-slmp-demo",
-    "name": "Read OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 560,
-    "y": 240,
-    "wires": []
-  },
-  {
-    "id": "debug-read-error",
-    "type": "debug",
-    "z": "tab-slmp-demo",
-    "name": "Read Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 570,
-    "y": 280,
-    "wires": []
-  },
-  {
-    "id": "debug-write-ok",
-    "type": "debug",
-    "z": "tab-slmp-demo",
-    "name": "Write OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 560,
-    "y": 320,
-    "wires": []
-  },
-  {
-    "id": "debug-write-error",
-    "type": "debug",
-    "z": "tab-slmp-demo",
-    "name": "Write Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 570,
-    "y": 360,
-    "wires": []
-  },
-  {
-    "id": "cfg-slmp-demo",
-    "type": "slmp-connection",
-    "name": "Demo PLC",
-    "host": "192.168.250.100",
-    "port": "1025",
-    "transport": "tcp",
-    "timeout": "3000",
-    "plcSeries": "iqr",
-    "frameType": "4e",
-    "monitoringTimer": "16",
-    "network": "0",
-    "station": "255",
-    "moduleIO": "03FF",
-    "multidrop": "0"
-  }
+    {
+        "id":  "tab-slmp-demo",
+        "type":  "tab",
+        "label":  "SLMP Demo",
+        "disabled":  false,
+        "info":  "Update the slmp-connection host, port, and safe device addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+    },
+    {
+        "id":  "comment-slmp-demo",
+        "type":  "comment",
+        "z":  "tab-slmp-demo",
+        "name":  "Update connection and safe device addresses before deploy",
+        "info":  "",
+        "x":  270,
+        "y":  40,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "inject-connect",
+        "type":  "inject",
+        "z":  "tab-slmp-demo",
+        "name":  "Connect",
+        "props":  [
+                      {
+                          "p":  "connect",
+                          "v":  "true",
+                          "vt":  "bool"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  110,
+        "y":  100,
+        "wires":  [
+                      [
+                          "read-demo"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-reinit",
+        "type":  "inject",
+        "z":  "tab-slmp-demo",
+        "name":  "Reinitialize",
+        "props":  [
+                      {
+                          "p":  "reinitialize",
+                          "v":  "true",
+                          "vt":  "bool"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  120,
+        "y":  140,
+        "wires":  [
+                      [
+                          "read-demo"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-disconnect",
+        "type":  "inject",
+        "z":  "tab-slmp-demo",
+        "name":  "Disconnect",
+        "props":  [
+                      {
+                          "p":  "disconnect",
+                          "v":  "true",
+                          "vt":  "bool"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  120,
+        "y":  180,
+        "wires":  [
+                      [
+                          "read-demo"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-read",
+        "type":  "inject",
+        "z":  "tab-slmp-demo",
+        "name":  "Read snapshot",
+        "props":  [
+                      {
+                          "p":  "payload"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "payloadType":  "date",
+        "x":  120,
+        "y":  260,
+        "wires":  [
+                      [
+                          "read-demo"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-demo",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-demo",
+        "name":  "Read array + string",
+        "connection":  "cfg-slmp-demo",
+        "addresses":  "D300,3\nD200:F,2\nD320:STR,10",
+        "addressesType":  "str",
+        "outputMode":  "array",
+        "errorHandling":  "output2",
+        "x":  340,
+        "y":  260,
+        "wires":  [
+                      [
+                          "debug-read-ok"
+                      ],
+                      [
+                          "debug-read-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-write",
+        "type":  "inject",
+        "z":  "tab-slmp-demo",
+        "name":  "Write array + string",
+        "props":  [
+                      {
+                          "p":  "payload",
+                          "v":  "{\"D300,3\":[10,11,12],\"D320:STR,10\":\"HELLO\"}",
+                          "vt":  "json"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  120,
+        "y":  340,
+        "wires":  [
+                      [
+                          "write-demo"
+                      ]
+                  ]
+    },
+    {
+        "id":  "write-demo",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-demo",
+        "name":  "Write array + string",
+        "connection":  "cfg-slmp-demo",
+        "updates":  "",
+        "updatesType":  "str",
+        "errorHandling":  "output2",
+        "x":  340,
+        "y":  340,
+        "wires":  [
+                      [
+                          "debug-write-ok"
+                      ],
+                      [
+                          "debug-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "debug-read-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-demo",
+        "name":  "Read OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  560,
+        "y":  240,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-read-error",
+        "type":  "debug",
+        "z":  "tab-slmp-demo",
+        "name":  "Read Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  570,
+        "y":  280,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-write-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-demo",
+        "name":  "Write OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  560,
+        "y":  320,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-write-error",
+        "type":  "debug",
+        "z":  "tab-slmp-demo",
+        "name":  "Write Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  570,
+        "y":  360,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "cfg-slmp-demo",
+        "type":  "slmp-connection",
+        "name":  "Demo PLC",
+        "host":  "192.168.250.100",
+        "port":  "1025",
+        "transport":  "tcp",
+        "timeout":  "3000",
+        "plcSeries":  "iqr",
+        "frameType":  "4e",
+        "monitoringTimer":  "16",
+        "network":  "0",
+        "station":  "255",
+        "moduleIO":  "03FF",
+        "multidrop":  "0"
+    }
 ]

@@ -1,185 +1,195 @@
 [
-  {
-    "id": "tab-slmp-udp",
-    "type": "tab",
-    "label": "SLMP UDP Read Write",
-    "disabled": false,
-    "info": "Update the connection host, port, and safe device addresses before deploy."
-  },
-  {
-    "id": "comment-slmp-udp",
-    "type": "comment",
-    "z": "tab-slmp-udp",
-    "name": "Basic UDP read/write example",
-    "info": "",
-    "x": 220,
-    "y": 40,
-    "wires": []
-  },
-  {
-    "id": "inject-udp-read",
-    "type": "inject",
-    "z": "tab-slmp-udp",
-    "name": "Read snapshot",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "payloadType": "date",
-    "x": 120,
-    "y": 120,
-    "wires": [
-      [
-        "read-udp"
-      ]
-    ]
-  },
-  {
-    "id": "read-udp",
-    "type": "slmp-read",
-    "z": "tab-slmp-udp",
-    "name": "Read UDP words + string",
-    "connection": "cfg-slmp-udp",
-    "addresses": "D300,4\nDSTR320,10",
-    "addressesType": "str",
-    "outputMode": "array",
-    "errorHandling": "output2",
-    "x": 340,
-    "y": 120,
-    "wires": [
-      [
-        "debug-udp-read-ok"
-      ],
-      [
-        "debug-udp-read-error"
-      ]
-    ]
-  },
-  {
-    "id": "inject-udp-write",
-    "type": "inject",
-    "z": "tab-slmp-udp",
-    "name": "Write UDP values",
-    "props": [
-      {
-        "p": "payload",
-        "v": "{\"D300,4\":[10,11,12,13],\"DSTR320,10\":\"HELLO12345\"}",
-        "vt": "json"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 120,
-    "y": 200,
-    "wires": [
-      [
-        "write-udp"
-      ]
-    ]
-  },
-  {
-    "id": "write-udp",
-    "type": "slmp-write",
-    "z": "tab-slmp-udp",
-    "name": "Write UDP words + string",
-    "connection": "cfg-slmp-udp",
-    "updates": "",
-    "updatesType": "str",
-    "errorHandling": "output2",
-    "x": 340,
-    "y": 200,
-    "wires": [
-      [
-        "debug-udp-write-ok"
-      ],
-      [
-        "debug-udp-write-error"
-      ]
-    ]
-  },
-  {
-    "id": "debug-udp-read-ok",
-    "type": "debug",
-    "z": "tab-slmp-udp",
-    "name": "Read OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 580,
-    "y": 100,
-    "wires": []
-  },
-  {
-    "id": "debug-udp-read-error",
-    "type": "debug",
-    "z": "tab-slmp-udp",
-    "name": "Read Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 590,
-    "y": 140,
-    "wires": []
-  },
-  {
-    "id": "debug-udp-write-ok",
-    "type": "debug",
-    "z": "tab-slmp-udp",
-    "name": "Write OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 580,
-    "y": 180,
-    "wires": []
-  },
-  {
-    "id": "debug-udp-write-error",
-    "type": "debug",
-    "z": "tab-slmp-udp",
-    "name": "Write Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 590,
-    "y": 220,
-    "wires": []
-  },
-  {
-    "id": "cfg-slmp-udp",
-    "type": "slmp-connection",
-    "name": "PLC UDP 4E",
-    "host": "192.168.250.100",
-    "port": "1027",
-    "transport": "udp",
-    "timeout": "3000",
-    "plcSeries": "iqr",
-    "frameType": "4e",
-    "monitoringTimer": "16",
-    "network": "0",
-    "station": "255",
-    "moduleIO": "03FF",
-    "multidrop": "0"
-  }
+    {
+        "id":  "tab-slmp-udp",
+        "type":  "tab",
+        "label":  "SLMP UDP Read Write",
+        "disabled":  false,
+        "info":  "Update the connection host, port, and safe device addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+    },
+    {
+        "id":  "comment-slmp-udp",
+        "type":  "comment",
+        "z":  "tab-slmp-udp",
+        "name":  "Basic UDP read/write example",
+        "info":  "",
+        "x":  220,
+        "y":  40,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "inject-udp-read",
+        "type":  "inject",
+        "z":  "tab-slmp-udp",
+        "name":  "Read snapshot",
+        "props":  [
+                      {
+                          "p":  "payload"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "payloadType":  "date",
+        "x":  120,
+        "y":  120,
+        "wires":  [
+                      [
+                          "read-udp"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-udp",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-udp",
+        "name":  "Read UDP words + string",
+        "connection":  "cfg-slmp-udp",
+        "addresses":  "D300,4\nD320:STR,10",
+        "addressesType":  "str",
+        "outputMode":  "array",
+        "errorHandling":  "output2",
+        "x":  340,
+        "y":  120,
+        "wires":  [
+                      [
+                          "debug-udp-read-ok"
+                      ],
+                      [
+                          "debug-udp-read-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-udp-write",
+        "type":  "inject",
+        "z":  "tab-slmp-udp",
+        "name":  "Write UDP values",
+        "props":  [
+                      {
+                          "p":  "payload",
+                          "v":  "{\"D300,4\":[10,11,12,13],\"D320:STR,10\":\"HELLO12345\"}",
+                          "vt":  "json"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  120,
+        "y":  200,
+        "wires":  [
+                      [
+                          "write-udp"
+                      ]
+                  ]
+    },
+    {
+        "id":  "write-udp",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-udp",
+        "name":  "Write UDP words + string",
+        "connection":  "cfg-slmp-udp",
+        "updates":  "",
+        "updatesType":  "str",
+        "errorHandling":  "output2",
+        "x":  340,
+        "y":  200,
+        "wires":  [
+                      [
+                          "debug-udp-write-ok"
+                      ],
+                      [
+                          "debug-udp-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "debug-udp-read-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-udp",
+        "name":  "Read OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  580,
+        "y":  100,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-udp-read-error",
+        "type":  "debug",
+        "z":  "tab-slmp-udp",
+        "name":  "Read Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  590,
+        "y":  140,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-udp-write-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-udp",
+        "name":  "Write OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  580,
+        "y":  180,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-udp-write-error",
+        "type":  "debug",
+        "z":  "tab-slmp-udp",
+        "name":  "Write Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  590,
+        "y":  220,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "cfg-slmp-udp",
+        "type":  "slmp-connection",
+        "name":  "PLC UDP 4E",
+        "host":  "192.168.250.100",
+        "port":  "1027",
+        "transport":  "udp",
+        "timeout":  "3000",
+        "plcSeries":  "iqr",
+        "frameType":  "4e",
+        "monitoringTimer":  "16",
+        "network":  "0",
+        "station":  "255",
+        "moduleIO":  "03FF",
+        "multidrop":  "0"
+    }
 ]

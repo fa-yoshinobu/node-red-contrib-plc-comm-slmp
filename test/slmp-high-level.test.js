@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 
 const slmp = require("../lib/slmp");
-const { normalizeAddressList, parseAddress, readNamed, readTyped, writeNamed } = slmp;
+const { formatParsedAddress, normalizeAddress, normalizeAddressList, parseAddress, readNamed, readTyped, writeNamed } = slmp;
 
 test("parseAddress supports count and string forms", () => {
   assert.deepEqual(parseAddress("D100,10"), {
@@ -14,6 +14,7 @@ test("parseAddress supports count and string forms", () => {
     bitIndex: null,
     count: 10,
     hasCount: true,
+    explicitDtype: false,
   });
   assert.deepEqual(parseAddress("D100:STR,10"), {
     base: "D100",
@@ -21,6 +22,7 @@ test("parseAddress supports count and string forms", () => {
     bitIndex: null,
     count: 10,
     hasCount: true,
+    explicitDtype: true,
   });
   assert.deepEqual(parseAddress("DSTR200,8"), {
     base: "D200",
@@ -28,7 +30,16 @@ test("parseAddress supports count and string forms", () => {
     bitIndex: null,
     count: 8,
     hasCount: true,
+    explicitDtype: true,
   });
+});
+
+test("normalizeAddress and formatParsedAddress keep one canonical spelling", () => {
+  assert.equal(normalizeAddress(" d200:f "), "D200:F");
+  assert.equal(normalizeAddress("x1a"), "X1A");
+  assert.equal(normalizeAddress("d50.a"), "D50.A");
+  assert.equal(normalizeAddress("dstr200,8"), "D200:STR,8");
+  assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
 });
 
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {

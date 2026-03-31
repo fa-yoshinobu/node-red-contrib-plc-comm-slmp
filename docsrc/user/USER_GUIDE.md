@@ -113,6 +113,7 @@ Rules:
 - `DSTR100,10` is accepted as a compatibility alias for `D100:STR,10`
 - `.bit` stays scalar-only, so `.bit,count` is not supported
 - `LTN`, `LSTN`, and `LCN` use high-level 32-bit current values by default
+- helper exports also include `normalizeAddress()`, `formatParsedAddress()`, and `normalizeAddressList()` for canonical address handling outside the editor UI
 
 ## Dynamic inputs
 

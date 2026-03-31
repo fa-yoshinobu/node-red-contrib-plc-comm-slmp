@@ -1,185 +1,195 @@
 [
-  {
-    "id": "tab-slmp-basic",
-    "type": "tab",
-    "label": "SLMP Basic Read Write",
-    "disabled": false,
-    "info": "Update the connection host, port, and safe device addresses before deploy."
-  },
-  {
-    "id": "comment-slmp-basic",
-    "type": "comment",
-    "z": "tab-slmp-basic",
-    "name": "Basic TCP read/write using safe scalar addresses",
-    "info": "",
-    "x": 260,
-    "y": 40,
-    "wires": []
-  },
-  {
-    "id": "inject-basic-read",
-    "type": "inject",
-    "z": "tab-slmp-basic",
-    "name": "Read snapshot",
-    "props": [
-      {
-        "p": "payload"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "payloadType": "date",
-    "x": 120,
-    "y": 120,
-    "wires": [
-      [
-        "read-basic"
-      ]
-    ]
-  },
-  {
-    "id": "read-basic",
-    "type": "slmp-read",
-    "z": "tab-slmp-basic",
-    "name": "Read scalar + float + bit",
-    "connection": "cfg-slmp-basic",
-    "addresses": "D300\nD301\nD200:F\nD302.3",
-    "addressesType": "str",
-    "outputMode": "object",
-    "errorHandling": "output2",
-    "x": 340,
-    "y": 120,
-    "wires": [
-      [
-        "debug-basic-read-ok"
-      ],
-      [
-        "debug-basic-read-error"
-      ]
-    ]
-  },
-  {
-    "id": "inject-basic-write",
-    "type": "inject",
-    "z": "tab-slmp-basic",
-    "name": "Write values",
-    "props": [
-      {
-        "p": "payload",
-        "v": "{\"D300\":123,\"D301\":456,\"D200:F\":1.25,\"D302.3\":true}",
-        "vt": "json"
-      }
-    ],
-    "repeat": "",
-    "crontab": "",
-    "once": false,
-    "onceDelay": 0.1,
-    "topic": "",
-    "x": 110,
-    "y": 200,
-    "wires": [
-      [
-        "write-basic"
-      ]
-    ]
-  },
-  {
-    "id": "write-basic",
-    "type": "slmp-write",
-    "z": "tab-slmp-basic",
-    "name": "Write scalar + float + bit",
-    "connection": "cfg-slmp-basic",
-    "updates": "",
-    "updatesType": "str",
-    "errorHandling": "output2",
-    "x": 340,
-    "y": 200,
-    "wires": [
-      [
-        "debug-basic-write-ok"
-      ],
-      [
-        "debug-basic-write-error"
-      ]
-    ]
-  },
-  {
-    "id": "debug-basic-read-ok",
-    "type": "debug",
-    "z": "tab-slmp-basic",
-    "name": "Read OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 580,
-    "y": 100,
-    "wires": []
-  },
-  {
-    "id": "debug-basic-read-error",
-    "type": "debug",
-    "z": "tab-slmp-basic",
-    "name": "Read Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 590,
-    "y": 140,
-    "wires": []
-  },
-  {
-    "id": "debug-basic-write-ok",
-    "type": "debug",
-    "z": "tab-slmp-basic",
-    "name": "Write OK",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 580,
-    "y": 180,
-    "wires": []
-  },
-  {
-    "id": "debug-basic-write-error",
-    "type": "debug",
-    "z": "tab-slmp-basic",
-    "name": "Write Error",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "true",
-    "targetType": "full",
-    "x": 590,
-    "y": 220,
-    "wires": []
-  },
-  {
-    "id": "cfg-slmp-basic",
-    "type": "slmp-connection",
-    "name": "PLC TCP 4E",
-    "host": "192.168.250.100",
-    "port": "1025",
-    "transport": "tcp",
-    "timeout": "3000",
-    "plcSeries": "iqr",
-    "frameType": "4e",
-    "monitoringTimer": "16",
-    "network": "0",
-    "station": "255",
-    "moduleIO": "03FF",
-    "multidrop": "0"
-  }
+    {
+        "id":  "tab-slmp-basic",
+        "type":  "tab",
+        "label":  "SLMP Basic Read Write",
+        "disabled":  false,
+        "info":  "Update the connection host, port, and safe device addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+    },
+    {
+        "id":  "comment-slmp-basic",
+        "type":  "comment",
+        "z":  "tab-slmp-basic",
+        "name":  "Basic TCP read/write using safe scalar addresses",
+        "info":  "",
+        "x":  260,
+        "y":  40,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "inject-basic-read",
+        "type":  "inject",
+        "z":  "tab-slmp-basic",
+        "name":  "Read snapshot",
+        "props":  [
+                      {
+                          "p":  "payload"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "payloadType":  "date",
+        "x":  120,
+        "y":  120,
+        "wires":  [
+                      [
+                          "read-basic"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-basic",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-basic",
+        "name":  "Read scalar + float + bit",
+        "connection":  "cfg-slmp-basic",
+        "addresses":  "D300\nD301\nD200:F\nD302.3",
+        "addressesType":  "str",
+        "outputMode":  "object",
+        "errorHandling":  "output2",
+        "x":  340,
+        "y":  120,
+        "wires":  [
+                      [
+                          "debug-basic-read-ok"
+                      ],
+                      [
+                          "debug-basic-read-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "inject-basic-write",
+        "type":  "inject",
+        "z":  "tab-slmp-basic",
+        "name":  "Write values",
+        "props":  [
+                      {
+                          "p":  "payload",
+                          "v":  "{\"D300\":123,\"D301\":456,\"D200:F\":1.25,\"D302.3\":true}",
+                          "vt":  "json"
+                      }
+                  ],
+        "repeat":  "",
+        "crontab":  "",
+        "once":  false,
+        "onceDelay":  0.1,
+        "topic":  "",
+        "x":  110,
+        "y":  200,
+        "wires":  [
+                      [
+                          "write-basic"
+                      ]
+                  ]
+    },
+    {
+        "id":  "write-basic",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-basic",
+        "name":  "Write scalar + float + bit",
+        "connection":  "cfg-slmp-basic",
+        "updates":  "",
+        "updatesType":  "str",
+        "errorHandling":  "output2",
+        "x":  340,
+        "y":  200,
+        "wires":  [
+                      [
+                          "debug-basic-write-ok"
+                      ],
+                      [
+                          "debug-basic-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "debug-basic-read-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-basic",
+        "name":  "Read OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  580,
+        "y":  100,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-basic-read-error",
+        "type":  "debug",
+        "z":  "tab-slmp-basic",
+        "name":  "Read Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  590,
+        "y":  140,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-basic-write-ok",
+        "type":  "debug",
+        "z":  "tab-slmp-basic",
+        "name":  "Write OK",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  580,
+        "y":  180,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "debug-basic-write-error",
+        "type":  "debug",
+        "z":  "tab-slmp-basic",
+        "name":  "Write Error",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "x":  590,
+        "y":  220,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "cfg-slmp-basic",
+        "type":  "slmp-connection",
+        "name":  "PLC TCP 4E",
+        "host":  "192.168.250.100",
+        "port":  "1025",
+        "transport":  "tcp",
+        "timeout":  "3000",
+        "plcSeries":  "iqr",
+        "frameType":  "4e",
+        "monitoringTimer":  "16",
+        "network":  "0",
+        "station":  "255",
+        "moduleIO":  "03FF",
+        "multidrop":  "0"
+    }
 ]

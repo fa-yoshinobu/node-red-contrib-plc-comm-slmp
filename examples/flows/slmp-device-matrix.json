@@ -1,10 +1,10 @@
-﻿[
+[
     {
         "id":  "tab-slmp-device-matrix",
         "type":  "tab",
         "label":  "SLMP Device Matrix",
         "disabled":  false,
-        "info":  "High-level one-by-one sample for every supported device code. Edit the catalog in the function node before deploy if your PLC uses different ranges."
+        "info":  "High-level one-by-one sample for every supported device code. Edit the catalog in the function node before deploy if your PLC uses different ranges. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
     },
     {
         "id":  "comment-slmp-device-matrix-main",
