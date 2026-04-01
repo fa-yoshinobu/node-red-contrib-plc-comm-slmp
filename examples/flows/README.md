@@ -15,6 +15,14 @@ Start here:
 - [`slmp-device-matrix.json`](slmp-device-matrix.json) when you want one-by-one high-level coverage across the matrix catalog with persistent JSONL logging, pending tracking, and timeout detection
 - [`slmp-udp-read-write.json`](slmp-udp-read-write.json) when you need UDP first
 
+Optional local runtime smoke test from the repository root:
+
+```bash
+npm run smoke:editor
+```
+
+This imports `slmp-basic-read-write.json` into an isolated temporary userDir and verifies that the temporary Node-RED runtime reaches `Started flows`.
+
 Available flows:
 
 - [`slmp-demo.json`](slmp-demo.json): combined demo with control messages, array read, string read, and error second output

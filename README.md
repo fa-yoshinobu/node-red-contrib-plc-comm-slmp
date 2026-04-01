@@ -63,6 +63,14 @@ cd ~/.node-red
 npm install /path/to/node-red-contrib-plc-comm-slmp
 ```
 
+Optional local editor smoke test from the repository root:
+
+```bash
+npm run smoke:editor
+```
+
+This command installs the local package into an isolated temporary userDir, starts a temporary Node-RED runtime, imports `slmp-basic-read-write.json`, verifies the flow starts, and then shuts the runtime down again.
+
 Legacy note:
 
 - the original unscoped `node-red-contrib-plc-comm-slmp@0.2.0` remains on npm, but new releases move to the scoped package name above
@@ -93,6 +101,7 @@ Legacy note:
 - importable example flow under `examples/flows/`
 - Local tests for codec and high-level helpers
 - helper exports also include `normalizeAddress`, `formatParsedAddress`, and `normalizeAddressList` for canonical address handling
+- optional local runtime smoke validation via `npm run smoke:editor`
 
 Set `frame type` and `PLC series` explicitly for each connection.
 

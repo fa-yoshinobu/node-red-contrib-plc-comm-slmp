@@ -31,6 +31,14 @@ If you are starting from the example flows in this repository, import these in t
 - [`slmp-control-error.json`](../../examples/flows/slmp-control-error.json)
 - [`slmp-udp-read-write.json`](../../examples/flows/slmp-udp-read-write.json)
 
+Optional local runtime smoke test from the repository root:
+
+```bash
+npm run smoke:editor
+```
+
+The smoke script installs the local package into an isolated temporary userDir, starts a temporary Node-RED runtime, imports `slmp-basic-read-write.json`, checks that the flow starts, and then shuts the runtime down again.
+
 ## Available nodes
 
 - `slmp-connection`
