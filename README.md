@@ -1,5 +1,3 @@
-# Node-RED SLMP Nodes for Mitsubishi PLCs
-
 [![CI](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml/badge.svg)](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40fa_yoshinobu%2Fnode-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp)
 [![npm downloads](https://img.shields.io/npm/dm/%40fa_yoshinobu%2Fnode-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp)
@@ -8,6 +6,8 @@
 ![SLMP frame](https://img.shields.io/badge/SLMP-Binary%203E%20%2F%204E-005BAC)
 ![Transport](https://img.shields.io/badge/Transport-TCP%20%2F%20UDP-0A7D5C)
 ![License](https://img.shields.io/badge/License-MIT-1F6FEB)
+
+# Node-RED SLMP Nodes for Mitsubishi PLCs
 
 ![Node-RED SLMP hero](https://raw.githubusercontent.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/main/docsrc/assets/node-red-slmp.png)
 
@@ -26,7 +26,13 @@ This package uses the same named-device foundation as the SLMP libraries, extend
 - `D100:STR,10`
 - `DSTR100,10`
 
-## Quick start
+This package is documented for the high-level Node-RED workflow only:
+
+- `slmp-connection`
+- `slmp-read`
+- `slmp-write`
+
+## Quick Start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
 2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, `PLC series`, and `frame type`.
@@ -40,7 +46,9 @@ If you are working from this repository, import one of the ready-to-run flows un
 - [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json) for one-by-one high-level coverage across the matrix catalog
 - [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json) for UDP validation
 
-## Release information
+Start with `D` word devices for the first smoke test. Do not start with `slmp-device-matrix.json`.
+
+## Release Information
 
 - package name: `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
 - package version: `0.2.1`
@@ -75,198 +83,59 @@ Legacy note:
 
 - the original unscoped `node-red-contrib-plc-comm-slmp@0.2.0` remains on npm, but new releases move to the scoped package name above
 
+## Supported PLC Registers
+
+Start with these register/device families first:
+
+- word devices: `D`, `SD`, `R`, `ZR`, `TN`, `CN`
+- bit devices: `M`, `X`, `Y`, `SM`, `B`
+- typed forms: `D200:F`, `D300:L`
+- special Node-RED forms: `D100,10`, `M1000,8`, `D100:STR,10`, `DSTR100,10`
+- bit-in-word form: `D50.3`
+
+See the full public table in [Supported PLC Registers](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/user/SUPPORTED_REGISTERS.md).
+
 ## Documentation
 
+- [Getting Started](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/user/GETTING_STARTED.md)
+- [Supported PLC Registers](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/user/SUPPORTED_REGISTERS.md)
+- [Latest Communication Verification](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/user/LATEST_COMMUNICATION_VERIFICATION.md)
 - [User Guide](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/user/USER_GUIDE.md)
 - [Example Flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md)
-- [Future Device Support](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
-- [Maintainer Notes](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/maintainer/ARCHITECTURE.md)
-- [Validation Reports Directory](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/tree/main/docsrc/validation/reports)
 - [Documentation Index](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/docsrc/index.md)
 
-## Current scope
+Maintainer-only notes and retained evidence live under `internal_docs/`.
+
+## What You Can Do
 
 - Binary 3E and 4E frames
 - TCP and UDP transport
-- Reusable `slmp-connection` config node
-- `slmp-read` node powered by `readNamed`
-- `slmp-write` node powered by `writeNamed`
+- reusable `slmp-connection`
+- high-level reads and writes through `slmp-read` and `slmp-write`
 - typed source selection for literal / `msg` / `flow` / `global` / `env`
 - per-request routing via `msg.target` or configured route sources
 - read output selection for object / array / single value
-- metadata emission selection for `msg.slmp`: `full` / `minimal` / `off`
+- metadata emission selection for `msg.slmp`
 - configurable error handling with throw / `msg.error` / second output
 - connection control via `connect` / `disconnect` / `reinitialize` messages
-- editor-side validation for connection ranges, literal addresses, literal updates, and route JSON
-- importable example flow under `examples/flows/`
-- Local tests for codec and high-level helpers
-- helper exports also include `normalizeAddress`, `formatParsedAddress`, and `normalizeAddressList` for canonical address handling
-- optional local runtime smoke validation via `npm run smoke:editor`
 
 Set `frame type` and `PLC series` explicitly for each connection.
 
-Validated PLC models:
+## Current Public Register Scope
+
+- bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `STS`, `STC`, `CS`, `CC`, `SB`, `DX`, `DY`
+- word devices: `SD`, `D`, `W`, `TN`, `LTN`, `STN`, `LSTN`, `CN`, `LCN`, `SW`, `Z`, `R`, `ZR`, `RD`
+- typed views: `:S`, `:D`, `:L`, `:F`
+- string/count views: `,count`, `:STR`, `DSTR`
+- word-bit view: `.bit`
+
+Validated public hardware summary:
 
 - `FX5UC-32MT/D`
 - `Q06UDVCPU`
 - `R08CPU`
 
-## Supported devices
-
-Supported bit devices:
-
-- `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`
-- `TS`, `TC`, `STS`, `STC`
-- `CS`, `CC`
-- `SB`, `DX`, `DY`
-
-Supported word devices:
-
-- `SD`, `D`, `W`
-- `TN`, `LTN`, `STN`, `LSTN`
-- `CN`, `LCN`
-- `SW`
-- `Z`
-- `R`, `ZR`, `RD`
-
-Address notes:
-
-- `X`, `Y`, `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal device numbers
-- most other devices use decimal numbers
-- word devices support `.bit`, for example `D50.3`
-- count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`
-- `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the high-level nodes
-- future device support candidates such as `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`, `G`, and `HG` are tracked in the [Future Device Support list](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
-
-## Nodes
-
-### `slmp-connection`
-
-Holds the transport and SLMP profile settings:
-
-- host / port
-- transport: `tcp` or `udp`
-- timeout in milliseconds
-- PLC series: `ql` or `iqr`
-- frame type: `3e` or `4e`
-- target routing fields
-
-### `slmp-read`
-
-Reads one or more addresses and writes the result to `msg.payload`.
-
-Configured addresses can be overridden by:
-
-- `msg.addresses` as an array or string
-- `msg.payload` as an array or string
-
-Configured source modes:
-
-- literal editor text
-- `msg`
-- `flow`
-- `global`
-- `env`
-
-Examples:
-
-```text
-D100
-D100,10
-D200:F
-D200:F,4
-D50.3
-M1000
-M1000,8
-D100:STR,10
-DSTR100,10
-```
-
-Notes:
-
-- `,count` returns an array for numeric and direct-bit reads
-- `:STR,<length>` reads or writes a UTF-8 byte string packed two bytes per word
-- `DSTR100,10` is accepted as a compatibility alias for `D100:STR,10`
-- `LTN`, `LSTN`, and `LCN` use high-level 32-bit current values by default
-- when you send multiple addresses as a string, newline-separated input is the clearest form
-- per-request routing can be supplied as `msg.target`, `msg.slmp.target`, or a configured route source
-- metadata mode can keep full `msg.slmp`, emit only `target` plus `itemCount`, or leave `msg.slmp` unchanged
-- read errors can throw, attach to `msg.error`, or go to a second output
-- output can be object, array, or single value when one address is requested
-- send `msg.connect`, `msg.disconnect`, or `msg.reinitialize` as `true`, or use `msg.topic`, to control the shared connection
-
-### `slmp-write`
-
-Writes one or more addresses.
-
-Preferred dynamic input:
-
-```json
-{
-  "D100": 42,
-  "D100,3": [10, 11, 12],
-  "D200:F": 3.14,
-  "D200:F,2": [1.25, -2.5],
-  "D50.3": true,
-  "D100:STR,10": "HELLO"
-}
-```
-
-Accepted sources:
-
-- `msg.updates`
-- `msg.payload`
-- `msg.address` + optional `msg.dtype` + `msg.value`
-- static JSON or `address=value` lines in the editor
-- configured `msg` / `flow` / `global` / `env` sources
-
-Write errors can throw, attach to `msg.error`, or go to a second output.
-Send `msg.connect`, `msg.disconnect`, or `msg.reinitialize` to control the shared connection from the write node too.
-Route overrides use the same `target` object shape as reads.
-Metadata mode can keep full `msg.slmp`, emit only `target` plus `itemCount`, or leave `msg.slmp` unchanged.
-
-## Route overrides
-
-Use a `target` object when one request needs a different route than the shared connection default:
-
-```json
-{
-  "addresses": ["D300,4", "DSTR320,10"],
-  "target": {
-    "network": 0,
-    "station": 255,
-    "moduleIO": "03FF",
-    "multidrop": 0
-  }
-}
-```
-
-The editor validates connection ranges, literal address lists, literal update payloads, and literal route JSON before save.
-
-## Example flows
-
-Read:
-
-```json
-{
-  "addresses": ["D100", "D100,3", "D200:F", "D200:F,2", "D50.3", "D100:STR,10"]
-}
-```
-
-Write:
-
-```json
-{
-  "payload": {
-    "D100": 42,
-    "D100,3": [10, 11, 12],
-    "D50.3": true,
-    "D100:STR,10": "HELLO"
-  }
-}
-```
-
-Import one of the ready-to-run flows under [examples/flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md):
+## Example Flows
 
 - [`slmp-demo.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-demo.json): combined demo
 - [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json): scalar, float, and bit read/write over TCP
@@ -276,20 +145,13 @@ Import one of the ready-to-run flows under [examples/flows](https://github.com/f
 - [`slmp-routing.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-routing.json): per-request routing with `msg.target`
 - [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
-Recommended first import:
+## Known Limitations
 
-- start with [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json) if you only need to confirm a single PLC over TCP
-- use [`slmp-array-string.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-array-string.json) when you want to validate `,count` and string handling immediately
-- use [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json) when you need to step through the matrix catalog one by one from the high-level nodes and keep a persistent verification log
-- use [`slmp-control-error.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-control-error.json) when you need `msg`-driven addresses, control messages, or second-output error routing
-
-## Known limitations
-
-- Set `frame type` and `PLC series` explicitly for each connection
+- set `frame type` and `PLC series` explicitly for each connection
 - `.bit,count` is not supported
-- A single client connection keeps requests serialized by default
-- The read and write nodes keep the caller-visible logical request shape and do not silently retry with a different fallback split semantics
-- Future high-level device support candidates are tracked in the [Future Device Support list](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/TODO.md)
+- a single client connection keeps requests serialized by default
+- the read and write nodes keep the caller-visible logical request shape and do not silently retry with a different fallback split semantics
+- `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`, `G`, and `HG` are not part of the current public high-level register table
 
 ## Development
 
@@ -302,5 +164,5 @@ cmd /c npm.cmd test
 ## Notes
 
 - `.bit` notation is only valid for word devices such as `D50.3`
-- Direct bit devices should be addressed directly as `M1000`, `X1F`, `Y20`
-- Random read batching follows the Python helper layer for batchable word devices
+- direct bit devices should be addressed directly as `M1000`, `X1F`, `Y20`
+- random read batching follows the Python helper layer for batchable word devices
