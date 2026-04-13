@@ -294,13 +294,7 @@ test("readTyped resolves LT, LST, and LC families through helper-backed 4-word b
         return [0x0006, 0x0000, 0x0001, 0x0000];
       }
       if (device.code === "LCN" && device.number === 10) {
-        return [0x0008, 0x0000, 0x0000, 0x0000];
-      }
-      if (device.code === "LCS" && device.number === 10 && options.bitUnit) {
-        return [true];
-      }
-      if (device.code === "LCC" && device.number === 10 && options.bitUnit) {
-        return [true];
+        return [0x0008, 0x0000, 0x0003, 0x0000];
       }
       throw new Error(`unexpected long-family read ${device.code}${device.number}`);
     },
@@ -321,12 +315,12 @@ test("readTyped resolves LT, LST, and LC families through helper-backed 4-word b
     { device: "LSTN4", points: 4, bitUnit: false },
     { device: "LSTN4", points: 4, bitUnit: false },
     { device: "LCN10", points: 4, bitUnit: false },
-    { device: "LCS10", points: 1, bitUnit: true },
-    { device: "LCC10", points: 1, bitUnit: true },
+    { device: "LCN10", points: 4, bitUnit: false },
+    { device: "LCN10", points: 4, bitUnit: false },
   ]);
 });
 
-test("readNamed resolves long counter current through LCN blocks and LCS/LCC through direct bit reads", async () => {
+test("readNamed resolves long counter current and state bits through LCN blocks", async () => {
   const calls = [];
   const fakeClient = {
     async readRandom() {
@@ -339,13 +333,7 @@ test("readNamed resolves long counter current through LCN blocks and LCS/LCC thr
         bitUnit: Boolean(options.bitUnit),
       });
       if (device.code === "LCN" && device.number === 0) {
-        return [0x0002, 0x0001, 0x0000, 0x0000, 0x0004, 0x0000, 0x0000, 0x0000];
-      }
-      if (device.code === "LCC" && device.number === 0 && options.bitUnit) {
-        return [true];
-      }
-      if (device.code === "LCS" && device.number === 0 && options.bitUnit) {
-        return [true];
+        return [0x0002, 0x0001, 0x0003, 0x0000, 0x0004, 0x0000, 0x0000, 0x0000];
       }
       throw new Error(`unexpected long counter read ${device.code}${device.number}`);
     },
@@ -360,8 +348,6 @@ test("readNamed resolves long counter current through LCN blocks and LCS/LCC thr
   });
   assert.deepEqual(calls, [
     { device: "LCN0", points: 8, bitUnit: false },
-    { device: "LCC0", points: 1, bitUnit: true },
-    { device: "LCS0", points: 1, bitUnit: true },
   ]);
 });
 

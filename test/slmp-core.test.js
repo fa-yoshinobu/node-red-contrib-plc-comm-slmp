@@ -4,7 +4,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  Command,
   SlmpClient,
+  ValueError,
   decodeResponse,
   deviceToString,
   encodeDeviceSpec,
@@ -155,6 +157,97 @@ test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async (
       0x0a, 0x00, 0x00, 0x00, 0x51, 0x00, 0x00, 0x00,
     ]
   );
+});
+
+test("readDevices rejects direct long timer state reads before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readDevices("LTC10", 1, { bitUnit: true }),
+    (error) => error instanceof ValueError && /Direct bit read is not supported for LTC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("readDevices rejects non-4-word long timer current reads before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readDevices("LTN10", 2, { bitUnit: false }),
+    (error) => error instanceof ValueError && /requires 4-word blocks/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("readRandom rejects LCS/LCC before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readRandom({ wordDevices: ["LCS10"] }),
+    (error) => error instanceof ValueError && /Read Random \(0x0403\) does not support LCS\/LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("readBlock rejects LCS/LCC before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readBlock({ bitBlocks: [["LCS10", 1]] }),
+    (error) => error instanceof ValueError && /Read Block \(0x0406\) does not support LCS\/LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("writeBlock rejects LCS/LCC before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeBlock({ bitBlocks: [["LCC10", [1]]] }),
+    (error) => error instanceof ValueError && /Write Block \(0x1406\) does not support LCS\/LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("request rejects monitor register payloads with LCS/LCC before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  let calls = 0;
+  client._requestInternal = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+  const payload = Buffer.concat([Buffer.from([0x01, 0x00]), encodeDeviceSpec("LCS10", { series: "iqr" })]);
+
+  assert.throws(
+    () => client.request(Command.MONITOR_REGISTER, 0x0002, payload),
+    (error) => error instanceof ValueError && /Entry Monitor Device \(0x0801\) does not support LCS\/LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
 });
 
 function make4EResponse(serial, data) {

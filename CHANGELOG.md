@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.4 - 2026-04-13
+
+- add client-side guard logic for unsupported long-timer direct reads and unsupported `LCS/LCC` random, block, and monitor-registration commands
+- align long-counter helper behavior and core tests with the shared cross-library consistency rules
+
 ## 0.2.3 - 2026-04-13
 
 - CI now checks out `plc-comm-slmp-cross-verify/specs/shared` before running the shared-vector tests, so the Node package validates against the canonical cross-library parity vectors.
