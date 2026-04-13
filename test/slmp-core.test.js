@@ -134,6 +134,29 @@ test("4E TCP response matching uses serial instead of FIFO order", async () => {
   assert.deepEqual([...secondDecoded.data], [0x22, 0x22]);
 });
 
+test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const calls = [];
+  client.request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await client.writeRandomBits({ bitValues: { LTC10: true, LTS10: false } });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, 0x1402);
+  assert.equal(calls[0].subcommand, 0x0003);
+  assert.deepEqual(
+    [...calls[0].data],
+    [
+      0x02,
+      0x0a, 0x00, 0x00, 0x00, 0x50, 0x00, 0x01, 0x00,
+      0x0a, 0x00, 0x00, 0x00, 0x51, 0x00, 0x00, 0x00,
+    ]
+  );
+});
+
 function make4EResponse(serial, data) {
   const payload = Buffer.from(data);
   const buffer = Buffer.alloc(15 + payload.length);

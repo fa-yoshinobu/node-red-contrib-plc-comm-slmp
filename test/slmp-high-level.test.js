@@ -294,7 +294,13 @@ test("readTyped resolves LT, LST, and LC families through helper-backed 4-word b
         return [0x0006, 0x0000, 0x0001, 0x0000];
       }
       if (device.code === "LCN" && device.number === 10) {
-        return [0x0008, 0x0000, 0x0003, 0x0000];
+        return [0x0008, 0x0000, 0x0000, 0x0000];
+      }
+      if (device.code === "LCS" && device.number === 10 && options.bitUnit) {
+        return [true];
+      }
+      if (device.code === "LCC" && device.number === 10 && options.bitUnit) {
+        return [true];
       }
       throw new Error(`unexpected long-family read ${device.code}${device.number}`);
     },
@@ -315,12 +321,12 @@ test("readTyped resolves LT, LST, and LC families through helper-backed 4-word b
     { device: "LSTN4", points: 4, bitUnit: false },
     { device: "LSTN4", points: 4, bitUnit: false },
     { device: "LCN10", points: 4, bitUnit: false },
-    { device: "LCN10", points: 4, bitUnit: false },
-    { device: "LCN10", points: 4, bitUnit: false },
+    { device: "LCS10", points: 1, bitUnit: true },
+    { device: "LCC10", points: 1, bitUnit: true },
   ]);
 });
 
-test("readNamed resolves LC families through helper-backed 4-word blocks", async () => {
+test("readNamed resolves long counter current through LCN blocks and LCS/LCC through direct bit reads", async () => {
   const calls = [];
   const fakeClient = {
     async readRandom() {
@@ -333,7 +339,13 @@ test("readNamed resolves LC families through helper-backed 4-word blocks", async
         bitUnit: Boolean(options.bitUnit),
       });
       if (device.code === "LCN" && device.number === 0) {
-        return [0x0002, 0x0001, 0x0003, 0x0000, 0x0004, 0x0000, 0x0002, 0x0000];
+        return [0x0002, 0x0001, 0x0000, 0x0000, 0x0004, 0x0000, 0x0000, 0x0000];
+      }
+      if (device.code === "LCC" && device.number === 0 && options.bitUnit) {
+        return [true];
+      }
+      if (device.code === "LCS" && device.number === 0 && options.bitUnit) {
+        return [true];
       }
       throw new Error(`unexpected long counter read ${device.code}${device.number}`);
     },
@@ -346,7 +358,11 @@ test("readNamed resolves LC families through helper-backed 4-word blocks", async
     LCS0: true,
     LCN1: 4,
   });
-  assert.deepEqual(calls, [{ device: "LCN0", points: 8, bitUnit: false }]);
+  assert.deepEqual(calls, [
+    { device: "LCN0", points: 8, bitUnit: false },
+    { device: "LCC0", points: 1, bitUnit: true },
+    { device: "LCS0", points: 1, bitUnit: true },
+  ]);
 });
 
 test("readNamed forwards per-request target overrides to client calls", async () => {
@@ -469,7 +485,7 @@ test("writeNamed supports count arrays and string writes", async () => {
   ]);
 });
 
-test("writeNamed routes long current values through per-point dword writes", async () => {
+test("writeNamed routes long current values and long state bits through random writes", async () => {
   const writes = [];
   const fakeClient = {
     async readDevices() {
@@ -490,12 +506,21 @@ test("writeNamed routes long current values through per-point dword writes", asy
         dwordValues: dwordValues.map(([device, value]) => [`${device.code}${device.number}`, value]),
       });
     },
+    async writeRandomBits({ bitValues }) {
+      writes.push({
+        kind: "writeRandomBits",
+        bitValues: bitValues.map(([device, value]) => [`${device.code}${device.number}`, Boolean(value)]),
+      });
+    },
   };
 
   await writeNamed(fakeClient, {
     "LTN0,2": [1, 2],
     "LSTN4:L": -5,
     LTC0: true,
+    LSTS4: true,
+    LZ0: 123456,
+    LZ1: 789,
   });
 
   assert.deepEqual(writes, [
@@ -506,9 +531,17 @@ test("writeNamed routes long current values through per-point dword writes", asy
         ["LTN0", 1],
         ["LTN1", 2],
         ["LSTN4", 0xfffffffb],
+        ["LZ0", 123456],
+        ["LZ1", 789],
       ],
     },
-    { kind: "writeDevices", device: "LTC0", values: [true], bitUnit: true },
+    {
+      kind: "writeRandomBits",
+      bitValues: [
+        ["LTC0", true],
+        ["LSTS4", true],
+      ],
+    },
   ]);
 });
 
