@@ -2,10 +2,11 @@
 
 ## Unreleased
 
-## 0.2.2 - 2026-04-01
+## 0.2.3 - 2026-04-13
 
-- add an optional `npm run smoke:editor` script that installs the local package into an isolated userDir, starts a temporary Node-RED runtime, imports `slmp-basic-read-write.json`, and verifies the flow starts cleanly
-- refresh README, user guide, and example-flow docs with the editor-smoke command and the current canonical-address helper exports
+- CI now checks out `plc-comm-slmp-cross-verify/specs/shared` before running the shared-vector tests, so the Node package validates against the canonical cross-library parity vectors.
+
+## 0.2.2 - 2026-04-01
 
 - add an optional `npm run smoke:editor` script that installs the local package into an isolated userDir, starts a temporary Node-RED runtime, imports `slmp-basic-read-write.json`, and verifies the flow starts cleanly
 - refresh README, user guide, and example-flow docs with the editor-smoke command and the current canonical-address helper exports
