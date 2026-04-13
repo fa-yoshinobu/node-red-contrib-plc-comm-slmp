@@ -51,7 +51,7 @@ Start with `D` word devices for the first smoke test. Do not start with `slmp-de
 ## Release Information
 
 - package name: `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
-- package version: `0.2.1`
+- package version: `0.2.3`
 - npm package: <https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
