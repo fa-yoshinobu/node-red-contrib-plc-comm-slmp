@@ -7,7 +7,14 @@ const path = require("node:path");
 
 const slmp = require("../lib/slmp");
 
-const SHARED_SPEC_DIR = path.resolve(__dirname, "..", "..", "slmp-shared-spec");
+const SHARED_SPEC_DIR = path.resolve(
+  __dirname,
+  "..",
+  "..",
+  "plc-comm-slmp-cross-verify",
+  "specs",
+  "shared"
+);
 
 function loadJson(name) {
   return JSON.parse(fs.readFileSync(path.join(SHARED_SPEC_DIR, name), "utf8"));
