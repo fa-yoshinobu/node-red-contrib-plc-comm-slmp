@@ -38,7 +38,7 @@ class CaptureClient extends slmp.SlmpClient {
   constructor(responseData) {
     super({
       host: "127.0.0.1",
-      plcSeries: slmp.PLCSeries.IQR,
+      plcFamily: "iq-r",
       monitoringTimer: 0x0010,
       raiseOnError: true,
     });
@@ -60,7 +60,8 @@ test("shared address normalization vectors match Node high-level helpers", () =>
     if (!entry.implementations.includes("node")) {
       continue;
     }
-    assert.equal(slmp.normalizeAddress(entry.input), entry.expected, entry.id);
+    const options = requiresExplicitPlcFamily(entry.input) ? { plcFamily: "iq-r" } : undefined;
+    assert.equal(options ? slmp.normalizeAddress(entry.input, options) : slmp.normalizeAddress(entry.input), entry.expected, entry.id);
   }
 });
 
@@ -154,4 +155,8 @@ async function dispatchFrameCase(client, entry) {
     default:
       throw new Error(`Unsupported shared frame operation for Node: ${entry.operation}`);
   }
+}
+
+function requiresExplicitPlcFamily(address) {
+  return /^[\s]*[XY]/i.test(String(address || ""));
 }

@@ -35,7 +35,7 @@ This package is documented for the high-level Node-RED workflow only:
 ## Quick Start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
-2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, `PLC series`, and `frame type`.
+2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, and `PLC family`.
 3. Add `slmp-read` for the first smoke test, using a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. When read works, add `slmp-write` and use known-safe test devices before moving to production addresses.
 
@@ -51,7 +51,7 @@ Start with `D` word devices for the first smoke test. Do not start with `slmp-de
 ## Release Information
 
 - package name: `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
-- package version: `0.2.3`
+- package version: `0.2.5`
 - npm package: <https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
@@ -119,7 +119,19 @@ Maintainer-only notes and retained evidence live under `internal_docs/`.
 - configurable error handling with throw / `msg.error` / second output
 - connection control via `connect` / `disconnect` / `reinitialize` messages
 
-Set `frame type` and `PLC series` explicitly for each connection.
+Set one explicit `plcFamily` for each connection. The node derives `frameType`, access profile, `X/Y` string-address rules, and device-range rules from that family.
+
+Supported canonical `plcFamily` values:
+
+- `iq-f`
+- `iq-r`
+- `iq-l`
+- `mx-f`
+- `mx-r`
+- `qcpu`
+- `lcpu`
+- `qnu`
+- `qnudv`
 
 ## Underlying JS Helper
 
@@ -132,8 +144,7 @@ async function main() {
   const client = new SlmpClient({
     host: "192.168.250.100",
     port: 1025,
-    plcSeries: "ql",
-    frameType: "3e",
+    plcFamily: "qnu",
   });
   const catalog = await client.readDeviceRangeCatalogForFamily(SlmpDeviceRangeFamily.QnU);
   for (const entry of catalog.entries) {
@@ -170,7 +181,7 @@ Validated public hardware summary:
 
 ## Known Limitations
 
-- set `frame type` and `PLC series` explicitly for each connection
+- the high-level Node-RED surface requires explicit `plcFamily`
 - `.bit,count` is not supported
 - a single client connection keeps requests serialized by default
 - the read and write nodes keep the caller-visible logical request shape and do not silently retry with a different fallback split semantics
@@ -188,4 +199,6 @@ cmd /c npm.cmd test
 
 - `.bit` notation is only valid for word devices such as `D50.3`
 - direct bit devices should be addressed directly as `M1000`, `X1F`, `Y20`
+- `X/Y` string addresses require explicit `plcFamily`
+- `iq-f` interprets `X/Y` string addresses in octal, while other supported families use hexadecimal `X/Y`
 - random read batching follows the Python helper layer for batchable word devices

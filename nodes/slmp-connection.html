@@ -35,8 +35,7 @@
           return slmpValidateIntegerInRange(value, 1, 2147483647);
         }
       },
-      plcSeries: { value: "ql", required: true },
-      frameType: { value: "4e", required: true },
+      plcFamily: { value: "iq-r", required: true },
       monitoringTimer: {
         value: 16,
         required: true,
@@ -100,17 +99,17 @@
     <input type="text" id="node-config-input-timeout" placeholder="3000" />
   </div>
   <div class="form-row">
-    <label for="node-config-input-plcSeries"><i class="fa fa-cog"></i> PLC series</label>
-    <select id="node-config-input-plcSeries">
-      <option value="ql">Q/L compatible</option>
-      <option value="iqr">iQ-R/iQ-L compatible</option>
-    </select>
-  </div>
-  <div class="form-row">
-    <label for="node-config-input-frameType"><i class="fa fa-code"></i> Frame type</label>
-    <select id="node-config-input-frameType">
-      <option value="4e">4E binary</option>
-      <option value="3e">3E binary</option>
+    <label for="node-config-input-plcFamily"><i class="fa fa-cog"></i> PLC family</label>
+    <select id="node-config-input-plcFamily">
+      <option value="iq-f">iQ-F / FX</option>
+      <option value="iq-r">iQ-R</option>
+      <option value="iq-l">iQ-L</option>
+      <option value="mx-f">MELSECNET/H MX-F</option>
+      <option value="mx-r">MELSECNET/H MX-R</option>
+      <option value="qcpu">QCPU</option>
+      <option value="lcpu">LCPU</option>
+      <option value="qnu">QnU</option>
+      <option value="qnudv">QnUDV</option>
     </select>
   </div>
   <div class="form-row">
@@ -137,6 +136,6 @@
 
 <script type="text/html" data-help-name="slmp-connection">
   <p>Reusable SLMP connection profile for Mitsubishi PLC access over binary 3E or 4E frames.</p>
-  <p>Choose the same frame type and PLC series you would use with <code>plc-comm-slmp-python</code>.</p>
+  <p>Select one explicit PLC family. The node derives the frame type, access profile, string address rules, and device-range behavior from that family.</p>
   <p><code>slmp-read</code> and <code>slmp-write</code> can send <code>connect</code>, <code>disconnect</code>, and <code>reinitialize</code> control messages through this shared connection.</p>
 </script>

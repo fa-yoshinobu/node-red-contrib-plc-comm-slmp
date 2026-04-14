@@ -15,7 +15,7 @@ See also:
 ## Quick start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
-2. Create one `slmp-connection` and set `host`, `port`, `transport`, `PLC series`, and `frame type`.
+2. Create one `slmp-connection` and set `host`, `port`, `transport`, and `PLC family`.
 3. Drop in `slmp-read` and try a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. Once reads work, add `slmp-write` and verify with known-safe test devices.
 
@@ -62,9 +62,10 @@ Configure these explicitly on the connection node:
 - host
 - port
 - transport: `tcp` or `udp`
-- PLC series: `ql` or `iqr`
-- frame type: `3e` or `4e`
+- PLC family: `iq-f`, `iq-r`, `iq-l`, `mx-f`, `mx-r`, `qcpu`, `lcpu`, `qnu`, or `qnudv`
 - route fields: network, station, module I/O, multidrop
+
+The connection node derives `frameType`, access profile, string-address interpretation, and device-range rules from the explicit `PLC family`.
 
 Validated PLC models:
 
@@ -92,7 +93,10 @@ Supported word devices:
 
 Address notes:
 
-- `X`, `Y`, `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal numbering
+- `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal numbering
+- `X` and `Y` require explicit `PLC family`
+- `iq-f` interprets string `X/Y` addresses in octal
+- all other supported families interpret string `X/Y` addresses in hexadecimal
 - most other devices use decimal numbering
 - word devices support `.bit`, for example `D50.3`
 - count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`

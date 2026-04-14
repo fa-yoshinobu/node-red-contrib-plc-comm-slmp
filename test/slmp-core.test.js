@@ -13,6 +13,7 @@ const {
   encodeRequest,
   packBitValues,
   parseDevice,
+  resolveConnectionProfile,
   unpackBitValues,
 } = require("../lib/slmp");
 
@@ -20,6 +21,26 @@ test("parseDevice handles decimal and hex devices", () => {
   assert.deepEqual(parseDevice("D100"), { code: "D", number: 100 });
   assert.deepEqual(parseDevice("X1F"), { code: "X", number: 31 });
   assert.equal(deviceToString({ code: "X", number: 31 }), "X1F");
+});
+
+test("parseDevice uses octal X/Y numbering for iq-f when plcFamily is explicit", () => {
+  assert.deepEqual(parseDevice("X217", { plcFamily: "iq-f" }), { code: "X", number: 0x8f });
+  assert.equal(deviceToString({ code: "Y", number: 0x90 }, { plcFamily: "iq-f" }), "Y220");
+});
+
+test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {
+  const profile = resolveConnectionProfile({ plcFamily: "iq-l" });
+  assert.deepEqual(profile, {
+    plcFamily: "iq-l",
+    plcSeries: "iqr",
+    frameType: "4e",
+    deviceFamily: "iq-r",
+    rangeFamily: "iq-r",
+  });
+  assert.throws(
+    () => resolveConnectionProfile({ plcFamily: "iq-r", plcSeries: "ql" }),
+    /already determines frameType, plcSeries/
+  );
 });
 
 test("encodeDeviceSpec follows QL and iQR layouts", () => {

@@ -111,3 +111,10 @@ test("readDeviceRangeCatalogForFamily uses SD300 for QnU ST family and SD305 for
   assert.equal(entries.R.pointCount, 0);
   assert.equal(entries.R.addressRange, null);
 });
+
+test("device-range helpers only accept canonical family names", async () => {
+  await assert.rejects(
+    () => slmp.readDeviceRangeCatalogForFamily({ readDevices: async () => [] }, "iqr"),
+    /Unsupported PLC family: iqr/
+  );
+});

@@ -11,6 +11,7 @@ module.exports = function registerSlmpConnection(RED) {
     this.port = Number(config.port || 5000);
     this.transport = config.transport || "tcp";
     this.timeout = Number(config.timeout || 3000);
+    this.plcFamily = config.plcFamily ? String(config.plcFamily).trim() : "";
     this.plcSeries = config.plcSeries || "ql";
     this.frameType = config.frameType || "4e";
     this.monitoringTimer = Number(config.monitoringTimer || 0x0010);
@@ -21,16 +22,22 @@ module.exports = function registerSlmpConnection(RED) {
       multidrop: config.multidrop,
     };
 
-    this.client = new SlmpClient({
+    const clientOptions = {
       host: this.host,
       port: this.port,
       transport: this.transport,
       timeout: this.timeout,
-      plcSeries: this.plcSeries,
-      frameType: this.frameType,
       monitoringTimer: this.monitoringTimer,
       defaultTarget: this.target,
-    });
+    };
+    if (this.plcFamily) {
+      clientOptions.plcFamily = this.plcFamily;
+    } else {
+      clientOptions.plcSeries = this.plcSeries;
+      clientOptions.frameType = this.frameType;
+    }
+
+    this.client = new SlmpClient(clientOptions);
 
     this._setState = (fill, shape, text) => {
       this.status({ fill, shape, text });
@@ -40,6 +47,7 @@ module.exports = function registerSlmpConnection(RED) {
       host: this.host,
       port: this.port,
       transport: this.transport,
+      plcFamily: this.client.plcFamily,
       frameType: this.client.frameType,
       plcSeries: this.client.plcSeries,
       target: this.client.defaultTarget,

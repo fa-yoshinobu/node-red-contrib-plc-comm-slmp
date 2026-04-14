@@ -7,8 +7,8 @@ This page is the canonical public register/device table for the Node-RED high-le
 | Family | Kind | Example | Numbering |
 | --- | --- | --- | --- |
 | `SM` | bit | `SM400` | decimal |
-| `X` | bit | `X20` | hexadecimal |
-| `Y` | bit | `Y20` | hexadecimal |
+| `X` | bit | `X20` | `iq-f`: octal, otherwise hexadecimal |
+| `Y` | bit | `Y20` | `iq-f`: octal, otherwise hexadecimal |
 | `M` | bit | `M1000` | decimal |
 | `L` | bit | `L100` | decimal |
 | `F` | bit | `F10` | decimal |
@@ -61,7 +61,10 @@ This page is the canonical public register/device table for the Node-RED high-le
 ## Addressing Notes
 
 - Start with `D` for the first smoke test.
-- `X`, `Y`, `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal device numbers.
+- `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal device numbers.
+- `X` and `Y` require explicit `plcFamily`.
+- `iq-f` interprets string `X/Y` addresses in octal.
+- all other supported families interpret string `X/Y` addresses in hexadecimal.
 - Most other families use decimal numbers.
 - `.bit` is valid only on word devices such as `D50.3`.
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the public high-level nodes.

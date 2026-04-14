@@ -18,7 +18,7 @@ This page keeps the current public summary only. Older detailed notes are not ke
 
 ## Practical Cautions
 
-- set `PLC series` and `frame type` explicitly for every connection
+- set one explicit `PLC family` for every connection
 - start with `D` reads before using typed, counted, or string forms
 - keep `slmp-device-matrix.json` for later verification, not for the first smoke test
 - `.bit,count` is not part of the current public high-level surface

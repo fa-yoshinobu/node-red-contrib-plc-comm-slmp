@@ -36,10 +36,12 @@ test("parseAddress supports count and string forms", () => {
 
 test("normalizeAddress and formatParsedAddress keep one canonical spelling", () => {
   assert.equal(normalizeAddress(" d200:f "), "D200:F");
-  assert.equal(normalizeAddress("x1a"), "X1A");
   assert.equal(normalizeAddress("d50.a"), "D50.A");
   assert.equal(normalizeAddress("dstr200,8"), "D200:STR,8");
   assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
+  assert.throws(() => normalizeAddress("x1a"), /require explicit plcFamily/i);
+  assert.equal(normalizeAddress("x1a", { plcFamily: "iq-r" }), "X1A");
+  assert.equal(normalizeAddress("y217", { plcFamily: "iq-f" }), "Y217");
 });
 
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {
@@ -591,8 +593,9 @@ test("slmp-connection creates a client and closes it with the node", async () =>
   class FakeSlmpClient {
     constructor(options) {
       constructorOptions.push(options);
-      this.frameType = options.frameType;
-      this.plcSeries = options.plcSeries;
+      this.plcFamily = options.plcFamily || null;
+      this.frameType = options.plcFamily ? "4e" : options.frameType;
+      this.plcSeries = options.plcFamily ? "iqr" : options.plcSeries;
       this.defaultTarget = slmp.normalizeTarget(options.defaultTarget);
     }
 
@@ -615,8 +618,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
       port: "5001",
       transport: "udp",
       timeout: "4500",
-      plcSeries: "iqr",
-      frameType: "3e",
+      plcFamily: "iq-r",
       monitoringTimer: "32",
       network: "1",
       station: "255",
@@ -629,12 +631,14 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     assert.equal(constructorOptions[0].port, 5001);
     assert.equal(constructorOptions[0].transport, "udp");
     assert.equal(constructorOptions[0].timeout, 4500);
+    assert.equal(constructorOptions[0].plcFamily, "iq-r");
     assert.ok(node.getClient() instanceof FakeSlmpClient);
     assert.deepEqual(node.getProfile(), {
       host: "192.168.0.10",
       port: 5001,
       transport: "udp",
-      frameType: "3e",
+      plcFamily: "iq-r",
+      frameType: "4e",
       plcSeries: "iqr",
       target: {
         network: 1,

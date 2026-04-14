@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.6 - 2026-04-14
+
+- replace connection-node `plcSeries` / `frameType` selection with one explicit `plcFamily` that derives the fixed frame, access profile, address-family, and range-family defaults
+- make high-level `X/Y` string addresses require explicit `plcFamily`, treat `iq-f` `X/Y` as octal, and refresh tests, docs, and example flows for the stricter family-driven model
+
 ## 0.2.5 - 2026-04-14
 
 - add public device-range catalog helpers and CPU operation-state support to the packaged SLMP client surface
