@@ -138,7 +138,7 @@ Supported canonical `plcFamily` values:
 The package also exports the underlying SLMP helper library. For device-range reads, choose the PLC family explicitly and read one family SD block:
 
 ```js
-const { SlmpClient, SlmpDeviceRangeFamily } = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp/lib/slmp");
+const { SlmpClient } = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp/lib/slmp");
 
 async function main() {
   const client = new SlmpClient({
@@ -146,14 +146,14 @@ async function main() {
     port: 1025,
     plcFamily: "qnu",
   });
-  const catalog = await client.readDeviceRangeCatalogForFamily(SlmpDeviceRangeFamily.QnU);
+  const catalog = await client.readDeviceRangeCatalog();
   for (const entry of catalog.entries) {
     console.log(entry.device, entry.pointCount, entry.addressRange);
   }
 }
 ```
 
-This path does not call `readTypeName()`. The caller chooses the family such as `IqF`, `QnU`, `QnUDV`, or `LCpu`.
+This path does not call `readTypeName()`. The caller chooses the family such as `iq-f`, `qnu`, `qnudv`, or `lcpu`, and the standard client derives the rest.
 
 ## Current Public Register Scope
 

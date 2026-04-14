@@ -43,6 +43,13 @@ test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {
   );
 });
 
+test("resolveConnectionProfile rejects missing plcFamily on the standard route", () => {
+  assert.throws(
+    () => resolveConnectionProfile({ frameType: "4e", plcSeries: "iqr" }),
+    /plcFamily is required for the standard client profile/
+  );
+});
+
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "ql" })], [100, 0, 0, 0xa8]);
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "iqr" })], [100, 0, 0, 0, 0xa8, 0x00]);
@@ -85,7 +92,7 @@ test("encodeRequest and decodeResponse work for 4E frames", () => {
 });
 
 test("3E client keeps requests serialized", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   let active = 0;
   let maxActive = 0;
 
@@ -102,7 +109,7 @@ test("3E client keeps requests serialized", async () => {
 });
 
 test("4E client keeps requests serialized by default for single-connection compatibility", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", _allowManualProfile: true });
   let active = 0;
   let maxActive = 0;
 
@@ -119,7 +126,7 @@ test("4E client keeps requests serialized by default for single-connection compa
 });
 
 test("4E client can opt into concurrent requests", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", allowConcurrentRequests: true });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", allowConcurrentRequests: true, _allowManualProfile: true });
   let active = 0;
   let maxActive = 0;
 
@@ -136,7 +143,7 @@ test("4E client can opt into concurrent requests", async () => {
 });
 
 test("4E TCP response matching uses serial instead of FIFO order", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", _allowManualProfile: true });
   const first = client._awaitTcpFrame(0x1001);
   const second = client._awaitTcpFrame(0x1002);
 
@@ -158,7 +165,7 @@ test("4E TCP response matching uses serial instead of FIFO order", async () => {
 });
 
 test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   const calls = [];
   client.request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
@@ -181,7 +188,7 @@ test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async (
 });
 
 test("readDevices rejects direct long timer state reads before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -196,7 +203,7 @@ test("readDevices rejects direct long timer state reads before transport", async
 });
 
 test("readDevices rejects non-4-word long timer current reads before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -211,7 +218,7 @@ test("readDevices rejects non-4-word long timer current reads before transport",
 });
 
 test("readRandom rejects LCS/LCC before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -226,7 +233,7 @@ test("readRandom rejects LCS/LCC before transport", async () => {
 });
 
 test("readBlock rejects LCS/LCC before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -241,7 +248,7 @@ test("readBlock rejects LCS/LCC before transport", async () => {
 });
 
 test("writeBlock rejects LCS/LCC before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -256,7 +263,7 @@ test("writeBlock rejects LCS/LCC before transport", async () => {
 });
 
 test("request rejects monitor register payloads with LCS/LCC before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr" });
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
   client._requestInternal = async () => {
     calls += 1;

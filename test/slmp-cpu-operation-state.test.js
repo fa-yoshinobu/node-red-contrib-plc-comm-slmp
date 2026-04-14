@@ -10,7 +10,7 @@ test("readCpuOperationState masks upper bits of SD203", async () => {
 
   class FakeClient extends slmp.SlmpClient {
     constructor() {
-      super({ host: "127.0.0.1" });
+      super({ host: "127.0.0.1", _allowManualProfile: true });
     }
 
     async readDevices(device, points, options) {

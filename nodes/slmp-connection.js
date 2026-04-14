@@ -12,8 +12,6 @@ module.exports = function registerSlmpConnection(RED) {
     this.transport = config.transport || "tcp";
     this.timeout = Number(config.timeout || 3000);
     this.plcFamily = config.plcFamily ? String(config.plcFamily).trim() : "";
-    this.plcSeries = config.plcSeries || "ql";
-    this.frameType = config.frameType || "4e";
     this.monitoringTimer = Number(config.monitoringTimer || 0x0010);
     this.target = {
       network: config.network,
@@ -22,20 +20,19 @@ module.exports = function registerSlmpConnection(RED) {
       multidrop: config.multidrop,
     };
 
+    if (!this.plcFamily) {
+      throw new Error("slmp-connection requires plcFamily");
+    }
+
     const clientOptions = {
       host: this.host,
       port: this.port,
       transport: this.transport,
       timeout: this.timeout,
+      plcFamily: this.plcFamily,
       monitoringTimer: this.monitoringTimer,
       defaultTarget: this.target,
     };
-    if (this.plcFamily) {
-      clientOptions.plcFamily = this.plcFamily;
-    } else {
-      clientOptions.plcSeries = this.plcSeries;
-      clientOptions.frameType = this.frameType;
-    }
 
     this.client = new SlmpClient(clientOptions);
 
