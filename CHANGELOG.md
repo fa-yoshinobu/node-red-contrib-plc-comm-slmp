@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.7 - 2026-04-14
+
+- require explicit `plcFamily` on the standard packaged client and connection-node route, while keeping manual frame/profile selection only for internal diagnostic paths
+- switch the standard device-range example to `readDeviceRangeCatalog()` so the high-level Node surface consistently derives frame, profile, address, and range handling from one family selection
+
 ## 0.2.6 - 2026-04-14
 
 - replace connection-node `plcSeries` / `frameType` selection with one explicit `plcFamily` that derives the fixed frame, access profile, address-family, and range-family defaults
