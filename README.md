@@ -121,6 +121,29 @@ Maintainer-only notes and retained evidence live under `internal_docs/`.
 
 Set `frame type` and `PLC series` explicitly for each connection.
 
+## Underlying JS Helper
+
+The package also exports the underlying SLMP helper library. For device-range reads, choose the PLC family explicitly and read one family SD block:
+
+```js
+const { SlmpClient, SlmpDeviceRangeFamily } = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp/lib/slmp");
+
+async function main() {
+  const client = new SlmpClient({
+    host: "192.168.250.100",
+    port: 1025,
+    plcSeries: "ql",
+    frameType: "3e",
+  });
+  const catalog = await client.readDeviceRangeCatalogForFamily(SlmpDeviceRangeFamily.QnU);
+  for (const entry of catalog.entries) {
+    console.log(entry.device, entry.pointCount, entry.addressRange);
+  }
+}
+```
+
+This path does not call `readTypeName()`. The caller chooses the family such as `IqF`, `QnU`, `QnUDV`, or `LCpu`.
+
 ## Current Public Register Scope
 
 - bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `STS`, `STC`, `CS`, `CC`, `SB`, `DX`, `DY`
