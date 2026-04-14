@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.5 - 2026-04-14
+
+- add public device-range catalog helpers and CPU operation-state support to the packaged SLMP client surface
+- add regression tests and README coverage for the new device-range and CPU-state helpers
+
 ## 0.2.4 - 2026-04-13
 
 - add client-side guard logic for unsupported long-timer direct reads and unsupported `LCS/LCC` random, block, and monitor-registration commands
