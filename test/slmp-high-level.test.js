@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 
 const slmp = require("../lib/slmp");
-const { formatParsedAddress, normalizeAddress, normalizeAddressList, parseAddress, readNamed, readTyped, writeNamed } = slmp;
+const { formatParsedAddress, normalizeAddress, normalizeAddressList, parseAddress, readNamed, readTyped, writeNamed, writeTyped } = slmp;
 
 test("parseAddress supports count and string forms", () => {
   assert.deepEqual(parseAddress("D100,10"), {
@@ -280,9 +280,21 @@ test("readNamed resolves LT and LST families through helper-backed 4-word blocks
   ]);
 });
 
-test("readTyped resolves LT, LST, and LC families through helper-backed 4-word blocks", async () => {
+test("readTyped resolves long-family values through supported routes", async () => {
   const calls = [];
   const fakeClient = {
+    async readRandom({ dwordDevices }) {
+      calls.push({
+        device: dwordDevices.map((device) => `${device.code}${device.number}`).join(","),
+        points: dwordDevices.length,
+        bitUnit: false,
+        random: true,
+      });
+      return {
+        word: {},
+        dword: Object.fromEntries(dwordDevices.map((device) => [`${device.code}${device.number}`, 8])),
+      };
+    },
     async readDevices(device, points, options) {
       calls.push({
         device: `${device.code}${device.number}`,
@@ -295,8 +307,8 @@ test("readTyped resolves LT, LST, and LC families through helper-backed 4-word b
       if (device.code === "LSTN" && device.number === 4) {
         return [0x0006, 0x0000, 0x0001, 0x0000];
       }
-      if (device.code === "LCN" && device.number === 10) {
-        return [0x0008, 0x0000, 0x0003, 0x0000];
+      if ((device.code === "LCS" || device.code === "LCC") && device.number === 10) {
+        return [true];
       }
       throw new Error(`unexpected long-family read ${device.code}${device.number}`);
     },
@@ -316,26 +328,37 @@ test("readTyped resolves LT, LST, and LC families through helper-backed 4-word b
     { device: "LTN0", points: 4, bitUnit: false },
     { device: "LSTN4", points: 4, bitUnit: false },
     { device: "LSTN4", points: 4, bitUnit: false },
-    { device: "LCN10", points: 4, bitUnit: false },
-    { device: "LCN10", points: 4, bitUnit: false },
-    { device: "LCN10", points: 4, bitUnit: false },
+    { device: "LCN10", points: 1, bitUnit: false, random: true },
+    { device: "LCS10", points: 1, bitUnit: true },
+    { device: "LCC10", points: 1, bitUnit: true },
   ]);
 });
 
-test("readNamed resolves long counter current and state bits through LCN blocks", async () => {
+test("readNamed resolves long counter current and state bits through supported routes", async () => {
   const calls = [];
   const fakeClient = {
-    async readRandom() {
-      throw new Error("unexpected random read");
+    async readRandom({ dwordDevices }) {
+      calls.push({
+        kind: "readRandom",
+        dwordDevices: dwordDevices.map((device) => `${device.code}${device.number}`),
+      });
+      return {
+        word: {},
+        dword: {
+          LCN0: 0x00010002,
+          LCN1: 4,
+        },
+      };
     },
     async readDevices(device, points, options) {
       calls.push({
+        kind: "readDevices",
         device: `${device.code}${device.number}`,
         points,
         bitUnit: Boolean(options.bitUnit),
       });
-      if (device.code === "LCN" && device.number === 0) {
-        return [0x0002, 0x0001, 0x0003, 0x0000, 0x0004, 0x0000, 0x0000, 0x0000];
+      if (device.code === "LCC" || device.code === "LCS") {
+        return [true];
       }
       throw new Error(`unexpected long counter read ${device.code}${device.number}`);
     },
@@ -349,7 +372,9 @@ test("readNamed resolves long counter current and state bits through LCN blocks"
     LCN1: 4,
   });
   assert.deepEqual(calls, [
-    { device: "LCN0", points: 8, bitUnit: false },
+    { kind: "readRandom", dwordDevices: ["LCN0", "LCN1"] },
+    { kind: "readDevices", device: "LCC0", points: 1, bitUnit: true },
+    { kind: "readDevices", device: "LCS0", points: 1, bitUnit: true },
   ]);
 });
 
@@ -507,6 +532,8 @@ test("writeNamed routes long current values and long state bits through random w
     "LSTN4:L": -5,
     LTC0: true,
     LSTS4: true,
+    LCC10: true,
+    LCS10: false,
     LZ0: 123456,
     LZ1: 789,
   });
@@ -528,8 +555,39 @@ test("writeNamed routes long current values and long state bits through random w
       bitValues: [
         ["LTC0", true],
         ["LSTS4", true],
+        ["LCC10", true],
+        ["LCS10", false],
       ],
     },
+  ]);
+});
+
+test("writeTyped routes long current and state devices through random writes", async () => {
+  const writes = [];
+  const fakeClient = {
+    async writeDevices() {
+      throw new Error("unexpected direct write");
+    },
+    async writeRandomWords({ dwordValues }) {
+      writes.push({
+        kind: "writeRandomWords",
+        dwordValues: dwordValues.map(([device, value]) => [`${device.code}${device.number}`, value]),
+      });
+    },
+    async writeRandomBits({ bitValues }) {
+      writes.push({
+        kind: "writeRandomBits",
+        bitValues: bitValues.map(([device, value]) => [`${device.code}${device.number}`, Boolean(value)]),
+      });
+    },
+  };
+
+  await writeTyped(fakeClient, { code: "LCN", number: 10 }, "D", 123);
+  await writeTyped(fakeClient, { code: "LCS", number: 10 }, "BIT", true);
+
+  assert.deepEqual(writes, [
+    { kind: "writeRandomWords", dwordValues: [["LCN10", 123]] },
+    { kind: "writeRandomBits", bitValues: [["LCS10", true]] },
   ]);
 });
 

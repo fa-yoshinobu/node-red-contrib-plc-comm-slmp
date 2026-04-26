@@ -51,7 +51,7 @@ Start with `D` word devices for the first smoke test. Do not start with `slmp-de
 ## Release Information
 
 - package name: `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
-- package version: `0.2.5`
+- package version: `0.2.8`
 - npm package: <https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
@@ -157,8 +157,8 @@ This path does not call `readTypeName()`. The caller chooses the family such as 
 
 ## Current Public Register Scope
 
-- bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `STS`, `STC`, `CS`, `CC`, `SB`, `DX`, `DY`
-- word devices: `SD`, `D`, `W`, `TN`, `LTN`, `STN`, `LSTN`, `CN`, `LCN`, `SW`, `Z`, `R`, `ZR`, `RD`
+- bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `LTS`, `LTC`, `STS`, `STC`, `LSTS`, `LSTC`, `CS`, `CC`, `LCS`, `LCC`, `SB`, `DX`, `DY`
+- word devices: `SD`, `D`, `W`, `TN`, `LTN`, `STN`, `LSTN`, `CN`, `LCN`, `SW`, `Z`, `LZ`, `R`, `ZR`, `RD`
 - typed views: `:S`, `:D`, `:L`, `:F`
 - string/count views: `,count`, `:STR`, `DSTR`
 - word-bit view: `.bit`
@@ -185,7 +185,7 @@ Validated public hardware summary:
 - `.bit,count` is not supported
 - a single client connection keeps requests serialized by default
 - the read and write nodes keep the caller-visible logical request shape and do not silently retry with a different fallback split semantics
-- `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`, `G`, and `HG` are not part of the current public high-level register table
+- `G` and `HG` are not part of the current public high-level register table
 
 ## Development
 
@@ -199,6 +199,11 @@ cmd /c npm.cmd test
 
 - `.bit` notation is only valid for word devices such as `D50.3`
 - direct bit devices should be addressed directly as `M1000`, `X1F`, `Y20`
+- `LTN`, `LSTN`, `LCN`, and `LZ` default to 32-bit `:D` access in high-level helpers
+- `LCN` current-value reads and writes use random dword access in the high-level helpers
+- `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers
+- `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
+- low-level direct bit writes are guarded for `LTS`/`LTC`/`LSTS`/`LSTC`/`LCS`/`LCC`
 - `X/Y` string addresses require explicit `plcFamily`
 - `iq-f` interprets `X/Y` string addresses in octal, while other supported families use hexadecimal `X/Y`
 - random read batching follows the Python helper layer for batchable word devices

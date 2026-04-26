@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.8 - 2026-04-27
+
+- tighten long-device route guards so `LTN/LSTN/LCN/LZ` avoid unsupported direct/raw word and dword paths, while supported random/named dword paths remain available
+- align `LCS/LCC` writes with the random/named bit route policy
+
 ## 0.2.7 - 2026-04-14
 
 - require explicit `plcFamily` on the standard packaged client and connection-node route, while keeping manual frame/profile selection only for internal diagnostic paths

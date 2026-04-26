@@ -202,6 +202,21 @@ test("readDevices rejects direct long timer state reads before transport", async
   assert.equal(calls, 0);
 });
 
+test("writeDevices rejects direct long-family state writes before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeDevices("LCC10", [true], { bitUnit: true }),
+    (error) => error instanceof ValueError && /Direct bit write is not supported for LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
 test("readDevices rejects non-4-word long timer current reads before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
@@ -213,6 +228,36 @@ test("readDevices rejects non-4-word long timer current reads before transport",
   await assert.rejects(
     () => client.readDevices("LTN10", 2, { bitUnit: false }),
     (error) => error instanceof ValueError && /requires 4-word blocks/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("readDevices rejects direct LCN word reads before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readDevices("LCN10", 4, { bitUnit: false }),
+    (error) => error instanceof ValueError && /Direct word read is not supported for LCN/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("writeDevices rejects direct word writes to 32-bit long-family devices before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeDevices("LCN10", [1], { bitUnit: false }),
+    (error) => error instanceof ValueError && /Direct word write is not supported for LCN/.test(error.message)
   );
   assert.equal(calls, 0);
 });
@@ -232,6 +277,21 @@ test("readRandom rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
+test("readRandom rejects long current word entries before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readRandom({ wordDevices: ["LCN10"] }),
+    (error) => error instanceof ValueError && /does not support LTN\/LSTN\/LCN\/LZ as word entries/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
 test("readBlock rejects LCS/LCC before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
@@ -247,6 +307,25 @@ test("readBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
+test("readBlock rejects LCN and LZ block routes before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readBlock({ wordBlocks: [["LCN10", 4]] }),
+    (error) => error instanceof ValueError && /does not support LCN\/LZ/.test(error.message)
+  );
+  await assert.rejects(
+    () => client.readBlock({ wordBlocks: [["LZ0", 2]] }),
+    (error) => error instanceof ValueError && /does not support LCN\/LZ/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
 test("writeBlock rejects LCS/LCC before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
@@ -258,6 +337,25 @@ test("writeBlock rejects LCS/LCC before transport", async () => {
   await assert.rejects(
     () => client.writeBlock({ bitBlocks: [["LCC10", [1]]] }),
     (error) => error instanceof ValueError && /Write Block \(0x1406\) does not support LCS\/LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("writeBlock rejects long current and LZ block routes before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeBlock({ wordBlocks: [["LCN10", [1, 0]]] }),
+    (error) => error instanceof ValueError && /does not support LTN\/LSTN\/LCN\/LZ/.test(error.message)
+  );
+  await assert.rejects(
+    () => client.writeBlock({ wordBlocks: [["LZ0", [1, 0]]] }),
+    (error) => error instanceof ValueError && /does not support LTN\/LSTN\/LCN\/LZ/.test(error.message)
   );
   assert.equal(calls, 0);
 });
