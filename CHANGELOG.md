@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.9 - 2026-04-27
+
+- add packaged helper support for remote control, memory read/write, extend-unit read/write, and label array/random read/write commands
+- add low-level tests for the new helper payloads and response parsing
+- expand Node-RED wrapper participation in the shared cross-library parity suite
+
 ## 0.2.8 - 2026-04-27
 
 - tighten long-device route guards so `LTN/LSTN/LCN/LZ` avoid unsupported direct/raw word and dword paths, while supported random/named dword paths remain available

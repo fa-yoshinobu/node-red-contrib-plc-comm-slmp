@@ -217,6 +217,88 @@ test("writeDevices rejects direct long-family state writes before transport", as
   assert.equal(calls, 0);
 });
 
+test("remote and memory helpers build expected commands", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  const calls = [];
+  client.request = async (command, subcommand, data, options = {}) => {
+    calls.push({ command, subcommand, data: Buffer.from(data), expectResponse: options.expectResponse });
+    return { endCode: 0, data: Buffer.from([0x64, 0x00, 0xc8, 0x00]) };
+  };
+
+  await client.remoteRun();
+  await client.remoteStop();
+  await client.remoteReset();
+  const values = await client.memoryReadWords(0x100, 2);
+  await client.memoryWriteWords(0x100, [100, 200]);
+
+  assert.deepEqual(values, [100, 200]);
+  assert.deepEqual(
+    calls.map((call) => [call.command, call.subcommand, call.data.toString("hex"), call.expectResponse]),
+    [
+      [Command.REMOTE_RUN, 0x0000, "01000200", undefined],
+      [Command.REMOTE_STOP, 0x0000, "0100", undefined],
+      [Command.REMOTE_RESET, 0x0000, "", false],
+      [Command.MEMORY_READ, 0x0000, "000100000200", undefined],
+      [Command.MEMORY_WRITE, 0x0000, "0001000002006400c800", undefined],
+    ]
+  );
+});
+
+test("extend unit helpers build expected commands", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  const calls = [];
+  client.request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    return { endCode: 0, data: Buffer.from([0x6f, 0x00, 0xde, 0x00]) };
+  };
+
+  const values = await client.extendUnitReadWords(0x10, 2, 0x03e0);
+  await client.extendUnitWriteWords(0x10, 0x03e0, [111, 222]);
+
+  assert.deepEqual(values, [111, 222]);
+  assert.deepEqual(
+    calls.map((call) => [call.command, call.subcommand, call.data.toString("hex")]),
+    [
+      [Command.EXTEND_UNIT_READ, 0x0000, "100000000400e003"],
+      [Command.EXTEND_UNIT_WRITE, 0x0000, "100000000400e0036f00de00"],
+    ]
+  );
+});
+
+test("label helpers build payloads and parse responses", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  const calls = [];
+  client.request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    if (command === Command.LABEL_ARRAY_READ) {
+      return { endCode: 0, data: Buffer.from([0x01, 0x00, 0x09, 0x01, 0x02, 0x00, 0xaa, 0xbb]) };
+    }
+    if (command === Command.LABEL_READ_RANDOM) {
+      return { endCode: 0, data: Buffer.from([0x01, 0x00, 0x09, 0x00, 0x02, 0x00, 0x31, 0x00]) };
+    }
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  const randomValues = await client.readRandomLabels(["LabelW"]);
+  await client.writeRandomLabels([{ label: "LabelW", data: Buffer.from([0x31, 0x00]) }]);
+  const arrayValues = await client.readArrayLabels([{ label: "LabelW", unitSpecification: 1, arrayDataLength: 2 }]);
+  await client.writeArrayLabels([{ label: "LabelW", unitSpecification: 1, arrayDataLength: 2, data: Buffer.from([0xaa, 0xbb]) }]);
+
+  assert.equal(randomValues[0].readDataLength, 2);
+  assert.deepEqual([...randomValues[0].data], [0x31, 0x00]);
+  assert.equal(arrayValues[0].arrayDataLength, 2);
+  assert.deepEqual([...arrayValues[0].data], [0xaa, 0xbb]);
+  assert.deepEqual(
+    calls.map((call) => [call.command, call.subcommand, call.data.toString("hex")]),
+    [
+      [Command.LABEL_READ_RANDOM, 0x0000, "0100000006004c006100620065006c005700"],
+      [Command.LABEL_WRITE_RANDOM, 0x0000, "0100000006004c006100620065006c00570002003100"],
+      [Command.LABEL_ARRAY_READ, 0x0000, "0100000006004c006100620065006c00570001000200"],
+      [Command.LABEL_ARRAY_WRITE, 0x0000, "0100000006004c006100620065006c00570001000200aabb"],
+    ]
+  );
+});
+
 test("readDevices rejects non-4-word long timer current reads before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
