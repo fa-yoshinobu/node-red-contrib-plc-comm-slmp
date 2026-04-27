@@ -20,7 +20,10 @@ const {
 test("parseDevice handles decimal and hex devices", () => {
   assert.deepEqual(parseDevice("D100"), { code: "D", number: 100 });
   assert.deepEqual(parseDevice("X1F"), { code: "X", number: 31 });
+  assert.deepEqual(parseDevice("XFF"), { code: "X", number: 0xff });
+  assert.deepEqual(parseDevice("SWFF"), { code: "SW", number: 0xff });
   assert.equal(deviceToString({ code: "X", number: 31 }), "X1F");
+  assert.throws(() => parseDevice("DFFFF"), /device code 'D'/);
 });
 
 test("parseDevice uses octal X/Y numbering for iq-f when plcFamily is explicit", () => {

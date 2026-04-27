@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.2.10 - 2026-04-27
+
+- tighten SLMP device-name parsing to split by known device code instead of a greedy letter regex, so hexadecimal addresses such as `XFF` and `SWFF` parse correctly
+- fail matched-device invalid numbers as that device code instead of treating them as a different unknown code shape
+
 ## 0.2.9 - 2026-04-27
 
 - add packaged helper support for remote control, memory read/write, extend-unit read/write, and label array/random read/write commands
