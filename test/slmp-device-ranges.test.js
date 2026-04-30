@@ -18,8 +18,12 @@ test("readDeviceRangeCatalogForFamily reads one IQ-F SD block and formats X/Y in
     }
 
     async readDevices(device, points, options) {
+      const text = typeof device === "string" ? device : `${device.code}${device.number}`;
+      if (text.startsWith("ZR") || (calls.length > 0 && points === 1)) {
+        throw new slmp.SlmpError("rejected by test");
+      }
       calls.push({
-        device: `${device.code}${device.number}`,
+        device: text,
         points,
         bitUnit: Boolean(options.bitUnit),
       });
@@ -66,12 +70,16 @@ test("readDeviceRangeCatalogForFamily reads one IQ-F SD block and formats X/Y in
   assert.equal(entries.LCS.addressRange, "LCS0-LCS63");
 });
 
-test("readDeviceRangeCatalogForFamily uses SD300 for QnU ST family and SD305 for Z", async () => {
+test("readDeviceRangeCatalogForFamily uses SD300 for QnU ST family and fixed Z range", async () => {
   const calls = [];
   const fakeClient = {
     async readDevices(device, points, options) {
+      const text = typeof device === "string" ? device : `${device.code}${device.number}`;
+      if (text.startsWith("ZR") || (calls.length > 0 && points === 1)) {
+        throw new slmp.SlmpError("rejected by test");
+      }
       calls.push({
-        device: `${device.code}${device.number}`,
+        device: text,
         points,
         bitUnit: Boolean(options.bitUnit),
       });
@@ -89,7 +97,7 @@ test("readDeviceRangeCatalogForFamily uses SD300 for QnU ST family and SD305 for
         300: 16,
         301: 1024,
         304: 2048,
-        305: 20,
+        305: 65535,
         308: 12288,
         310: 8192,
       });
