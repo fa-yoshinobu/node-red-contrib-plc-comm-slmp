@@ -14,9 +14,11 @@ Observed from the high-level `slmp-device-matrix` verification flow:
 - `LCC`
   - long counter coil remains a future support target
 - `G`
-  - routed high-level access still needs stable released support guidance
+  - routed high-level access still needs stable released support guidance;
+    QnUDV `U0\G10` read-only returned `0xC070` on the current target
 - `HG`
-  - routed high-level access still needs stable released support guidance
+  - routed high-level access still needs stable released support guidance;
+    Q-series targets such as QnUDV do not have `HG`
 - `LZ`
   - index-register high-level access still needs stable released support guidance
 - `LSTS`
