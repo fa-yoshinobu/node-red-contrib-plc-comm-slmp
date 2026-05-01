@@ -120,6 +120,51 @@ test("readDeviceRangeCatalogForFamily uses SD300 for QnU ST family and fixed Z r
   assert.equal(entries.R.addressRange, null);
 });
 
+test("readDeviceRangeCatalogForFamily exposes independent iQ-L range family", async () => {
+  const fakeClient = {
+    async readDevices(device, points, options) {
+      const text = typeof device === "string" ? device : `${device.code}${device.number}`;
+      assert.equal(text, "SD260");
+      assert.equal(points, 50);
+      assert.equal(Boolean(options.bitUnit), false);
+      return buildWords(260, 50, {
+        260: 0x3000,
+        262: 0x3000,
+        264: 12288,
+        266: 0x2000,
+        280: 18432,
+        282: 0x2000,
+        284: 0x0800,
+        288: 2048,
+        290: 32,
+        292: 512,
+        294: 1024,
+        296: 32,
+        298: 512,
+        300: 20,
+        302: 2,
+        306: 0xffff,
+        307: 0x000b,
+        308: 0x0000,
+        309: 0x0008,
+      });
+    },
+  };
+
+  const catalog = await slmp.readDeviceRangeCatalogForFamily(fakeClient, "iq-l");
+
+  assert.equal(catalog.family, slmp.SlmpDeviceRangeFamily.IqL);
+  assert.equal(catalog.model, "iQ-L");
+  const entries = Object.fromEntries(catalog.entries.map((entry) => [entry.device, entry]));
+  assert.equal(entries.SM.addressRange, "SM0-SM4095");
+  assert.equal(entries.SD.addressRange, "SD0-SD4095");
+  assert.equal(entries.D.addressRange, "D0-D18431");
+  assert.equal(entries.LZ.addressRange, "LZ0-LZ1");
+  assert.equal(entries.LTN.addressRange, "LTN0-LTN1023");
+  assert.equal(entries.LSTN.addressRange, "LSTN0-LSTN31");
+  assert.equal(entries.LCN.addressRange, "LCN0-LCN511");
+});
+
 test("device-range helpers only accept canonical family names", async () => {
   await assert.rejects(
     () => slmp.readDeviceRangeCatalogForFamily({ readDevices: async () => [] }, "iqr"),
