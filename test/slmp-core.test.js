@@ -38,7 +38,7 @@ test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {
     plcSeries: "iqr",
     frameType: "4e",
     deviceFamily: "iq-r",
-    rangeFamily: "iq-r",
+    rangeFamily: "iq-l",
   });
   assert.throws(
     () => resolveConnectionProfile({ plcFamily: "iq-r", plcSeries: "ql" }),
