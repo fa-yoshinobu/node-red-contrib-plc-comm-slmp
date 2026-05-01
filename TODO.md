@@ -37,6 +37,7 @@ Observed from the high-level `slmp-device-matrix` verification flow:
 
 ## Cross-Stack Alignment
 
+- [x] **Validate iQ-F X/Y octal handling on FX5 hardware**: FX5UC-32MT/D returned `X0000-X1777` and `Y0000-Y1777` as `Base8`; `X100` and `Y100` read successfully through iQ-F octal address parsing.
 - [x] **Keep control-message behavior aligned**: `connect`, `disconnect`, and `reinitialize` control handling is exposed consistently through the shared connection node and the read/write nodes.
 - [x] **Stabilize metadata schema**: The user-facing metadata modes now stay aligned around connection profile, effective target, and item-count summaries.
 - [x] **Keep route options explicit**: Target-routing fields remain explicit connection or message-level options; there is no hidden route auto-detection layer.
