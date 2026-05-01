@@ -78,8 +78,8 @@ Validated PLC models:
 Supported bit devices:
 
 - `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`
-- `TS`, `TC`, `STS`, `STC`
-- `CS`, `CC`
+- `TS`, `TC`, `LTS`, `LTC`, `STS`, `STC`, `LSTS`, `LSTC`
+- `CS`, `CC`, `LCS`, `LCC`
 - `SB`, `DX`, `DY`
 
 Supported word devices:
@@ -88,7 +88,7 @@ Supported word devices:
 - `TN`, `LTN`, `STN`, `LSTN`
 - `CN`, `LCN`
 - `SW`
-- `Z`
+- `Z`, `LZ`
 - `R`, `ZR`, `RD`
 
 Address notes:
@@ -101,7 +101,8 @@ Address notes:
 - word devices support `.bit`, for example `D50.3`
 - count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the high-level nodes
-- future device support candidates such as `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`, `G`, and `HG` are tracked in [`TODO.md`](../../TODO.md)
+- `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
+- future routed device support candidates such as `G` and `HG` are tracked in [`TODO.md`](../../TODO.md)
 
 ## Address model
 

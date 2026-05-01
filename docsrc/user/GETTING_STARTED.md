@@ -31,7 +31,9 @@ Do not start with these:
 
 - `slmp-device-matrix.json`
 - routed or multi-station requests
-- future-tracked families such as `G`, `HG`, `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, `LZ`
+- routed device families such as `G` and `HG`
+- long timer/counter state devices such as `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, and `LCC`
+- 32-bit-only devices such as `LTN`, `LSTN`, `LCN`, and `LZ`
 
 ## First Connection Checklist
 

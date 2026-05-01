@@ -16,10 +16,16 @@ This page is the canonical public register/device table for the Node-RED high-le
 | `B` | bit | `B20` | hexadecimal |
 | `TS` | bit | `TS10` | decimal |
 | `TC` | bit | `TC10` | decimal |
+| `LTS` | bit | `LTS10` | decimal |
+| `LTC` | bit | `LTC10` | decimal |
 | `STS` | bit | `STS10` | decimal |
 | `STC` | bit | `STC10` | decimal |
+| `LSTS` | bit | `LSTS10` | decimal |
+| `LSTC` | bit | `LSTC10` | decimal |
 | `CS` | bit | `CS10` | decimal |
 | `CC` | bit | `CC10` | decimal |
+| `LCS` | bit | `LCS10` | decimal |
+| `LCC` | bit | `LCC10` | decimal |
 | `SB` | bit | `SB20` | hexadecimal |
 | `DX` | bit | `DX20` | hexadecimal |
 | `DY` | bit | `DY20` | hexadecimal |
@@ -39,6 +45,7 @@ This page is the canonical public register/device table for the Node-RED high-le
 | `LCN` | word | `LCN10` | decimal |
 | `SW` | word | `SW20` | hexadecimal |
 | `Z` | word | `Z10` | decimal |
+| `LZ` | word | `LZ10` | decimal |
 | `R` | word | `R100` | decimal |
 | `ZR` | word | `ZR100` | decimal |
 | `RD` | word | `RD100` | decimal |
@@ -68,16 +75,12 @@ This page is the canonical public register/device table for the Node-RED high-le
 - Most other families use decimal numbers.
 - `.bit` is valid only on word devices such as `D50.3`.
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the public high-level nodes.
+- `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers.
+- `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`).
+- `LZ` defaults to 32-bit random DWord access in the public high-level nodes.
 
 ## Not Currently in the Public Surface
 
-- `LTS`
-- `LTC`
-- `LSTS`
-- `LSTC`
-- `LCS`
-- `LCC`
-- `LZ`
 - `G`
 - `HG`
 

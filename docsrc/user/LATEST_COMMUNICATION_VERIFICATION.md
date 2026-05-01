@@ -8,11 +8,13 @@ This page keeps the current public summary only. Older detailed notes are not ke
 - verified transports: `TCP`, `UDP`
 - verified public nodes: `slmp-connection`, `slmp-read`, `slmp-write`
 - retained first-run smoke path: `slmp-basic-read-write.json`
+- 2026-05-01 iQ-R live check: `R08CPU` at `192.168.250.100:1025` over TCP
+  returned `LCS10=false` and `LCC10=false` through `readNamed`
 
 ## Confirmed Public Register Scope
 
-- bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `STS`, `STC`, `CS`, `CC`, `SB`, `DX`, `DY`
-- word devices: `SD`, `D`, `W`, `TN`, `LTN`, `STN`, `LSTN`, `CN`, `LCN`, `SW`, `Z`, `R`, `ZR`, `RD`
+- bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `LTS`, `LTC`, `STS`, `STC`, `LSTS`, `LSTC`, `CS`, `CC`, `LCS`, `LCC`, `SB`, `DX`, `DY`
+- word devices: `SD`, `D`, `W`, `TN`, `LTN`, `STN`, `LSTN`, `CN`, `LCN`, `SW`, `Z`, `LZ`, `R`, `ZR`, `RD`
 - typed forms: `:S`, `:D`, `:L`, `:F`
 - high-level special forms: `.bit`, `,count`, `:STR`, `DSTR`
 

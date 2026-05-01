@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- remove stale user-guide and TODO wording that still described `LCS` and `LCC`
+  as future support; the high-level helpers route reads through direct bit read
+  and writes through random bit write (`0x1402`)
+- keep `G` and `HG` out of the default public device-matrix flow while they
+  remain routed-device follow-up items
+
 ## 0.2.10 - 2026-04-27
 
 - tighten SLMP device-name parsing to split by known device code instead of a greedy letter regex, so hexadecimal addresses such as `XFF` and `SWFF` parse correctly

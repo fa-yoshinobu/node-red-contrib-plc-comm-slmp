@@ -5,14 +5,11 @@
 These device families are tracked as future high-level support targets.
 Do not treat them as current released support in the README or user-facing guides.
 
-### Device matrix follow-up
+### Routed device follow-up
 
-Observed from the high-level `slmp-device-matrix` verification flow:
+Keep these out of the default public `slmp-device-matrix` flow until stable
+released support guidance is available:
 
-- `LCS`
-  - long counter contact remains a future support target
-- `LCC`
-  - long counter coil remains a future support target
 - `G`
   - routed high-level access still needs stable released support guidance;
     QnUDV `U0\G10` read-only returned `0xC070` on the current target
