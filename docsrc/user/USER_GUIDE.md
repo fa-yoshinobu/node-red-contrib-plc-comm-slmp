@@ -65,7 +65,7 @@ Configure these explicitly on the connection node:
 - PLC family: `iq-f`, `iq-r`, `iq-l`, `mx-f`, `mx-r`, `qcpu`, `lcpu`, `qnu`, or `qnudv`
 - route fields: network, station, module I/O, multidrop
 
-The connection node derives `frameType`, access profile, string-address interpretation, and device-range rules from the explicit `PLC family`.
+The connection node derives `frameType`, access profile, and string-address interpretation from the explicit `PLC family`.
 
 Validated PLC models:
 
@@ -98,11 +98,22 @@ Address notes:
 - `iq-f` interprets string `X/Y` addresses in octal
 - all other supported families interpret string `X/Y` addresses in hexadecimal
 - most other devices use decimal numbering
+- Node-RED input validation checks address format and protocol constraints, not PLC model-specific device ranges or upper bounds
+- if an address is outside the connected PLC's actual range, the PLC response is returned as the runtime error
+- Node-RED input validation does reject device codes that the selected `PLC family` does not expose in the public device table
 - word devices support `.bit`, for example `D50.3`
 - count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the high-level nodes
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
 - future routed device support candidates such as `G` and `HG` are tracked in [`TODO.md`](../../TODO.md)
+
+Family-specific unsupported device codes:
+
+- all families: `G`, `HG`
+- `iq-r`, `iq-l`, `mx-f`, `mx-r`: none beyond `G`, `HG`
+- `iq-f`: `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD`
+- `qcpu`: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD`
+- `lcpu`, `qnu`, `qnudv`: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD`
 
 ## Address model
 
@@ -110,6 +121,7 @@ The high-level address grammar keeps the same named-device foundation as the SLM
 
 - `D100`
 - `D100,10`
+- `D100:I`
 - `D200:F`
 - `D200:F,4`
 - `D300:L`
@@ -122,6 +134,7 @@ The high-level address grammar keeps the same named-device foundation as the SLM
 Rules:
 
 - `,count` returns an array for direct-bit, word, and DWord reads
+- `:I` is accepted as a signed 16-bit alias and normalizes to `:S`
 - `:STR,<length>` reads or writes a UTF-8 byte string packed two bytes per word
 - `DSTR100,10` is accepted as a compatibility alias for `D100:STR,10`
 - `.bit` stays scalar-only, so `.bit,count` is not supported
@@ -231,7 +244,7 @@ Import one of these into Node-RED, then update the connection host, port, transp
 - [`slmp-basic-read-write.json`](../../examples/flows/slmp-basic-read-write.json): scalar, float, and bit read/write over TCP
 - [`slmp-array-string.json`](../../examples/flows/slmp-array-string.json): array and string read/write over TCP
 - [`slmp-control-error.json`](../../examples/flows/slmp-control-error.json): control messages, configured `msg` source, and second-output errors
-- [`slmp-device-matrix.json`](../../examples/flows/slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with completed-result history, run summary, and JSONL logging under `Node-RED userDir/logs/slmp-device-matrix-<session>.jsonl`
+- [`slmp-device-matrix.json`](../../examples/flows/slmp-device-matrix.json): one-by-one and run-all high-level read, write, and readback across the matrix catalog with one outstanding request at a time, status lamp feedback, completed-result history, run summary, unsupported-device skip records, and JSONL logging under `Node-RED userDir/logs/slmp-device-matrix-<session>.jsonl`
 - [`slmp-routing.json`](../../examples/flows/slmp-routing.json): per-request routing with `msg.target`
 - [`slmp-udp-read-write.json`](../../examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
@@ -239,7 +252,7 @@ Recommended first import:
 
 - start with [`slmp-basic-read-write.json`](../../examples/flows/slmp-basic-read-write.json) for plain TCP smoke testing
 - move to [`slmp-array-string.json`](../../examples/flows/slmp-array-string.json) when you want to validate `,count` and string access
-- move to [`slmp-device-matrix.json`](../../examples/flows/slmp-device-matrix.json) when you want one-by-one high-level coverage across the matrix catalog and a persistent verification log
+- move to [`slmp-device-matrix.json`](../../examples/flows/slmp-device-matrix.json) when you want one-by-one or run-all high-level coverage across the matrix catalog and a persistent verification log
 - use [`slmp-control-error.json`](../../examples/flows/slmp-control-error.json) for `msg`-driven addresses, control messages, and second-output error routing
 
 ## Notes

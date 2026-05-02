@@ -1,513 +1,572 @@
 [
-    {
-        "id":  "tab-slmp-device-matrix",
-        "type":  "tab",
-        "label":  "SLMP Device Matrix",
-        "disabled":  false,
-        "info":  "High-level one-by-one sample for every supported device code. Edit the catalog in the function node before deploy if your PLC uses different ranges. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
-    },
-    {
-        "id":  "comment-slmp-device-matrix-main",
-        "type":  "comment",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "High-level one-by-one read/write sample with persistent JSONL logging and timeout tracking",
-        "info":  "",
-        "x":  350,
-        "y":  40,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "comment-slmp-device-matrix-edit",
-        "type":  "comment",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Edit the catalog in \u0027Prepare next device sample\u0027 before deploy. Completed results append to logs/slmp-device-matrix-\u003csession\u003e.jsonl",
-        "info":  "",
-        "x":  400,
-        "y":  80,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "inject-device-matrix-reset",
-        "type":  "inject",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Reset sequence + history",
-        "props":  [
-                      {
-                          "p":  "mode",
-                          "v":  "reset",
-                          "vt":  "str"
-                      }
-                  ],
-        "repeat":  "",
-        "crontab":  "",
-        "once":  false,
-        "onceDelay":  0.1,
-        "topic":  "",
-        "x":  140,
-        "y":  140,
-        "wires":  [
-                      [
-                          "function-device-matrix-router"
-                      ]
-                  ]
-    },
-    {
-        "id":  "inject-device-matrix-catalog",
-        "type":  "inject",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Show catalog",
-        "props":  [
-                      {
-                          "p":  "mode",
-                          "v":  "catalog",
-                          "vt":  "str"
-                      }
-                  ],
-        "repeat":  "",
-        "crontab":  "",
-        "once":  false,
-        "onceDelay":  0.1,
-        "topic":  "",
-        "x":  110,
-        "y":  180,
-        "wires":  [
-                      [
-                          "function-device-matrix-router"
-                      ]
-                  ]
-    },
-    {
-        "id":  "inject-device-matrix-read",
-        "type":  "inject",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Read next device",
-        "props":  [
-                      {
-                          "p":  "mode",
-                          "v":  "readNext",
-                          "vt":  "str"
-                      }
-                  ],
-        "repeat":  "",
-        "crontab":  "",
-        "once":  false,
-        "onceDelay":  0.1,
-        "topic":  "",
-        "x":  120,
-        "y":  220,
-        "wires":  [
-                      [
-                          "function-device-matrix-router"
-                      ]
-                  ]
-    },
-    {
-        "id":  "inject-device-matrix-write",
-        "type":  "inject",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Write next device",
-        "props":  [
-                      {
-                          "p":  "mode",
-                          "v":  "writeNext",
-                          "vt":  "str"
-                      }
-                  ],
-        "repeat":  "",
-        "crontab":  "",
-        "once":  false,
-        "onceDelay":  0.1,
-        "topic":  "",
-        "x":  120,
-        "y":  260,
-        "wires":  [
-                      [
-                          "function-device-matrix-router"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-router",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Prepare next device sample (edit catalog here)",
-        "func":  "const catalog = [\n    { code: \u0027SM\u0027, address: \u0027SM10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027SD\u0027, address: \u0027SD10\u0027, value: 1, note: \u0027word decimal\u0027 },\n    { code: \u0027X\u0027, address: \u0027X10\u0027, value: true, note: \u0027bit hexadecimal\u0027 },\n    { code: \u0027Y\u0027, address: \u0027Y10\u0027, value: true, note: \u0027bit hexadecimal\u0027 },\n    { code: \u0027M\u0027, address: \u0027M10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027L\u0027, address: \u0027L10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027F\u0027, address: \u0027F10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027V\u0027, address: \u0027V10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027B\u0027, address: \u0027B10\u0027, value: true, note: \u0027bit hexadecimal\u0027 },\n    { code: \u0027D\u0027, address: \u0027D30\u0027, value: 123, note: \u0027word decimal\u0027 },\n    { code: \u0027W\u0027, address: \u0027W10\u0027, value: 123, note: \u0027word hexadecimal\u0027 },\n    { code: \u0027TS\u0027, address: \u0027TS10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027TC\u0027, address: \u0027TC10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027TN\u0027, address: \u0027TN10\u0027, value: 123, note: \u0027word decimal\u0027 },\n    { code: \u0027LTS\u0027, address: \u0027LTS10\u0027, value: true, note: \u0027long timer contact\u0027 },\n    { code: \u0027LTC\u0027, address: \u0027LTC10\u0027, value: true, note: \u0027long timer coil\u0027 },\n    { code: \u0027LTN\u0027, address: \u0027LTN10\u0027, value: 123456, note: \u0027long timer current dword\u0027 },\n    { code: \u0027STS\u0027, address: \u0027STS10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027STC\u0027, address: \u0027STC10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027STN\u0027, address: \u0027STN10\u0027, value: 123, note: \u0027word decimal\u0027 },\n    { code: \u0027LSTS\u0027, address: \u0027LSTS10\u0027, value: true, note: \u0027long retentive timer contact\u0027 },\n    { code: \u0027LSTC\u0027, address: \u0027LSTC10\u0027, value: true, note: \u0027long retentive timer coil\u0027 },\n    { code: \u0027LSTN\u0027, address: \u0027LSTN10\u0027, value: 123456, note: \u0027long retentive timer current dword\u0027 },\n    { code: \u0027CS\u0027, address: \u0027CS10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027CC\u0027, address: \u0027CC10\u0027, value: true, note: \u0027bit decimal\u0027 },\n    { code: \u0027CN\u0027, address: \u0027CN10\u0027, value: 123, note: \u0027word decimal\u0027 },\n    { code: \u0027LCS\u0027, address: \u0027LCS10\u0027, value: true, note: \u0027long counter contact\u0027 },\n    { code: \u0027LCC\u0027, address: \u0027LCC10\u0027, value: true, note: \u0027long counter coil\u0027 },\n    { code: \u0027LCN\u0027, address: \u0027LCN10\u0027, value: 123456, note: \u0027long counter current dword\u0027 },\n    { code: \u0027SB\u0027, address: \u0027SB10\u0027, value: true, note: \u0027bit hexadecimal\u0027 },\n    { code: \u0027SW\u0027, address: \u0027SW10\u0027, value: 123, note: \u0027word hexadecimal\u0027 },\n    { code: \u0027DX\u0027, address: \u0027DX10\u0027, value: true, note: \u0027bit hexadecimal\u0027 },\n    { code: \u0027DY\u0027, address: \u0027DY10\u0027, value: true, note: \u0027bit hexadecimal\u0027 },\n    { code: \u0027Z\u0027, address: \u0027Z10\u0027, value: 1, note: \u0027word decimal\u0027 },\n    { code: \u0027LZ\u0027, address: \u0027LZ10\u0027, value: 1, note: \u0027word decimal\u0027 },\n    { code: \u0027R\u0027, address: \u0027R10\u0027, value: 123, note: \u0027word decimal\u0027 },\n    { code: \u0027ZR\u0027, address: \u0027ZR10\u0027, value: 123, note: \u0027word decimal\u0027 },\n    { code: \u0027RD\u0027, address: \u0027RD10\u0027, value: 123, note: \u0027word decimal\u0027 }\n];\n\nconst total = catalog.length;\nconst readKey = \u0027slmpDeviceMatrixReadIndex\u0027;\nconst writeKey = \u0027slmpDeviceMatrixWriteIndex\u0027;\nconst resultsKey = \u0027slmpDeviceMatrixResults\u0027;\nconst pendingKey = \u0027slmpDeviceMatrixPendingById\u0027;\nconst sessionKey = \u0027slmpDeviceMatrixSessionId\u0027;\nconst logPathKey = \u0027slmpDeviceMatrixLogPath\u0027;\nconst timeoutKey = \u0027slmpDeviceMatrixTimeoutMs\u0027;\nconst totalKey = \u0027slmpDeviceMatrixTotalCatalog\u0027;\nconst action = String(msg.mode || \u0027catalog\u0027);\n\nflow.set(totalKey, total);\nflow.set(\u0027slmpDeviceMatrixCatalog\u0027, catalog);\nif (!flow.get(timeoutKey)) {\n    flow.set(timeoutKey, 5000);\n}\n\nfunction makeSessionId() {\n    return new Date().toISOString().replace(/[:.]/g, \u0027-\u0027);\n}\n\nfunction ensureSessionId(reset) {\n    let sessionId = flow.get(sessionKey);\n    if (reset || !sessionId) {\n        sessionId = makeSessionId();\n        flow.set(sessionKey, sessionId);\n    }\n    return sessionId;\n}\n\nfunction ensureLogPath(sessionId, reset) {\n    let logPath = flow.get(logPathKey);\n    if (reset || !logPath) {\n        logPath = \u0027logs/slmp-device-matrix-\u0027 + sessionId + \u0027.jsonl\u0027;\n        flow.set(logPathKey, logPath);\n    }\n    return logPath;\n}\n\nfunction getPendingMap() {\n    return Object.assign({}, flow.get(pendingKey) || {});\n}\n\nfunction getResults() {\n    return Array.from(flow.get(resultsKey) || []);\n}\n\nfunction buildSummary() {\n    const results = getResults();\n    const pending = getPendingMap();\n    const summary = {\n        kind: \u0027summary\u0027,\n        sessionId: ensureSessionId(false),\n        logPath: ensureLogPath(ensureSessionId(false), false),\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === \u0027OK\u0027) {\n            summary.ok += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === \u0027MISMATCH\u0027) {\n                summary.mismatch += 1;\n            }\n            if (entry.status === \u0027TIMEOUT\u0027) {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nfunction registerPending(kind, index, entry) {\n    const sessionId = ensureSessionId(false);\n    const logPath = ensureLogPath(sessionId, false);\n    const now = new Date().toISOString();\n    const requestId = kind + \u0027-\u0027 + entry.code + \u0027-\u0027 + String(index + 1) + \u0027-\u0027 + String(Date.now());\n    const pending = getPendingMap();\n    const record = {\n        kind: \u0027result\u0027,\n        requestId: requestId,\n        sessionId: sessionId,\n        logPath: logPath,\n        operation: kind,\n        action: kind === \u0027write\u0027 ? \u0027write-readback\u0027 : \u0027read\u0027,\n        deviceCode: entry.code,\n        address: entry.address,\n        target: entry.target || null,\n        note: entry.note,\n        sequence: {\n            index: index + 1,\n            total: total\n        },\n        status: \u0027PENDING\u0027,\n        phase: kind === \u0027write\u0027 ? \u0027WRITE_PENDING\u0027 : \u0027READ_PENDING\u0027,\n        ok: null,\n        expectedValue: kind === \u0027write\u0027 ? entry.value : null,\n        writeValue: kind === \u0027write\u0027 ? entry.value : null,\n        writeStatus: kind === \u0027write\u0027 ? \u0027PENDING\u0027 : \u0027SKIPPED\u0027,\n        readValue: null,\n        readStatus: \u0027PENDING\u0027,\n        readbackStatus: kind === \u0027write\u0027 ? \u0027PENDING\u0027 : \u0027SKIPPED\u0027,\n        error: null,\n        startedAt: now,\n        updatedAt: now,\n        finishedAt: null\n    };\n    pending[requestId] = record;\n    flow.set(pendingKey, pending);\n    return record;\n}\n\nif (action === \u0027reset\u0027) {\n    const sessionId = ensureSessionId(true);\n    const logPath = ensureLogPath(sessionId, true);\n    flow.set(readKey, 0);\n    flow.set(writeKey, 0);\n    flow.set(resultsKey, []);\n    flow.set(pendingKey, {});\n    return [null, null, {\n        payload: {\n            kind: \u0027reset\u0027,\n            sessionId: sessionId,\n            logPath: logPath,\n            totalCatalog: total,\n            timeoutMs: flow.get(timeoutKey),\n            note: \u0027In-memory history cleared. Completed results append to the JSONL log file.\u0027\n        }\n    }];\n}\n\nif (action === \u0027catalog\u0027) {\n    const sessionId = ensureSessionId(false);\n    const logPath = ensureLogPath(sessionId, false);\n    return [null, null, {\n        payload: {\n            kind: \u0027catalog\u0027,\n            sessionId: sessionId,\n            logPath: logPath,\n            totalCatalog: total,\n            timeoutMs: flow.get(timeoutKey),\n            entries: catalog,\n            summary: buildSummary()\n        }\n    }];\n}\n\nif (action === \u0027readNext\u0027) {\n    const index = Number(flow.get(readKey) || 0) % total;\n    const entry = catalog[index];\n    flow.set(readKey, index + 1);\n    const record = registerPending(\u0027read\u0027, index, entry);\n    return [\n        {\n            topic: \u0027read:\u0027 + entry.code,\n            action: \u0027read\u0027,\n            requestId: record.requestId,\n            deviceSample: entry,\n            sequence: record.sequence,\n            startedAt: record.startedAt,\n            addresses: [entry.address],\n            target: entry.target || undefined\n        },\n        null,\n        { payload: record }\n    ];\n}\n\nif (action === \u0027writeNext\u0027) {\n    const index = Number(flow.get(writeKey) || 0) % total;\n    const entry = catalog[index];\n    flow.set(writeKey, index + 1);\n    const record = registerPending(\u0027write\u0027, index, entry);\n    const updates = {};\n    updates[entry.address] = entry.value;\n    return [\n        null,\n        {\n            topic: \u0027write:\u0027 + entry.code,\n            action: \u0027write\u0027,\n            requestId: record.requestId,\n            deviceSample: entry,\n            sequence: record.sequence,\n            startedAt: record.startedAt,\n            payload: updates,\n            target: entry.target || undefined\n        },\n        { payload: record }\n    ];\n}\n\nnode.error(\u0027Unknown mode: \u0027 + action, msg);\nreturn null;",
-        "outputs":  3,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  450,
-        "y":  200,
-        "wires":  [
-                      [
-                          "read-device-matrix"
-                      ],
-                      [
-                          "write-device-matrix"
-                      ],
-                      [
-                          "debug-device-matrix-status"
-                      ]
-                  ]
-    },
-    {
-        "id":  "read-device-matrix",
-        "type":  "slmp-read",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Read one sample",
-        "connection":  "cfg-slmp-device-matrix",
-        "addresses":  "addresses",
-        "addressesType":  "msg",
-        "outputMode":  "value",
-        "errorHandling":  "output2",
-        "x":  760,
-        "y":  180,
-        "wires":  [
-                      [
-                          "function-device-matrix-format-read-ok"
-                      ],
-                      [
-                          "function-device-matrix-format-read-error"
-                      ]
-                  ]
-    },
-    {
-        "id":  "write-device-matrix",
-        "type":  "slmp-write",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Write one sample",
-        "connection":  "cfg-slmp-device-matrix",
-        "updates":  "payload",
-        "updatesType":  "msg",
-        "errorHandling":  "output2",
-        "x":  760,
-        "y":  280,
-        "wires":  [
-                      [
-                          "function-device-matrix-format-write-ok"
-                      ],
-                      [
-                          "function-device-matrix-format-write-error"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-format-read-ok",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Finalize read result",
-        "func":  "const resultsKey = \u0027slmpDeviceMatrixResults\u0027;\nconst pendingKey = \u0027slmpDeviceMatrixPendingById\u0027;\nconst totalKey = \u0027slmpDeviceMatrixTotalCatalog\u0027;\nconst sessionKey = \u0027slmpDeviceMatrixSessionId\u0027;\nconst logPathKey = \u0027slmpDeviceMatrixLogPath\u0027;\nconst sample = msg.deviceSample || {};\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst now = new Date().toISOString();\nconst address = sample.address || ((msg.slmp \u0026\u0026 Array.isArray(msg.slmp.addresses) \u0026\u0026 msg.slmp.addresses[0]) || null);\n\nfunction valuesMatch(expected, actual) {\n    if (typeof expected === \u0027boolean\u0027) {\n        if (typeof actual === \u0027boolean\u0027) {\n            return expected === actual;\n        }\n        if (actual === 0 || actual === 1) {\n            return Boolean(actual) === expected;\n        }\n        if (actual === \u0027true\u0027 || actual === \u0027false\u0027) {\n            return (actual === \u0027true\u0027) === expected;\n        }\n    }\n    return JSON.stringify(actual) === JSON.stringify(expected);\n}\n\nfunction buildSummary() {\n    const summary = {\n        kind: \u0027summary\u0027,\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === \u0027OK\u0027) {\n            summary.ok += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === \u0027MISMATCH\u0027) {\n                summary.mismatch += 1;\n            }\n            if (entry.status === \u0027TIMEOUT\u0027) {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nconst record = Object.assign({\n    kind: \u0027result\u0027,\n    requestId: msg.requestId || (\u0027read-\u0027 + (sample.code || \u0027unknown\u0027) + \u0027-\u0027 + String(Date.now())),\n    sessionId: flow.get(sessionKey) || null,\n    logPath: flow.get(logPathKey) || null,\n    operation: msg.action === \u0027write-readback\u0027 ? \u0027write\u0027 : \u0027read\u0027,\n    action: msg.action || \u0027read\u0027,\n    deviceCode: sample.code || null,\n    address: address,\n    note: sample.note || \u0027\u0027,\n    sequence: msg.sequence || null,\n    status: \u0027PENDING\u0027,\n    phase: \u0027DONE\u0027,\n    ok: null,\n    expectedValue: null,\n    writeValue: null,\n    writeStatus: msg.action === \u0027write-readback\u0027 ? \u0027UNKNOWN\u0027 : \u0027SKIPPED\u0027,\n    readValue: null,\n    readStatus: \u0027PENDING\u0027,\n    readbackStatus: msg.action === \u0027write-readback\u0027 ? \u0027PENDING\u0027 : \u0027SKIPPED\u0027,\n    error: null,\n    startedAt: msg.startedAt || now,\n    updatedAt: now,\n    finishedAt: now\n}, pending[msg.requestId] || {});\n\nrecord.updatedAt = now;\nrecord.finishedAt = now;\nrecord.phase = \u0027DONE\u0027;\nrecord.address = address;\nrecord.deviceCode = sample.code || record.deviceCode;\nrecord.note = sample.note || record.note || \u0027\u0027;\nrecord.sequence = msg.sequence || record.sequence || null;\nrecord.readValue = msg.payload;\nrecord.error = null;\n\nif (msg.action === \u0027write-readback\u0027) {\n    const matched = valuesMatch(record.expectedValue, msg.payload);\n    record.writeStatus = record.writeStatus === \u0027OK\u0027 ? \u0027OK\u0027 : \u0027UNKNOWN\u0027;\n    record.readStatus = matched ? \u0027OK\u0027 : \u0027MISMATCH\u0027;\n    record.readbackStatus = matched ? \u0027OK\u0027 : \u0027MISMATCH\u0027;\n    record.status = matched ? \u0027OK\u0027 : \u0027MISMATCH\u0027;\n    record.ok = matched;\n    if (!matched) {\n        record.error = \u0027Readback mismatch\u0027;\n    }\n} else {\n    record.writeStatus = \u0027SKIPPED\u0027;\n    record.readStatus = \u0027OK\u0027;\n    record.readbackStatus = \u0027SKIPPED\u0027;\n    record.status = \u0027OK\u0027;\n    record.ok = true;\n}\n\nif (record.requestId \u0026\u0026 Object.prototype.hasOwnProperty.call(pending, record.requestId)) {\n    delete pending[record.requestId];\n}\nresults.push(record);\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nreturn [\n    { payload: record },\n    { payload: results },\n    { payload: buildSummary() },\n    { filename: flow.get(logPathKey), payload: JSON.stringify(record) }\n];",
-        "outputs":  4,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  1030,
-        "y":  160,
-        "wires":  [
-                      [
-                          "debug-device-matrix-latest"
-                      ],
-                      [
-                          "debug-device-matrix-history"
-                      ],
-                      [
-                          "debug-device-matrix-summary"
-                      ],
-                      [
-                          "file-device-matrix-log"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-format-read-error",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Finalize read error",
-        "func":  "const resultsKey = \u0027slmpDeviceMatrixResults\u0027;\nconst pendingKey = \u0027slmpDeviceMatrixPendingById\u0027;\nconst totalKey = \u0027slmpDeviceMatrixTotalCatalog\u0027;\nconst sessionKey = \u0027slmpDeviceMatrixSessionId\u0027;\nconst logPathKey = \u0027slmpDeviceMatrixLogPath\u0027;\nconst sample = msg.deviceSample || {};\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst now = new Date().toISOString();\nconst address = sample.address || ((msg.slmp \u0026\u0026 Array.isArray(msg.slmp.addresses) \u0026\u0026 msg.slmp.addresses[0]) || null);\n\nfunction buildSummary() {\n    const summary = {\n        kind: \u0027summary\u0027,\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === \u0027OK\u0027) {\n            summary.ok += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === \u0027MISMATCH\u0027) {\n                summary.mismatch += 1;\n            }\n            if (entry.status === \u0027TIMEOUT\u0027) {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nconst record = Object.assign({\n    kind: \u0027result\u0027,\n    requestId: msg.requestId || (\u0027read-\u0027 + (sample.code || \u0027unknown\u0027) + \u0027-\u0027 + String(Date.now())),\n    sessionId: flow.get(sessionKey) || null,\n    logPath: flow.get(logPathKey) || null,\n    operation: msg.action === \u0027write-readback\u0027 ? \u0027write\u0027 : \u0027read\u0027,\n    action: msg.action || \u0027read\u0027,\n    deviceCode: sample.code || null,\n    address: address,\n    note: sample.note || \u0027\u0027,\n    sequence: msg.sequence || null,\n    status: \u0027NG\u0027,\n    phase: \u0027DONE\u0027,\n    ok: false,\n    expectedValue: null,\n    writeValue: null,\n    writeStatus: msg.action === \u0027write-readback\u0027 ? \u0027UNKNOWN\u0027 : \u0027SKIPPED\u0027,\n    readValue: null,\n    readStatus: \u0027NG\u0027,\n    readbackStatus: msg.action === \u0027write-readback\u0027 ? \u0027NG\u0027 : \u0027SKIPPED\u0027,\n    error: null,\n    startedAt: msg.startedAt || now,\n    updatedAt: now,\n    finishedAt: now\n}, pending[msg.requestId] || {});\n\nrecord.updatedAt = now;\nrecord.finishedAt = now;\nrecord.phase = \u0027DONE\u0027;\nrecord.address = address;\nrecord.deviceCode = sample.code || record.deviceCode;\nrecord.note = sample.note || record.note || \u0027\u0027;\nrecord.sequence = msg.sequence || record.sequence || null;\nrecord.ok = false;\nrecord.status = \u0027NG\u0027;\nrecord.readValue = null;\nrecord.error = msg.error \u0026\u0026 msg.error.message ? msg.error.message : String(msg.error || \u0027Unknown read error\u0027);\n\nif (msg.action === \u0027write-readback\u0027) {\n    record.writeStatus = record.writeStatus === \u0027OK\u0027 ? \u0027OK\u0027 : \u0027UNKNOWN\u0027;\n    record.readStatus = \u0027NG\u0027;\n    record.readbackStatus = \u0027NG\u0027;\n} else {\n    record.writeStatus = \u0027SKIPPED\u0027;\n    record.readStatus = \u0027NG\u0027;\n    record.readbackStatus = \u0027SKIPPED\u0027;\n}\n\nif (record.requestId \u0026\u0026 Object.prototype.hasOwnProperty.call(pending, record.requestId)) {\n    delete pending[record.requestId];\n}\nresults.push(record);\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nreturn [\n    { payload: record },\n    { payload: results },\n    { payload: buildSummary() },\n    { filename: flow.get(logPathKey), payload: JSON.stringify(record) }\n];",
-        "outputs":  4,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  1030,
-        "y":  200,
-        "wires":  [
-                      [
-                          "debug-device-matrix-latest"
-                      ],
-                      [
-                          "debug-device-matrix-history"
-                      ],
-                      [
-                          "debug-device-matrix-summary"
-                      ],
-                      [
-                          "file-device-matrix-log"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-format-write-ok",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Mark write ok + read back",
-        "func":  "const pendingKey = \u0027slmpDeviceMatrixPendingById\u0027;\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst now = new Date().toISOString();\nconst sample = msg.deviceSample || {};\nconst updates = (msg.slmp \u0026\u0026 msg.slmp.updates) || msg.payload || {};\nconst address = sample.address || Object.keys(updates)[0] || null;\nconst writeValue = address \u0026\u0026 Object.prototype.hasOwnProperty.call(updates, address) ? updates[address] : null;\nconst record = pending[msg.requestId];\n\nif (record) {\n    record.phase = \u0027READBACK_PENDING\u0027;\n    record.writeStatus = \u0027OK\u0027;\n    record.writeValue = writeValue;\n    record.expectedValue = writeValue;\n    record.updatedAt = now;\n    pending[msg.requestId] = record;\n    flow.set(pendingKey, pending);\n}\n\nmsg.writeRequest = updates;\nmsg.action = \u0027write-readback\u0027;\nmsg.addresses = [address];\ndelete msg.payload;\nreturn msg;",
-        "outputs":  1,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  1030,
-        "y":  240,
-        "wires":  [
-                      [
-                          "read-device-matrix"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-format-write-error",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Finalize write error",
-        "func":  "const resultsKey = \u0027slmpDeviceMatrixResults\u0027;\nconst pendingKey = \u0027slmpDeviceMatrixPendingById\u0027;\nconst totalKey = \u0027slmpDeviceMatrixTotalCatalog\u0027;\nconst sessionKey = \u0027slmpDeviceMatrixSessionId\u0027;\nconst logPathKey = \u0027slmpDeviceMatrixLogPath\u0027;\nconst sample = msg.deviceSample || {};\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst now = new Date().toISOString();\nconst updates = (msg.slmp \u0026\u0026 msg.slmp.updates) || msg.payload || {};\nconst address = sample.address || Object.keys(updates)[0] || null;\n\nfunction buildSummary() {\n    const summary = {\n        kind: \u0027summary\u0027,\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === \u0027OK\u0027) {\n            summary.ok += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === \u0027MISMATCH\u0027) {\n                summary.mismatch += 1;\n            }\n            if (entry.status === \u0027TIMEOUT\u0027) {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nconst record = Object.assign({\n    kind: \u0027result\u0027,\n    requestId: msg.requestId || (\u0027write-\u0027 + (sample.code || \u0027unknown\u0027) + \u0027-\u0027 + String(Date.now())),\n    sessionId: flow.get(sessionKey) || null,\n    logPath: flow.get(logPathKey) || null,\n    operation: \u0027write\u0027,\n    action: \u0027write-readback\u0027,\n    deviceCode: sample.code || null,\n    address: address,\n    note: sample.note || \u0027\u0027,\n    sequence: msg.sequence || null,\n    status: \u0027NG\u0027,\n    phase: \u0027DONE\u0027,\n    ok: false,\n    expectedValue: address \u0026\u0026 Object.prototype.hasOwnProperty.call(updates, address) ? updates[address] : null,\n    writeValue: address \u0026\u0026 Object.prototype.hasOwnProperty.call(updates, address) ? updates[address] : null,\n    writeStatus: \u0027NG\u0027,\n    readValue: null,\n    readStatus: \u0027SKIPPED\u0027,\n    readbackStatus: \u0027SKIPPED\u0027,\n    error: null,\n    startedAt: msg.startedAt || now,\n    updatedAt: now,\n    finishedAt: now\n}, pending[msg.requestId] || {});\n\nrecord.updatedAt = now;\nrecord.finishedAt = now;\nrecord.phase = \u0027DONE\u0027;\nrecord.address = address;\nrecord.deviceCode = sample.code || record.deviceCode;\nrecord.note = sample.note || record.note || \u0027\u0027;\nrecord.sequence = msg.sequence || record.sequence || null;\nrecord.ok = false;\nrecord.status = \u0027NG\u0027;\nrecord.writeStatus = \u0027NG\u0027;\nrecord.readStatus = \u0027SKIPPED\u0027;\nrecord.readbackStatus = \u0027SKIPPED\u0027;\nrecord.error = msg.error \u0026\u0026 msg.error.message ? msg.error.message : String(msg.error || \u0027Unknown write error\u0027);\n\nif (record.requestId \u0026\u0026 Object.prototype.hasOwnProperty.call(pending, record.requestId)) {\n    delete pending[record.requestId];\n}\nresults.push(record);\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nreturn [\n    { payload: record },\n    { payload: results },\n    { payload: buildSummary() },\n    { filename: flow.get(logPathKey), payload: JSON.stringify(record) }\n];",
-        "outputs":  4,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  1030,
-        "y":  320,
-        "wires":  [
-                      [
-                          "debug-device-matrix-latest"
-                      ],
-                      [
-                          "debug-device-matrix-history"
-                      ],
-                      [
-                          "debug-device-matrix-summary"
-                      ],
-                      [
-                          "file-device-matrix-log"
-                      ]
-                  ]
-    },
-    {
-        "id":  "debug-device-matrix-status",
-        "type":  "debug",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Catalog / pending",
-        "active":  true,
-        "tosidebar":  true,
-        "console":  false,
-        "tostatus":  false,
-        "complete":  "payload",
-        "targetType":  "msg",
-        "x":  780,
-        "y":  120,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "debug-device-matrix-latest",
-        "type":  "debug",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Latest device result",
-        "active":  true,
-        "tosidebar":  true,
-        "console":  false,
-        "tostatus":  false,
-        "complete":  "payload",
-        "targetType":  "msg",
-        "x":  1300,
-        "y":  220,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "debug-device-matrix-history",
-        "type":  "debug",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Completed result history",
-        "active":  true,
-        "tosidebar":  true,
-        "console":  false,
-        "tostatus":  false,
-        "complete":  "payload",
-        "targetType":  "msg",
-        "x":  1290,
-        "y":  280,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "cfg-slmp-device-matrix",
-        "type":  "slmp-connection",
-        "name":  "PLC TCP 4E",
-        "host":  "192.168.250.100",
-        "port":  "1025",
-        "transport":  "tcp",
-        "timeout":  "3000",
-        "plcFamily":  "iq-r",
-        "monitoringTimer":  "16",
-        "network":  "0",
-        "station":  "255",
-        "moduleIO":  "03FF",
-        "multidrop":  "0"
-    },
-    {
-        "id":  "inject-device-matrix-summary",
-        "type":  "inject",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Show summary",
-        "props":  [
-                      {
-                          "p":  "mode",
-                          "v":  "summary",
-                          "vt":  "str"
-                      }
-                  ],
-        "repeat":  "",
-        "crontab":  "",
-        "once":  false,
-        "onceDelay":  0.1,
-        "topic":  "",
-        "x":  100,
-        "y":  300,
-        "wires":  [
-                      [
-                          "function-device-matrix-summary"
-                      ]
-                  ]
-    },
-    {
-        "id":  "inject-device-matrix-timeout",
-        "type":  "inject",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Timeout sweep (auto 1s)",
-        "props":  [
-                      {
-                          "p":  "mode",
-                          "v":  "timeoutSweep",
-                          "vt":  "str"
-                      }
-                  ],
-        "repeat":  "1",
-        "crontab":  "",
-        "once":  false,
-        "onceDelay":  0.1,
-        "topic":  "",
-        "x":  120,
-        "y":  340,
-        "wires":  [
-                      [
-                          "function-device-matrix-timeout"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-summary",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Show current matrix summary",
-        "func":  "const results = Array.from(flow.get(\u0027slmpDeviceMatrixResults\u0027) || []);\nconst pending = Object.assign({}, flow.get(\u0027slmpDeviceMatrixPendingById\u0027) || {});\nconst total = Number(flow.get(\u0027slmpDeviceMatrixTotalCatalog\u0027) || 0);\nconst summary = {\n    kind: \u0027summary\u0027,\n    sessionId: flow.get(\u0027slmpDeviceMatrixSessionId\u0027) || null,\n    logPath: flow.get(\u0027slmpDeviceMatrixLogPath\u0027) || null,\n    totalCatalog: total,\n    completed: results.length,\n    ok: 0,\n    ng: 0,\n    mismatch: 0,\n    timeout: 0,\n    pending: Object.keys(pending).length,\n    pendingIds: Object.keys(pending),\n    pendingEntries: Object.values(pending)\n};\nfor (const entry of results) {\n    if (entry.status === \u0027OK\u0027) {\n        summary.ok += 1;\n    } else {\n        summary.ng += 1;\n        if (entry.status === \u0027MISMATCH\u0027) {\n            summary.mismatch += 1;\n        }\n        if (entry.status === \u0027TIMEOUT\u0027) {\n            summary.timeout += 1;\n        }\n    }\n}\nmsg.payload = summary;\nreturn msg;",
-        "outputs":  1,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  360,
-        "y":  300,
-        "wires":  [
-                      [
-                          "debug-device-matrix-summary"
-                      ]
-                  ]
-    },
-    {
-        "id":  "function-device-matrix-timeout",
-        "type":  "function",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Finalize timed out operations",
-        "func":  "const resultsKey = \u0027slmpDeviceMatrixResults\u0027;\nconst pendingKey = \u0027slmpDeviceMatrixPendingById\u0027;\nconst totalKey = \u0027slmpDeviceMatrixTotalCatalog\u0027;\nconst sessionKey = \u0027slmpDeviceMatrixSessionId\u0027;\nconst logPathKey = \u0027slmpDeviceMatrixLogPath\u0027;\nconst timeoutMs = Number(flow.get(\u0027slmpDeviceMatrixTimeoutMs\u0027) || 5000);\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst nowMs = Date.now();\nconst timedOut = [];\n\nfunction buildSummary() {\n    const summary = {\n        kind: \u0027summary\u0027,\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === \u0027OK\u0027) {\n            summary.ok += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === \u0027MISMATCH\u0027) {\n                summary.mismatch += 1;\n            }\n            if (entry.status === \u0027TIMEOUT\u0027) {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nfor (const requestId of Object.keys(pending)) {\n    const record = pending[requestId];\n    const started = Date.parse(record.updatedAt || record.startedAt || \u0027\u0027);\n    if (!Number.isFinite(started)) {\n        continue;\n    }\n    if ((nowMs - started) \u003c timeoutMs) {\n        continue;\n    }\n\n    const finishedAt = new Date().toISOString();\n    const timedOutRecord = Object.assign({}, record, {\n        status: \u0027TIMEOUT\u0027,\n        phase: \u0027DONE\u0027,\n        ok: false,\n        error: \u0027No completion within \u0027 + String(timeoutMs) + \u0027 ms\u0027,\n        updatedAt: finishedAt,\n        finishedAt: finishedAt\n    });\n\n    if (timedOutRecord.operation === \u0027write\u0027) {\n        if (timedOutRecord.writeStatus === \u0027PENDING\u0027) {\n            timedOutRecord.writeStatus = \u0027TIMEOUT\u0027;\n            timedOutRecord.readStatus = \u0027SKIPPED\u0027;\n            timedOutRecord.readbackStatus = \u0027SKIPPED\u0027;\n        } else {\n            timedOutRecord.readStatus = \u0027TIMEOUT\u0027;\n            timedOutRecord.readbackStatus = \u0027TIMEOUT\u0027;\n        }\n    } else {\n        timedOutRecord.writeStatus = \u0027SKIPPED\u0027;\n        timedOutRecord.readStatus = \u0027TIMEOUT\u0027;\n        timedOutRecord.readbackStatus = \u0027SKIPPED\u0027;\n    }\n\n    delete pending[requestId];\n    results.push(timedOutRecord);\n    timedOut.push(timedOutRecord);\n}\n\nif (timedOut.length === 0) {\n    return null;\n}\n\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nreturn [\n    timedOut.map(function (entry) { return { payload: entry }; }),\n    [{ payload: results }],\n    [{ payload: buildSummary() }],\n    timedOut.map(function (entry) {\n        return {\n            filename: flow.get(logPathKey),\n            payload: JSON.stringify(entry)\n        };\n    })\n];",
-        "outputs":  4,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  380,
-        "y":  340,
-        "wires":  [
-                      [
-                          "debug-device-matrix-latest"
-                      ],
-                      [
-                          "debug-device-matrix-history"
-                      ],
-                      [
-                          "debug-device-matrix-summary"
-                      ],
-                      [
-                          "file-device-matrix-log"
-                      ]
-                  ]
-    },
-    {
-        "id":  "debug-device-matrix-summary",
-        "type":  "debug",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Run summary",
-        "active":  true,
-        "tosidebar":  true,
-        "console":  false,
-        "tostatus":  false,
-        "complete":  "payload",
-        "targetType":  "msg",
-        "x":  1290,
-        "y":  340,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "file-device-matrix-log",
-        "type":  "file",
-        "z":  "tab-slmp-device-matrix",
-        "name":  "Append JSONL result log",
-        "filename":  "filename",
-        "filenameType":  "msg",
-        "appendNewline":  true,
-        "createDir":  true,
-        "overwriteFile":  "false",
-        "encoding":  "none",
-        "x":  1310,
-        "y":  400,
-        "wires":  [
-
-                  ]
-    }
+  {
+    "id": "tab-slmp-device-matrix",
+    "type": "tab",
+    "label": "SLMP Device Matrix",
+    "disabled": false,
+    "info": "High-level one-by-one sample for every device code in the sample catalog. The flow sends each sample to slmp-read/slmp-write with slmpSkipUnsupported=true; the node itself decides unsupported device codes from the configured connection plcFamily and routes those results as SKIPPED instead of making the matrix node red."
+  },
+  {
+    "id": "comment-slmp-device-matrix-main",
+    "type": "comment",
+    "z": "tab-slmp-device-matrix",
+    "name": "High-level one-by-one read/write sample with JSONL logging, timeout tracking, and unsupported-device skip records",
+    "info": "",
+    "x": 350,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "comment-slmp-device-matrix-edit",
+    "type": "comment",
+    "z": "tab-slmp-device-matrix",
+    "name": "Edit the catalog in 'Prepare next device sample' before deploy. Completed results append to logs/slmp-device-matrix-<session>.jsonl",
+    "info": "",
+    "x": 400,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "inject-device-matrix-reset",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Reset sequence + history",
+    "props": [
+      {
+        "p": "mode",
+        "v": "reset",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 140,
+    "y": 140,
+    "wires": [
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "inject-device-matrix-catalog",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Show catalog",
+    "props": [
+      {
+        "p": "mode",
+        "v": "catalog",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 110,
+    "y": 180,
+    "wires": [
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "inject-device-matrix-read",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Read next device",
+    "props": [
+      {
+        "p": "mode",
+        "v": "readNext",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 120,
+    "y": 220,
+    "wires": [
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "inject-device-matrix-run-all-write",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Run all writes",
+    "props": [
+      {
+        "p": "mode",
+        "v": "runAllWrites",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 110,
+    "y": 340,
+    "wires": [
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "inject-device-matrix-run-all-read",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Run all reads",
+    "props": [
+      {
+        "p": "mode",
+        "v": "runAllReads",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 110,
+    "y": 300,
+    "wires": [
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "inject-device-matrix-write",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Write next device",
+    "props": [
+      {
+        "p": "mode",
+        "v": "writeNext",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 120,
+    "y": 260,
+    "wires": [
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-router",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Prepare next device sample (edit catalog here)",
+    "func": "const catalog = [\n    { code: 'SM', address: 'SM10', value: true, note: 'bit decimal' },\n    { code: 'SD', address: 'SD10', value: 1, note: 'word decimal' },\n    { code: 'X', address: 'X10', value: true, note: 'bit hexadecimal' },\n    { code: 'Y', address: 'Y10', value: true, note: 'bit hexadecimal' },\n    { code: 'M', address: 'M10', value: true, note: 'bit decimal' },\n    { code: 'M', address: 'M20,4', value: [true, false, true, true], note: 'bit array/block' },\n    { code: 'L', address: 'L10', value: true, note: 'bit decimal' },\n    { code: 'F', address: 'F10', value: true, note: 'bit decimal' },\n    { code: 'V', address: 'V10', value: true, note: 'bit decimal' },\n    { code: 'B', address: 'B10', value: true, note: 'bit hexadecimal' },\n    { code: 'D', address: 'D30', value: 123, note: 'word decimal' },\n    { code: 'D', address: 'D31:S', value: -22, note: 'signed 16-bit' },\n    { code: 'D', address: 'D32:U', value: 65530, note: 'unsigned 16-bit explicit' },\n    { code: 'D', address: 'D33:I', value: -123, note: 'signed 16-bit I alias' },\n    { code: 'D', address: 'D40:D', value: 987654321, note: 'unsigned 32-bit' },\n    { code: 'D', address: 'D42:L', value: -2023406815, note: 'signed 32-bit' },\n    { code: 'D', address: 'D44:F', value: 45.5, note: 'float32' },\n    { code: 'D', address: 'D50,4', value: [1, 2, 3, 4], note: 'word array/block' },\n    { code: 'D', address: 'D60.3', value: true, note: 'bit in word' },\n    { code: 'D', address: 'D70:STR,6', value: 'SLMP', note: 'string block' },\n    { code: 'W', address: 'W10', value: 123, note: 'word hexadecimal' },\n    { code: 'TS', address: 'TS10', value: true, note: 'bit decimal' },\n    { code: 'TC', address: 'TC10', value: true, note: 'bit decimal' },\n    { code: 'TN', address: 'TN10', value: 123, note: 'word decimal' },\n    { code: 'LTS', address: 'LTS10', value: true, note: 'long timer contact' },\n    { code: 'LTC', address: 'LTC10', value: true, note: 'long timer coil' },\n    { code: 'LTN', address: 'LTN10', value: 123456, note: 'long timer current dword' },\n    { code: 'STS', address: 'STS10', value: true, note: 'bit decimal' },\n    { code: 'STC', address: 'STC10', value: true, note: 'bit decimal' },\n    { code: 'STN', address: 'STN10', value: 123, note: 'word decimal' },\n    { code: 'LSTS', address: 'LSTS10', value: true, note: 'long retentive timer contact' },\n    { code: 'LSTC', address: 'LSTC10', value: true, note: 'long retentive timer coil' },\n    { code: 'LSTN', address: 'LSTN10', value: 123456, note: 'long retentive timer current dword' },\n    { code: 'CS', address: 'CS10', value: true, note: 'bit decimal' },\n    { code: 'CC', address: 'CC10', value: true, note: 'bit decimal' },\n    { code: 'CN', address: 'CN10', value: 123, note: 'word decimal' },\n    { code: 'LCS', address: 'LCS10', value: true, note: 'long counter contact' },\n    { code: 'LCC', address: 'LCC10', value: true, note: 'long counter coil' },\n    { code: 'LCN', address: 'LCN10', value: 123456, note: 'long counter current dword' },\n    { code: 'SB', address: 'SB10', value: true, note: 'bit hexadecimal' },\n    { code: 'SW', address: 'SW10', value: 123, note: 'word hexadecimal' },\n    { code: 'DX', address: 'DX10', value: true, note: 'bit hexadecimal' },\n    { code: 'DY', address: 'DY10', value: true, note: 'bit hexadecimal' },\n    { code: 'Z', address: 'Z10', value: 1, note: 'word decimal' },\n    { code: 'LZ', address: 'LZ0', value: 1, note: 'long index register dword' },\n    { code: 'R', address: 'R10', value: 123, note: 'word decimal' },\n    { code: 'ZR', address: 'ZR10', value: 123, note: 'word decimal' },\n    { code: 'RD', address: 'RD10', value: 123, note: 'word decimal' }\n];\n\nconst matrixPlcFamily = 'connection';\nconst activeCatalog = catalog;\nconst skippedCatalog = [];\n\nconst total = activeCatalog.length;\nconst readKey = 'slmpDeviceMatrixReadIndex';\nconst writeKey = 'slmpDeviceMatrixWriteIndex';\nconst resultsKey = 'slmpDeviceMatrixResults';\nconst pendingKey = 'slmpDeviceMatrixPendingById';\nconst sessionKey = 'slmpDeviceMatrixSessionId';\nconst logPathKey = 'slmpDeviceMatrixLogPath';\nconst timeoutKey = 'slmpDeviceMatrixTimeoutMs';\nconst totalKey = 'slmpDeviceMatrixTotalCatalog';\nconst autoModeKey = 'slmpDeviceMatrixAutoMode';\nconst autoRemainingKey = 'slmpDeviceMatrixAutoRemaining';\nconst action = String(msg.mode || 'catalog');\n\nflow.set(totalKey, total);\nflow.set('slmpDeviceMatrixCatalog', activeCatalog);\nflow.set('slmpDeviceMatrixSkippedCatalog', skippedCatalog);\nif (!flow.get(timeoutKey)) {\n    flow.set(timeoutKey, 5000);\n}\n\nfunction makeSessionId() {\n    return new Date().toISOString().replace(/[:.]/g, '-');\n}\n\nfunction ensureSessionId(reset) {\n    let sessionId = flow.get(sessionKey);\n    if (reset || !sessionId) {\n        sessionId = makeSessionId();\n        flow.set(sessionKey, sessionId);\n    }\n    return sessionId;\n}\n\nfunction ensureLogPath(sessionId, reset) {\n    let logPath = flow.get(logPathKey);\n    if (reset || !logPath) {\n        logPath = 'logs/slmp-device-matrix-' + sessionId + '.jsonl';\n        flow.set(logPathKey, logPath);\n    }\n    return logPath;\n}\n\nfunction getPendingMap() {\n    return Object.assign({}, flow.get(pendingKey) || {});\n}\n\nfunction getResults() {\n    return Array.from(flow.get(resultsKey) || []);\n}\n\nfunction buildSummary() {\n    const results = getResults();\n    const pending = getPendingMap();\n    const summary = {\n        kind: 'summary',\n        sessionId: ensureSessionId(false),\n        logPath: ensureLogPath(ensureSessionId(false), false),\n        totalCatalog: total,\n        rawCatalog: catalog.length,\n        skippedCatalog: skippedCatalog.length,\n        plcFamily: matrixPlcFamily,\n        autoMode: flow.get(autoModeKey) || null,\n        autoRemaining: Number(flow.get(autoRemainingKey) || 0),\n        completed: results.length,\n        ok: 0,\n        skipped: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === 'OK') {\n            summary.ok += 1;\n        } else if (entry.status === 'SKIPPED') {\n            summary.skipped += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === 'MISMATCH') {\n                summary.mismatch += 1;\n            }\n            if (entry.status === 'TIMEOUT') {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nfunction startAutoRun(mode) {\n    flow.set(autoModeKey, mode);\n    flow.set(autoRemainingKey, total);\n}\n\nfunction takeAutoSlot(mode) {\n    if (flow.get(autoModeKey) !== mode) {\n        return;\n    }\n    const remaining = Number(flow.get(autoRemainingKey) || 0);\n    flow.set(autoRemainingKey, Math.max(remaining - 1, 0));\n}\n\nfunction blockWhenPending(actionName) {\n    const pending = getPendingMap();\n    const pendingIds = Object.keys(pending);\n    if (pendingIds.length === 0) {\n        return null;\n    }\n    return [null, null, {\n        payload: {\n            kind: 'busy',\n            status: 'WAITING_FOR_PENDING',\n            requestedAction: actionName,\n            pending: pendingIds.length,\n            pendingIds: pendingIds,\n            summary: buildSummary(),\n            note: 'Wait for the current read/write result or timeout before sending the next sample.'\n        }\n    }];\n}\n\nfunction registerPending(kind, index, entry) {\n    const sessionId = ensureSessionId(false);\n    const logPath = ensureLogPath(sessionId, false);\n    const now = new Date().toISOString();\n    const requestId = kind + '-' + entry.code + '-' + String(index + 1) + '-' + String(Date.now());\n    const pending = getPendingMap();\n    const record = {\n        kind: 'result',\n        plcFamily: matrixPlcFamily,\n        requestId: requestId,\n        sessionId: sessionId,\n        logPath: logPath,\n        operation: kind,\n        action: kind === 'write' ? 'write-readback' : 'read',\n        deviceCode: entry.code,\n        address: entry.address,\n        target: entry.target || null,\n        note: entry.note,\n        sequence: {\n            index: index + 1,\n            total: total\n        },\n        status: 'PENDING',\n        phase: kind === 'write' ? 'WRITE_PENDING' : 'READ_PENDING',\n        ok: null,\n        expectedValue: kind === 'write' ? entry.value : null,\n        writeValue: kind === 'write' ? entry.value : null,\n        writeStatus: kind === 'write' ? 'PENDING' : 'SKIPPED',\n        readValue: null,\n        readStatus: 'PENDING',\n        readbackStatus: kind === 'write' ? 'PENDING' : 'SKIPPED',\n        error: null,\n        startedAt: now,\n        updatedAt: now,\n        finishedAt: null\n    };\n    pending[requestId] = record;\n    flow.set(pendingKey, pending);\n    return record;\n}\n\nif (action === 'reset') {\n    const sessionId = ensureSessionId(true);\n    const logPath = ensureLogPath(sessionId, true);\n    flow.set(readKey, 0);\n    flow.set(writeKey, 0);\n    flow.set(resultsKey, []);\n    flow.set(pendingKey, {});\n    flow.set(autoModeKey, '');\n    flow.set(autoRemainingKey, 0);\n    return [null, null, {\n        payload: {\n            kind: 'reset',\n            sessionId: sessionId,\n            logPath: logPath,\n            totalCatalog: total,\n            rawCatalog: catalog.length,\n            skippedCatalog: skippedCatalog.length,\n            plcFamily: matrixPlcFamily,\n            autoMode: flow.get(autoModeKey) || null,\n            autoRemaining: Number(flow.get(autoRemainingKey) || 0),\n            timeoutMs: flow.get(timeoutKey),\n            note: 'In-memory history cleared. Completed results append to the JSONL log file.'\n        }\n    }];\n}\n\nif (action === 'catalog') {\n    const sessionId = ensureSessionId(false);\n    const logPath = ensureLogPath(sessionId, false);\n    return [null, null, {\n        payload: {\n            kind: 'catalog',\n            sessionId: sessionId,\n            logPath: logPath,\n            totalCatalog: total,\n            rawCatalog: catalog.length,\n            skippedCatalog: skippedCatalog.length,\n            plcFamily: matrixPlcFamily,\n            autoMode: flow.get(autoModeKey) || null,\n            autoRemaining: Number(flow.get(autoRemainingKey) || 0),\n            timeoutMs: flow.get(timeoutKey),\n            entries: activeCatalog,\n            skippedEntries: skippedCatalog,\n            summary: buildSummary()\n        }\n    }];\n}\n\nif (action === 'runAllReads') {\n    const busy = blockWhenPending(action);\n    if (busy) {\n        return busy;\n    }\n    flow.set(readKey, 0);\n    startAutoRun('read');\n}\n\nif (action === 'readNext' || action === 'runAllReads') {\n    const busy = action === 'runAllReads' ? null : blockWhenPending(action);\n    if (busy) {\n        return busy;\n    }\n    const index = Number(flow.get(readKey) || 0) % total;\n    const entry = activeCatalog[index];\n    flow.set(readKey, index + 1);\n    const record = registerPending('read', index, entry);\n    takeAutoSlot('read');\n    return [\n        {\n            topic: 'read:' + entry.code,\n            action: 'read',\n            requestId: record.requestId,\n            deviceSample: entry,\n            sequence: record.sequence,\n            startedAt: record.startedAt,\n            addresses: [entry.address],\n            target: entry.target || undefined,\n            slmpSkipUnsupported: true,\n            slmp: { skipUnsupported: true }\n        },\n        null,\n        { payload: record }\n    ];\n}\n\nif (action === 'runAllWrites') {\n    const busy = blockWhenPending(action);\n    if (busy) {\n        return busy;\n    }\n    flow.set(writeKey, 0);\n    startAutoRun('write');\n}\n\nif (action === 'writeNext' || action === 'runAllWrites') {\n    const busy = action === 'runAllWrites' ? null : blockWhenPending(action);\n    if (busy) {\n        return busy;\n    }\n    const index = Number(flow.get(writeKey) || 0) % total;\n    const entry = activeCatalog[index];\n    flow.set(writeKey, index + 1);\n    const record = registerPending('write', index, entry);\n    takeAutoSlot('write');\n    const updates = {};\n    updates[entry.address] = entry.value;\n    return [\n        null,\n        {\n            topic: 'write:' + entry.code,\n            action: 'write',\n            requestId: record.requestId,\n            deviceSample: entry,\n            sequence: record.sequence,\n            startedAt: record.startedAt,\n            payload: updates,\n            target: entry.target || undefined,\n            slmpSkipUnsupported: true,\n            slmp: { skipUnsupported: true }\n        },\n        { payload: record }\n    ];\n}\n\nnode.error('Unknown mode: ' + action, msg);\nreturn null;",
+    "outputs": 3,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 450,
+    "y": 200,
+    "wires": [
+      [
+        "read-device-matrix"
+      ],
+      [
+        "write-device-matrix"
+      ],
+      [
+        "debug-device-matrix-status",
+        "function-device-matrix-auto-status-lamp"
+      ]
+    ]
+  },
+  {
+    "id": "read-device-matrix",
+    "type": "slmp-read",
+    "z": "tab-slmp-device-matrix",
+    "name": "Read one sample",
+    "connection": "cfg-slmp-device-matrix",
+    "addresses": "addresses",
+    "addressesType": "msg",
+    "outputMode": "value",
+    "errorHandling": "output2",
+    "outputs": 2,
+    "x": 760,
+    "y": 180,
+    "wires": [
+      [
+        "function-device-matrix-format-read-ok"
+      ],
+      [
+        "function-device-matrix-format-read-error"
+      ]
+    ]
+  },
+  {
+    "id": "write-device-matrix",
+    "type": "slmp-write",
+    "z": "tab-slmp-device-matrix",
+    "name": "Write one sample",
+    "connection": "cfg-slmp-device-matrix",
+    "updates": "payload",
+    "updatesType": "msg",
+    "errorHandling": "output2",
+    "outputs": 2,
+    "x": 760,
+    "y": 280,
+    "wires": [
+      [
+        "function-device-matrix-format-write-ok"
+      ],
+      [
+        "function-device-matrix-format-write-error"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-format-read-ok",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Finalize read result",
+    "func": "const resultsKey = 'slmpDeviceMatrixResults';\nconst pendingKey = 'slmpDeviceMatrixPendingById';\nconst totalKey = 'slmpDeviceMatrixTotalCatalog';\nconst sessionKey = 'slmpDeviceMatrixSessionId';\nconst logPathKey = 'slmpDeviceMatrixLogPath';\nconst autoModeKey = 'slmpDeviceMatrixAutoMode';\nconst autoRemainingKey = 'slmpDeviceMatrixAutoRemaining';\nconst sample = msg.deviceSample || {};\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst now = new Date().toISOString();\nconst address = sample.address || ((msg.slmp && Array.isArray(msg.slmp.addresses) && msg.slmp.addresses[0]) || null);\n\nfunction valuesMatch(expected, actual) {\n    if (typeof expected === 'boolean') {\n        if (typeof actual === 'boolean') {\n            return expected === actual;\n        }\n        if (actual === 0 || actual === 1) {\n            return Boolean(actual) === expected;\n        }\n        if (actual === 'true' || actual === 'false') {\n            return (actual === 'true') === expected;\n        }\n    }\n    return JSON.stringify(actual) === JSON.stringify(expected);\n}\n\nfunction resolvePlcFamily(message, fallback) {\n    return (message.slmp && message.slmp.connection && message.slmp.connection.plcFamily) || fallback || null;\n}\n\nfunction buildAutoNext(record) {\n    const autoMode = flow.get(autoModeKey);\n    const remaining = Number(flow.get(autoRemainingKey) || 0);\n    if (!((autoMode === 'read' && record.operation === 'read') || (autoMode === 'write' && record.operation === 'write'))) {\n        return null;\n    }\n    if (remaining > 0) {\n        return { mode: autoMode === 'write' ? 'writeNext' : 'readNext', autoRun: true };\n    }\n    flow.set(autoModeKey, '');\n    flow.set(autoRemainingKey, 0);\n    return null;\n}\n\nfunction buildSummary() {\n    const summary = {\n        kind: 'summary',\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        skipped: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === 'OK') {\n            summary.ok += 1;\n        } else if (entry.status === 'SKIPPED') {\n            summary.skipped += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === 'MISMATCH') {\n                summary.mismatch += 1;\n            }\n            if (entry.status === 'TIMEOUT') {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nconst record = Object.assign({\n    kind: 'result',\n    plcFamily: null,\n    requestId: msg.requestId || ('read-' + (sample.code || 'unknown') + '-' + String(Date.now())),\n    sessionId: flow.get(sessionKey) || null,\n    logPath: flow.get(logPathKey) || null,\n    operation: msg.action === 'write-readback' ? 'write' : 'read',\n    action: msg.action || 'read',\n    deviceCode: sample.code || null,\n    address: address,\n    note: sample.note || '',\n    sequence: msg.sequence || null,\n    status: 'PENDING',\n    phase: 'DONE',\n    ok: null,\n    expectedValue: null,\n    writeValue: null,\n    writeStatus: msg.action === 'write-readback' ? 'UNKNOWN' : 'SKIPPED',\n    readValue: null,\n    readStatus: 'PENDING',\n    readbackStatus: msg.action === 'write-readback' ? 'PENDING' : 'SKIPPED',\n    error: null,\n    startedAt: msg.startedAt || now,\n    updatedAt: now,\n    finishedAt: now\n}, pending[msg.requestId] || {});\n\nrecord.updatedAt = now;\nrecord.finishedAt = now;\nrecord.phase = 'DONE';\nrecord.address = address;\nrecord.deviceCode = sample.code || record.deviceCode;\nrecord.note = sample.note || record.note || '';\nrecord.plcFamily = resolvePlcFamily(msg, record.plcFamily);\nrecord.sequence = msg.sequence || record.sequence || null;\nrecord.readValue = msg.payload;\nrecord.error = null;\n\nif (msg.action === 'write-readback') {\n    const matched = valuesMatch(record.expectedValue, msg.payload);\n    record.writeStatus = record.writeStatus === 'OK' ? 'OK' : 'UNKNOWN';\n    record.readStatus = matched ? 'OK' : 'MISMATCH';\n    record.readbackStatus = matched ? 'OK' : 'MISMATCH';\n    record.status = matched ? 'OK' : 'MISMATCH';\n    record.ok = matched;\n    if (!matched) {\n        record.error = 'Readback mismatch';\n    }\n} else {\n    record.writeStatus = 'SKIPPED';\n    record.readStatus = 'OK';\n    record.readbackStatus = 'SKIPPED';\n    record.status = 'OK';\n    record.ok = true;\n}\n\nif (record.requestId && Object.prototype.hasOwnProperty.call(pending, record.requestId)) {\n    delete pending[record.requestId];\n}\nresults.push(record);\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nconst autoNext = buildAutoNext(record);\nreturn [\n    { payload: record },\n    { payload: results },\n    { payload: buildSummary() },\n    { filename: flow.get(logPathKey), payload: JSON.stringify(record) },\n    autoNext\n];",
+    "outputs": 5,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1030,
+    "y": 160,
+    "wires": [
+      [
+        "debug-device-matrix-latest"
+      ],
+      [
+        "debug-device-matrix-history"
+      ],
+      [
+        "debug-device-matrix-summary",
+        "function-device-matrix-auto-status-lamp"
+      ],
+      [
+        "file-device-matrix-log"
+      ],
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-format-read-error",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Finalize read error",
+    "func": "const resultsKey = 'slmpDeviceMatrixResults';\nconst pendingKey = 'slmpDeviceMatrixPendingById';\nconst totalKey = 'slmpDeviceMatrixTotalCatalog';\nconst sessionKey = 'slmpDeviceMatrixSessionId';\nconst logPathKey = 'slmpDeviceMatrixLogPath';\nconst autoModeKey = 'slmpDeviceMatrixAutoMode';\nconst autoRemainingKey = 'slmpDeviceMatrixAutoRemaining';\nconst sample = msg.deviceSample || {};\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst now = new Date().toISOString();\nconst address = sample.address || ((msg.slmp && Array.isArray(msg.slmp.addresses) && msg.slmp.addresses[0]) || null);\n\nfunction resolvePlcFamily(message, fallback) {\n    return (message.slmp && message.slmp.connection && message.slmp.connection.plcFamily) || fallback || null;\n}\n\nfunction buildAutoNext(record) {\n    const autoMode = flow.get(autoModeKey);\n    const remaining = Number(flow.get(autoRemainingKey) || 0);\n    if (!((autoMode === 'read' && record.operation === 'read') || (autoMode === 'write' && record.operation === 'write'))) {\n        return null;\n    }\n    if (remaining > 0) {\n        return { mode: autoMode === 'write' ? 'writeNext' : 'readNext', autoRun: true };\n    }\n    flow.set(autoModeKey, '');\n    flow.set(autoRemainingKey, 0);\n    return null;\n}\n\nfunction buildSummary() {\n    const summary = {\n        kind: 'summary',\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        skipped: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === 'OK') {\n            summary.ok += 1;\n        } else if (entry.status === 'SKIPPED') {\n            summary.skipped += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === 'MISMATCH') {\n                summary.mismatch += 1;\n            }\n            if (entry.status === 'TIMEOUT') {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nconst record = Object.assign({\n    kind: 'result',\n    plcFamily: null,\n    requestId: msg.requestId || ('read-' + (sample.code || 'unknown') + '-' + String(Date.now())),\n    sessionId: flow.get(sessionKey) || null,\n    logPath: flow.get(logPathKey) || null,\n    operation: msg.action === 'write-readback' ? 'write' : 'read',\n    action: msg.action || 'read',\n    deviceCode: sample.code || null,\n    address: address,\n    note: sample.note || '',\n    sequence: msg.sequence || null,\n    status: 'NG',\n    phase: 'DONE',\n    ok: false,\n    expectedValue: null,\n    writeValue: null,\n    writeStatus: msg.action === 'write-readback' ? 'UNKNOWN' : 'SKIPPED',\n    readValue: null,\n    readStatus: 'NG',\n    readbackStatus: msg.action === 'write-readback' ? 'NG' : 'SKIPPED',\n    error: null,\n    startedAt: msg.startedAt || now,\n    updatedAt: now,\n    finishedAt: now\n}, pending[msg.requestId] || {});\n\nrecord.updatedAt = now;\nrecord.finishedAt = now;\nrecord.phase = 'DONE';\nrecord.address = address;\nrecord.deviceCode = sample.code || record.deviceCode;\nrecord.note = sample.note || record.note || '';\nrecord.plcFamily = resolvePlcFamily(msg, record.plcFamily);\nrecord.sequence = msg.sequence || record.sequence || null;\nrecord.ok = false;\nrecord.status = 'NG';\nrecord.readValue = null;\nrecord.error = msg.error && msg.error.message ? msg.error.message : String(msg.error || 'Unknown read error');\nconst skippedUnsupported = msg.slmpSkippedUnsupported === true && msg.error && msg.error.code === 'SLMP_UNSUPPORTED_DEVICE';\n\nif (skippedUnsupported) {\n    record.ok = true;\n    record.status = 'SKIPPED';\n    record.writeStatus = msg.action === 'write-readback' && record.writeStatus === 'OK' ? 'OK' : 'SKIPPED';\n    record.readStatus = 'SKIPPED';\n    record.readbackStatus = 'SKIPPED';\n} else if (msg.action === 'write-readback') {\n    record.writeStatus = record.writeStatus === 'OK' ? 'OK' : 'UNKNOWN';\n    record.readStatus = 'NG';\n    record.readbackStatus = 'NG';\n} else {\n    record.writeStatus = 'SKIPPED';\n    record.readStatus = 'NG';\n    record.readbackStatus = 'SKIPPED';\n}\n\nif (record.requestId && Object.prototype.hasOwnProperty.call(pending, record.requestId)) {\n    delete pending[record.requestId];\n}\nresults.push(record);\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nconst autoNext = buildAutoNext(record);\nreturn [\n    { payload: record },\n    { payload: results },\n    { payload: buildSummary() },\n    { filename: flow.get(logPathKey), payload: JSON.stringify(record) },\n    autoNext\n];",
+    "outputs": 5,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1030,
+    "y": 200,
+    "wires": [
+      [
+        "debug-device-matrix-latest"
+      ],
+      [
+        "debug-device-matrix-history"
+      ],
+      [
+        "debug-device-matrix-summary",
+        "function-device-matrix-auto-status-lamp"
+      ],
+      [
+        "file-device-matrix-log"
+      ],
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-format-write-ok",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Mark write ok + read back",
+    "func": "const pendingKey = 'slmpDeviceMatrixPendingById';\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst now = new Date().toISOString();\nconst sample = msg.deviceSample || {};\nconst updates = (msg.slmp && msg.slmp.updates) || msg.payload || {};\nconst updateKeys = Object.keys(updates);\nconst address = sample.address || updateKeys[0] || null;\nconst writeKey = address && Object.prototype.hasOwnProperty.call(updates, address) ? address : updateKeys[0];\nconst writeValue = writeKey && Object.prototype.hasOwnProperty.call(updates, writeKey) ? updates[writeKey] : null;\nconst record = pending[msg.requestId];\n\nif (record) {\n    record.phase = 'READBACK_PENDING';\n    record.writeStatus = 'OK';\n    record.writeValue = writeValue;\n    record.expectedValue = writeValue;\n    record.updatedAt = now;\n    pending[msg.requestId] = record;\n    flow.set(pendingKey, pending);\n}\n\nmsg.writeRequest = updates;\nmsg.action = 'write-readback';\nmsg.addresses = [address || writeKey];\nmsg.slmpSkipUnsupported = true;\nmsg.slmp = Object.assign({}, msg.slmp || {}, { skipUnsupported: true });\ndelete msg.payload;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1030,
+    "y": 240,
+    "wires": [
+      [
+        "read-device-matrix"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-format-write-error",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Finalize write error",
+    "func": "const resultsKey = 'slmpDeviceMatrixResults';\nconst pendingKey = 'slmpDeviceMatrixPendingById';\nconst totalKey = 'slmpDeviceMatrixTotalCatalog';\nconst sessionKey = 'slmpDeviceMatrixSessionId';\nconst logPathKey = 'slmpDeviceMatrixLogPath';\nconst autoModeKey = 'slmpDeviceMatrixAutoMode';\nconst autoRemainingKey = 'slmpDeviceMatrixAutoRemaining';\nconst sample = msg.deviceSample || {};\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst now = new Date().toISOString();\nconst updates = (msg.slmp && msg.slmp.updates) || msg.payload || {};\nconst address = sample.address || Object.keys(updates)[0] || null;\n\nfunction resolvePlcFamily(message, fallback) {\n    return (message.slmp && message.slmp.connection && message.slmp.connection.plcFamily) || fallback || null;\n}\n\nfunction buildAutoNext(record) {\n    const autoMode = flow.get(autoModeKey);\n    const remaining = Number(flow.get(autoRemainingKey) || 0);\n    if (!((autoMode === 'read' && record.operation === 'read') || (autoMode === 'write' && record.operation === 'write'))) {\n        return null;\n    }\n    if (remaining > 0) {\n        return { mode: autoMode === 'write' ? 'writeNext' : 'readNext', autoRun: true };\n    }\n    flow.set(autoModeKey, '');\n    flow.set(autoRemainingKey, 0);\n    return null;\n}\n\nfunction buildSummary() {\n    const summary = {\n        kind: 'summary',\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        skipped: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === 'OK') {\n            summary.ok += 1;\n        } else if (entry.status === 'SKIPPED') {\n            summary.skipped += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === 'MISMATCH') {\n                summary.mismatch += 1;\n            }\n            if (entry.status === 'TIMEOUT') {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nconst record = Object.assign({\n    kind: 'result',\n    plcFamily: null,\n    requestId: msg.requestId || ('write-' + (sample.code || 'unknown') + '-' + String(Date.now())),\n    sessionId: flow.get(sessionKey) || null,\n    logPath: flow.get(logPathKey) || null,\n    operation: 'write',\n    action: 'write-readback',\n    deviceCode: sample.code || null,\n    address: address,\n    note: sample.note || '',\n    sequence: msg.sequence || null,\n    status: 'NG',\n    phase: 'DONE',\n    ok: false,\n    expectedValue: address && Object.prototype.hasOwnProperty.call(updates, address) ? updates[address] : null,\n    writeValue: address && Object.prototype.hasOwnProperty.call(updates, address) ? updates[address] : null,\n    writeStatus: 'NG',\n    readValue: null,\n    readStatus: 'SKIPPED',\n    readbackStatus: 'SKIPPED',\n    error: null,\n    startedAt: msg.startedAt || now,\n    updatedAt: now,\n    finishedAt: now\n}, pending[msg.requestId] || {});\n\nrecord.updatedAt = now;\nrecord.finishedAt = now;\nrecord.phase = 'DONE';\nrecord.address = address;\nrecord.deviceCode = sample.code || record.deviceCode;\nrecord.note = sample.note || record.note || '';\nrecord.plcFamily = resolvePlcFamily(msg, record.plcFamily);\nrecord.sequence = msg.sequence || record.sequence || null;\nrecord.ok = false;\nrecord.status = 'NG';\nrecord.writeStatus = 'NG';\nrecord.readStatus = 'SKIPPED';\nrecord.readbackStatus = 'SKIPPED';\nrecord.error = msg.error && msg.error.message ? msg.error.message : String(msg.error || 'Unknown write error');\nconst skippedUnsupported = msg.slmpSkippedUnsupported === true && msg.error && msg.error.code === 'SLMP_UNSUPPORTED_DEVICE';\nif (skippedUnsupported) {\n    record.ok = true;\n    record.status = 'SKIPPED';\n    record.writeStatus = 'SKIPPED';\n    record.readStatus = 'SKIPPED';\n    record.readbackStatus = 'SKIPPED';\n}\n\nif (record.requestId && Object.prototype.hasOwnProperty.call(pending, record.requestId)) {\n    delete pending[record.requestId];\n}\nresults.push(record);\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nconst autoNext = buildAutoNext(record);\nreturn [\n    { payload: record },\n    { payload: results },\n    { payload: buildSummary() },\n    { filename: flow.get(logPathKey), payload: JSON.stringify(record) },\n    autoNext\n];",
+    "outputs": 5,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1030,
+    "y": 320,
+    "wires": [
+      [
+        "debug-device-matrix-latest"
+      ],
+      [
+        "debug-device-matrix-history"
+      ],
+      [
+        "debug-device-matrix-summary",
+        "function-device-matrix-auto-status-lamp"
+      ],
+      [
+        "file-device-matrix-log"
+      ],
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "debug-device-matrix-status",
+    "type": "debug",
+    "z": "tab-slmp-device-matrix",
+    "name": "Catalog / pending",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 780,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug-device-matrix-latest",
+    "type": "debug",
+    "z": "tab-slmp-device-matrix",
+    "name": "Latest device result",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 1300,
+    "y": 220,
+    "wires": []
+  },
+  {
+    "id": "debug-device-matrix-history",
+    "type": "debug",
+    "z": "tab-slmp-device-matrix",
+    "name": "Completed result history",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 1290,
+    "y": 280,
+    "wires": []
+  },
+  {
+    "id": "cfg-slmp-device-matrix",
+    "type": "slmp-connection",
+    "name": "SLMP TCP connection",
+    "host": "192.168.250.100",
+    "port": "1025",
+    "transport": "tcp",
+    "timeout": "3000",
+    "plcFamily": "iq-r",
+    "monitoringTimer": "16",
+    "network": "0",
+    "station": "255",
+    "moduleIO": "03FF",
+    "multidrop": "0"
+  },
+  {
+    "id": "inject-device-matrix-summary",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Show summary",
+    "props": [
+      {
+        "p": "mode",
+        "v": "summary",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 100,
+    "y": 390,
+    "wires": [
+      [
+        "function-device-matrix-summary"
+      ]
+    ]
+  },
+  {
+    "id": "inject-device-matrix-timeout",
+    "type": "inject",
+    "z": "tab-slmp-device-matrix",
+    "name": "Timeout sweep (auto 1s)",
+    "props": [
+      {
+        "p": "mode",
+        "v": "timeoutSweep",
+        "vt": "str"
+      }
+    ],
+    "repeat": "1",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 120,
+    "y": 430,
+    "wires": [
+      [
+        "function-device-matrix-timeout"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-summary",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Show current matrix summary",
+    "func": "const results = Array.from(flow.get('slmpDeviceMatrixResults') || []);\nconst pending = Object.assign({}, flow.get('slmpDeviceMatrixPendingById') || {});\nconst total = Number(flow.get('slmpDeviceMatrixTotalCatalog') || 0);\nconst summary = {\n    kind: 'summary',\n    sessionId: flow.get('slmpDeviceMatrixSessionId') || null,\n    logPath: flow.get('slmpDeviceMatrixLogPath') || null,\n    totalCatalog: total,\n    autoMode: flow.get('slmpDeviceMatrixAutoMode') || null,\n    autoRemaining: Number(flow.get('slmpDeviceMatrixAutoRemaining') || 0),\n    completed: results.length,\n    ok: 0,\n    skipped: 0,\n    ng: 0,\n    mismatch: 0,\n    timeout: 0,\n    pending: Object.keys(pending).length,\n    pendingIds: Object.keys(pending),\n    pendingEntries: Object.values(pending)\n};\nfor (const entry of results) {\n    if (entry.status === 'OK') {\n        summary.ok += 1;\n    } else if (entry.status === 'SKIPPED') {\n        summary.skipped += 1;\n    } else {\n        summary.ng += 1;\n        if (entry.status === 'MISMATCH') {\n            summary.mismatch += 1;\n        }\n        if (entry.status === 'TIMEOUT') {\n            summary.timeout += 1;\n        }\n    }\n}\nmsg.payload = summary;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 300,
+    "wires": [
+      [
+        "debug-device-matrix-summary",
+        "function-device-matrix-auto-status-lamp"
+      ]
+    ]
+  },
+  {
+    "id": "function-device-matrix-timeout",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Finalize timed out operations",
+    "func": "const resultsKey = 'slmpDeviceMatrixResults';\nconst pendingKey = 'slmpDeviceMatrixPendingById';\nconst totalKey = 'slmpDeviceMatrixTotalCatalog';\nconst sessionKey = 'slmpDeviceMatrixSessionId';\nconst logPathKey = 'slmpDeviceMatrixLogPath';\nconst autoModeKey = 'slmpDeviceMatrixAutoMode';\nconst autoRemainingKey = 'slmpDeviceMatrixAutoRemaining';\nconst timeoutMs = Number(flow.get('slmpDeviceMatrixTimeoutMs') || 5000);\nconst pending = Object.assign({}, flow.get(pendingKey) || {});\nconst results = Array.from(flow.get(resultsKey) || []);\nconst total = Number(flow.get(totalKey) || 0);\nconst nowMs = Date.now();\nconst timedOut = [];\n\nfunction buildAutoNext(records) {\n    const autoMode = flow.get(autoModeKey);\n    const remaining = Number(flow.get(autoRemainingKey) || 0);\n    if (!autoMode || !records.some(function (entry) { return entry.operation === autoMode; })) {\n        return null;\n    }\n    if (remaining > 0) {\n        return { mode: autoMode === 'write' ? 'writeNext' : 'readNext', autoRun: true };\n    }\n    flow.set(autoModeKey, '');\n    flow.set(autoRemainingKey, 0);\n    return null;\n}\n\nfunction buildSummary() {\n    const summary = {\n        kind: 'summary',\n        sessionId: flow.get(sessionKey) || null,\n        logPath: flow.get(logPathKey) || null,\n        totalCatalog: total,\n        completed: results.length,\n        ok: 0,\n        skipped: 0,\n        ng: 0,\n        mismatch: 0,\n        timeout: 0,\n        pending: Object.keys(pending).length,\n        pendingIds: Object.keys(pending)\n    };\n    for (const entry of results) {\n        if (entry.status === 'OK') {\n            summary.ok += 1;\n        } else if (entry.status === 'SKIPPED') {\n            summary.skipped += 1;\n        } else {\n            summary.ng += 1;\n            if (entry.status === 'MISMATCH') {\n                summary.mismatch += 1;\n            }\n            if (entry.status === 'TIMEOUT') {\n                summary.timeout += 1;\n            }\n        }\n    }\n    return summary;\n}\n\nfor (const requestId of Object.keys(pending)) {\n    const record = pending[requestId];\n    const started = Date.parse(record.updatedAt || record.startedAt || '');\n    if (!Number.isFinite(started)) {\n        continue;\n    }\n    if ((nowMs - started) < timeoutMs) {\n        continue;\n    }\n\n    const finishedAt = new Date().toISOString();\n    const timedOutRecord = Object.assign({}, record, {\n        status: 'TIMEOUT',\n        phase: 'DONE',\n        ok: false,\n        error: 'No completion within ' + String(timeoutMs) + ' ms',\n        updatedAt: finishedAt,\n        finishedAt: finishedAt\n    });\n\n    if (timedOutRecord.operation === 'write') {\n        if (timedOutRecord.writeStatus === 'PENDING') {\n            timedOutRecord.writeStatus = 'TIMEOUT';\n            timedOutRecord.readStatus = 'SKIPPED';\n            timedOutRecord.readbackStatus = 'SKIPPED';\n        } else {\n            timedOutRecord.readStatus = 'TIMEOUT';\n            timedOutRecord.readbackStatus = 'TIMEOUT';\n        }\n    } else {\n        timedOutRecord.writeStatus = 'SKIPPED';\n        timedOutRecord.readStatus = 'TIMEOUT';\n        timedOutRecord.readbackStatus = 'SKIPPED';\n    }\n\n    delete pending[requestId];\n    results.push(timedOutRecord);\n    timedOut.push(timedOutRecord);\n}\n\nif (timedOut.length === 0) {\n    return null;\n}\n\nflow.set(pendingKey, pending);\nflow.set(resultsKey, results);\n\nconst autoNext = buildAutoNext(timedOut);\nreturn [\n    timedOut.map(function (entry) { return { payload: entry }; }),\n    [{ payload: results }],\n    [{ payload: buildSummary() }],\n    timedOut.map(function (entry) {\n        return {\n            filename: flow.get(logPathKey),\n            payload: JSON.stringify(entry)\n        };\n    }),\n    autoNext\n];",
+    "outputs": 5,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 340,
+    "wires": [
+      [
+        "debug-device-matrix-latest"
+      ],
+      [
+        "debug-device-matrix-history"
+      ],
+      [
+        "debug-device-matrix-summary",
+        "function-device-matrix-auto-status-lamp"
+      ],
+      [
+        "file-device-matrix-log"
+      ],
+      [
+        "function-device-matrix-router"
+      ]
+    ]
+  },
+  {
+    "id": "debug-device-matrix-summary",
+    "type": "debug",
+    "z": "tab-slmp-device-matrix",
+    "name": "Run summary",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 1290,
+    "y": 340,
+    "wires": []
+  },
+  {
+    "id": "file-device-matrix-log",
+    "type": "file",
+    "z": "tab-slmp-device-matrix",
+    "name": "Append JSONL result log",
+    "filename": "filename",
+    "filenameType": "msg",
+    "appendNewline": true,
+    "createDir": true,
+    "overwriteFile": "false",
+    "encoding": "none",
+    "x": 1310,
+    "y": 400,
+    "wires": []
+  },
+  {
+    "id": "function-device-matrix-auto-status-lamp",
+    "type": "function",
+    "z": "tab-slmp-device-matrix",
+    "name": "Auto run status lamp",
+    "func": "const payload = msg.payload || {};\nconst pendingMap = Object.assign({}, flow.get('slmpDeviceMatrixPendingById') || {});\nconst pending = Object.keys(pendingMap).length;\nconst total = Number(flow.get('slmpDeviceMatrixTotalCatalog') || payload.totalCatalog || 0);\nconst autoMode = flow.get('slmpDeviceMatrixAutoMode') || payload.autoMode || null;\nconst autoRemaining = Number(flow.get('slmpDeviceMatrixAutoRemaining') || payload.autoRemaining || 0);\n\nfunction setStatus(fill, shape, text) {\n    node.status({ fill: fill, shape: shape, text: text });\n}\n\nfunction compactText(text) {\n    return String(text).slice(0, 42);\n}\n\nif (autoMode) {\n    const done = total > 0 ? Math.max(total - autoRemaining, 0) : 0;\n    setStatus('green', 'dot', 'auto ' + autoMode + ' ' + done + '/' + total + ' pending ' + pending);\n    return null;\n}\n\nif (pending > 0) {\n    setStatus('yellow', 'dot', 'pending ' + pending);\n    return null;\n}\n\nif (payload.kind === 'reset') {\n    setStatus('grey', 'ring', 'reset');\n    return null;\n}\n\nif (payload.kind === 'catalog') {\n    setStatus('blue', 'ring', 'catalog ' + String(payload.totalCatalog || total || 0));\n    return null;\n}\n\nif (payload.kind === 'summary') {\n    const ok = Number(payload.ok || 0);\n    const ng = Number(payload.ng || 0);\n    const skipped = Number(payload.skipped || 0);\n    if (ng > 0) {\n        setStatus('red', 'ring', 'idle ok ' + ok + ' ng ' + ng + ' skip ' + skipped);\n    } else {\n        setStatus('green', 'ring', 'idle ok ' + ok + ' skip ' + skipped);\n    }\n    return null;\n}\n\nif (payload.kind === 'busy') {\n    setStatus('yellow', 'dot', 'busy pending ' + String(payload.pending || pending));\n    return null;\n}\n\nif (payload.kind === 'result') {\n    const label = compactText((payload.operation || '') + ' ' + (payload.deviceCode || '') + ' ' + (payload.address || ''));\n    if (payload.status === 'PENDING') {\n        setStatus('blue', 'dot', label + ' pending');\n    } else if (payload.status === 'OK') {\n        setStatus('green', 'ring', label + ' OK');\n    } else if (payload.status === 'SKIPPED') {\n        setStatus('yellow', 'ring', label + ' skipped');\n    } else {\n        setStatus('red', 'ring', label + ' ' + (payload.status || 'NG'));\n    }\n    return null;\n}\n\nsetStatus('grey', 'ring', 'idle');\nreturn null;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1750,
+    "y": 440,
+    "wires": [
+      []
+    ]
+  }
 ]

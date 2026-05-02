@@ -1,5 +1,42 @@
 <script type="text/javascript">
   const SLMP_ADDRESS_TOKEN_RE = /[A-Z][A-Z0-9]*(?:\.[0-9A-F]+|:[A-Z]+)?(?:,\d+)?/iy;
+  const SLMP_DEVICE_INFO = Object.freeze({
+    SM: { radix: 10, unit: "bit" }, SD: { radix: 10, unit: "word" },
+    X: { radix: 16, unit: "bit" }, Y: { radix: 16, unit: "bit" },
+    M: { radix: 10, unit: "bit" }, L: { radix: 10, unit: "bit" },
+    F: { radix: 10, unit: "bit" }, V: { radix: 10, unit: "bit" },
+    B: { radix: 16, unit: "bit" }, D: { radix: 10, unit: "word" },
+    W: { radix: 16, unit: "word" }, TS: { radix: 10, unit: "bit" },
+    TC: { radix: 10, unit: "bit" }, TN: { radix: 10, unit: "word" },
+    LTS: { radix: 10, unit: "bit" }, LTC: { radix: 10, unit: "bit" },
+    LTN: { radix: 10, unit: "word" }, STS: { radix: 10, unit: "bit" },
+    STC: { radix: 10, unit: "bit" }, STN: { radix: 10, unit: "word" },
+    LSTS: { radix: 10, unit: "bit" }, LSTC: { radix: 10, unit: "bit" },
+    LSTN: { radix: 10, unit: "word" }, CS: { radix: 10, unit: "bit" },
+    CC: { radix: 10, unit: "bit" }, CN: { radix: 10, unit: "word" },
+    LCS: { radix: 10, unit: "bit" }, LCC: { radix: 10, unit: "bit" },
+    LCN: { radix: 10, unit: "word" }, SB: { radix: 16, unit: "bit" },
+    SW: { radix: 16, unit: "word" }, DX: { radix: 16, unit: "bit" },
+    DY: { radix: 16, unit: "bit" }, Z: { radix: 10, unit: "word" },
+    LZ: { radix: 10, unit: "dword" }, R: { radix: 10, unit: "word" },
+    ZR: { radix: 10, unit: "word" }, RD: { radix: 10, unit: "word" },
+    G: { radix: 10, unit: "word" }, HG: { radix: 10, unit: "word" }
+  });
+  const SLMP_DEVICE_CODES = Object.keys(SLMP_DEVICE_INFO).sort(function (left, right) {
+    return right.length - left.length || left.localeCompare(right);
+  });
+  const SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY = Object.freeze({
+    "iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD", "G", "HG"],
+    "iq-r": ["G", "HG"],
+    "iq-l": ["G", "HG"],
+    "mx-f": ["G", "HG"],
+    "mx-r": ["G", "HG"],
+    qcpu: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
+    lcpu: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
+    qnu: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
+    qnudv: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
+  });
+  const SLMP_DTYPE_SUFFIXES = new Set(["S", "D", "L", "F", "STR", "STRING"]);
 
   function slmpGetCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
@@ -38,12 +75,128 @@
     return result;
   }
 
-  function slmpValidateAddressLiteral(value) {
+  function slmpValidateAddressLiteral(value, connectionId) {
     const text = String(value == null ? "" : value).trim();
     if (!text) {
       return true;
     }
-    return Array.isArray(slmpTokenizeAddressList(text));
+    const tokens = slmpTokenizeAddressList(text);
+    const family = slmpCurrentPlcFamily(connectionId);
+    return Array.isArray(tokens) && tokens.every(function (token) {
+      return slmpValidateAddressToken(token, family);
+    });
+  }
+
+  function slmpCurrentPlcFamily(connectionId) {
+    const connection = connectionId && RED.nodes.node(connectionId);
+    return connection && connection.plcFamily ? String(connection.plcFamily).trim().toLowerCase() : "";
+  }
+
+  function slmpValidateAddressToken(value, family) {
+    let text = String(value == null ? "" : value).trim().toUpperCase();
+    if (!text) {
+      return false;
+    }
+    const legacy = slmpParseLegacyStringAddress(text, family);
+    if (legacy !== null) {
+      return legacy;
+    }
+
+    const countMatch = /^(.*?),\s*(\d+)$/.exec(text);
+    if (countMatch) {
+      text = countMatch[1].trim();
+      if (Number.parseInt(countMatch[2], 10) <= 0) {
+        return false;
+      }
+    }
+
+    const suffixMatch = /^(.*?):([A-Z]+)$/.exec(text);
+    if (suffixMatch) {
+      text = suffixMatch[1].trim();
+      const suffix = suffixMatch[2].toUpperCase();
+      if (!SLMP_DTYPE_SUFFIXES.has(suffix)) {
+        return false;
+      }
+      if ((suffix === "STR" || suffix === "STRING") && !countMatch) {
+        return false;
+      }
+    }
+
+    const bitMatch = /^(.*?)\.([0-9A-F])$/i.exec(text);
+    if (bitMatch) {
+      if (countMatch || suffixMatch) {
+        return false;
+      }
+      text = bitMatch[1].trim();
+      const parsed = slmpParseDeviceToken(text, family);
+      return Boolean(parsed && parsed.unit === "word");
+    }
+
+    const parsed = slmpParseDeviceToken(text, family);
+    if (!parsed) {
+      return false;
+    }
+    if (suffixMatch) {
+      const suffix = suffixMatch[2].toUpperCase();
+      if ((suffix === "STR" || suffix === "STRING") && parsed.unit !== "word") {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function slmpParseLegacyStringAddress(text, family) {
+    for (const code of SLMP_DEVICE_CODES) {
+      const prefix = code + "STR";
+      if (!text.startsWith(prefix)) {
+        continue;
+      }
+      const match = /^([0-9A-F]+)\s*,\s*(\d+)$/.exec(text.slice(prefix.length));
+      if (!match || Number.parseInt(match[2], 10) <= 0) {
+        return false;
+      }
+      const parsed = slmpParseDeviceToken(code + match[1], family);
+      return Boolean(parsed && parsed.unit === "word");
+    }
+    return null;
+  }
+
+  function slmpParseDeviceToken(text, family) {
+    for (const code of SLMP_DEVICE_CODES) {
+      if (!text.startsWith(code)) {
+        continue;
+      }
+      if (!slmpDeviceCodeSupportedForFamily(code, family)) {
+        return null;
+      }
+      const numberText = text.slice(code.length);
+      const info = SLMP_DEVICE_INFO[code];
+      if (!numberText || !slmpValidateDeviceNumber(code, numberText, info.radix, family)) {
+        return null;
+      }
+      return { code: code, unit: info.unit };
+    }
+    return null;
+  }
+
+  function slmpDeviceCodeSupportedForFamily(code, family) {
+    if (code === "G" || code === "HG") {
+      return false;
+    }
+    const normalizedFamily = String(family || "").trim().toLowerCase();
+    const unsupported = SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY[normalizedFamily];
+    return !(unsupported && unsupported.indexOf(code) !== -1);
+  }
+
+  function slmpValidateDeviceNumber(code, numberText, defaultRadix, family) {
+    const radix = (family === "iq-f" && (code === "X" || code === "Y")) ? 8 : defaultRadix;
+    if (radix === 8) {
+      return /^[0-7]+$/.test(numberText);
+    }
+    if (radix === 16) {
+      return /^[0-9A-F]+$/i.test(numberText);
+    }
+    return /^\d+$/.test(numberText);
   }
 
   function slmpValidateIntegerString(value, min, max, base) {
@@ -142,7 +295,10 @@
       addresses: {
         value: "",
         validate: function (value) {
-          return slmpValidateSourceField(value, "#node-input-addressesType", slmpValidateAddressLiteral, this && this.addressesType);
+          const connectionId = this && this.connection;
+          return slmpValidateSourceField(value, "#node-input-addressesType", function (literal) {
+            return slmpValidateAddressLiteral(literal, connectionId);
+          }, this && this.addressesType);
         }
       },
       addressesType: { value: "str", required: true },
@@ -223,7 +379,7 @@
   </div>
   <div class="form-row" id="node-input-addressesLiteralRow">
     <label for="node-input-addressesLiteral"><i class="fa fa-list"></i> Addresses</label>
-    <textarea id="node-input-addressesLiteral" style="height: 140px;" placeholder="D100&#10;D100,10&#10;D200:F,4&#10;D100:STR,10"></textarea>
+    <textarea id="node-input-addressesLiteral" style="height: 140px;" placeholder="D100&#10;D100:I&#10;D100,10&#10;D200:F,4&#10;D100:STR,10"></textarea>
   </div>
   <div class="form-row">
     <label for="node-input-routeTargetSource"><i class="fa fa-sitemap"></i> Route</label>
@@ -263,7 +419,7 @@
 
 <script type="text/html" data-help-name="slmp-read">
   <p>Reads one or more SLMP addresses and writes the result to <code>msg.payload</code>.</p>
-  <p>Supported forms include <code>D100</code>, <code>D100,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000</code>, <code>M1000,8</code>, <code>D100:STR,10</code>, and <code>DSTR100,10</code>.</p>
+  <p>Supported forms include <code>D100</code>, <code>D100:I</code>, <code>D100,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000</code>, <code>M1000,8</code>, <code>D100:STR,10</code>, and <code>DSTR100,10</code>.</p>
   <p><code>,count</code> returns arrays for numeric and direct-bit reads. String reads use UTF-8 bytes packed two per word.</p>
   <p>Output can be an object keyed by address, an array in address order, or a single scalar when exactly one address is requested.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
