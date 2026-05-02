@@ -4,12 +4,15 @@ This page keeps the current public summary only. Older detailed notes are not ke
 
 ## Current Retained Summary
 
+- current Flow Library baseline checked for release notes: `0.2.3`
+- current release-prep target: `0.2.12`
 - verified PLC models: `FX5UC-32MT/D`, `Q06UDVCPU`, `R08CPU`
 - verified transports: `TCP`, `UDP`
 - verified public nodes: `slmp-connection`, `slmp-read`, `slmp-write`
 - retained first-run smoke path: `slmp-basic-read-write.json`
 - 2026-05-01 iQ-R live check: `R08CPU` at `192.168.250.100:1025` over TCP
   returned `LCS10=false` and `LCC10=false` through `readNamed`
+- 2026-05-02 release-prep docs align the Node-RED matrix flow with one-click run-all read/write, status-lamp feedback, JSONL logging, `plcFamily` result records, and PLC-type-unsupported `SKIPPED` records
 
 ## Confirmed Public Register Scope
 
@@ -20,9 +23,11 @@ This page keeps the current public summary only. Older detailed notes are not ke
 
 ## Practical Cautions
 
-- set one explicit `PLC family` for every connection
+- set one explicit `PLC type` for every connection
+- older Flow Library `0.2.3` flows must be updated from `PLC series` / `frame type` to `PLC type`
 - start with `D` reads before using typed, counted, or string forms
 - keep `slmp-device-matrix.json` for later verification, not for the first smoke test
+- do not rely on Node-RED for PLC model-specific range or upper-bound checks; format errors are local, range errors come from the PLC/runtime response
 - `.bit,count` is not part of the current public high-level surface
 
 ## Where Older Evidence Went

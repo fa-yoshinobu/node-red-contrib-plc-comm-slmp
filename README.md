@@ -35,7 +35,7 @@ This package is documented for the high-level Node-RED workflow only:
 ## Quick Start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
-2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, and `PLC family`.
+2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, and `PLC type`.
 3. Add `slmp-read` for the first smoke test, using a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. When read works, add `slmp-write` and use known-safe test devices before moving to production addresses.
 
@@ -51,7 +51,7 @@ Start with `D` word devices for the first smoke test. Do not start with `slmp-de
 ## Release Information
 
 - package name: `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
-- package version: `0.2.11`
+- package version: `0.2.12`
 - npm package: <https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
@@ -82,6 +82,15 @@ This command installs the local package into an isolated temporary userDir, star
 Legacy note:
 
 - the original unscoped `node-red-contrib-plc-comm-slmp@0.2.0` remains on npm, but new releases move to the scoped package name above
+
+### Changes Since Flow Library 0.2.3
+
+The Node-RED Flow Library currently shows `0.2.3` as the published baseline for this scoped package. Check these changes before updating an existing flow:
+
+- `slmp-connection` now uses one `PLC type` selector. Older `PLC series` and `frame type` fields from Flow Library `0.2.3` flows must be reselected after import.
+- `X/Y` string addresses are PLC-type-specific: iQ-F uses octal `X/Y`, while the other supported PLC types use hexadecimal `X/Y`.
+- `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC type supports them.
+- Device codes unsupported by the selected PLC type are errors by default. The `slmp-device-matrix.json` sample can instead log them as `SKIPPED` records when it sends `slmpSkipUnsupported`.
 
 ## Supported PLC Registers
 
@@ -119,9 +128,9 @@ Maintainer-only notes and retained evidence live under `internal_docs/`.
 - configurable error handling with throw / `msg.error` / second output
 - connection control via `connect` / `disconnect` / `reinitialize` messages
 
-Set one explicit `plcFamily` for each connection. The node derives `frameType`, access profile, and `X/Y` string-address rules from that family.
+Set one explicit PLC type for each connection. The node stores it as `plcFamily` internally and derives `frameType`, access profile, and `X/Y` string-address rules from that selection.
 
-Supported canonical `plcFamily` values:
+Supported canonical PLC type values:
 
 - `iq-f`
 - `iq-r`
@@ -164,7 +173,7 @@ If an address is outside the connected PLC's actual range, the PLC response is r
 
 Public device-code support by `plcFamily`:
 
-| PLC family | Public device codes accepted by the high-level API and Node-RED editor |
+| PLC type | Public device codes accepted by the high-level API and Node-RED editor |
 | --- | --- |
 | `iq-r`, `iq-l`, `mx-f`, `mx-r` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `LTS`, `LTC`, `LTN`, `STS`, `STC`, `STN`, `LSTS`, `LSTC`, `LSTN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `DX`, `DY`, `Z`, `LZ`, `R`, `ZR`, `RD` |
 | `iq-f` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `Z`, `LZ`, `R` |
@@ -187,9 +196,11 @@ Validated public hardware summary:
 - [`slmp-routing.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-routing.json): per-request routing with `msg.target`
 - [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
+The device-matrix flow records `plcFamily` in each JSONL result, keeps one outstanding request at a time, and summarizes `OK`, `SKIPPED`, `NG`, mismatch, timeout, and pending counts.
+
 ## Known Limitations
 
-- the high-level Node-RED surface requires explicit `plcFamily`
+- the high-level Node-RED surface requires explicit PLC type selection
 - `.bit,count` is not supported
 - a single client connection keeps requests serialized by default
 - the read and write nodes keep the caller-visible logical request shape and do not silently retry with a different fallback split semantics
@@ -212,6 +223,6 @@ cmd /c npm.cmd test
 - `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
 - low-level direct bit writes are guarded for `LTS`/`LTC`/`LSTS`/`LSTC`/`LCS`/`LCC`
-- `X/Y` string addresses require explicit `plcFamily`
+- `X/Y` string addresses require explicit PLC type selection
 - `iq-f` interprets `X/Y` string addresses in octal, while other supported families use hexadecimal `X/Y`
 - random read batching follows the Python helper layer for batchable word devices

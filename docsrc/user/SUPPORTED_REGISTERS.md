@@ -83,7 +83,7 @@ This page is the canonical public register/device table for the Node-RED high-le
 
 These are device-code support rules only. The editor and helper APIs use them to reject or skip device codes that the selected family does not expose in the public surface; they are not address upper-bound checks.
 
-| PLC family | Unsupported device codes in the public Node-RED surface |
+| PLC type | Unsupported device codes in the public Node-RED surface |
 | --- | --- |
 | all families | `G`, `HG` |
 | `iq-r`, `iq-l`, `mx-f`, `mx-r` | none beyond `G`, `HG` |

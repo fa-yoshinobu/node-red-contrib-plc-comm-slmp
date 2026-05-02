@@ -2,9 +2,17 @@
 
 ## Unreleased
 
+## 0.2.12 - 2026-05-02
+
+- bump the release revision for npm and Node-RED Flow Library publishing; the Flow Library currently shows `0.2.3` as the public baseline
+- refresh README, user-guide, latest-verification, and example-flow docs with compatibility notes from the published Flow Library version
+- document the public compatibility change from separate `PLC series` / `frame type` fields to one `PLC type` selector
+- document the public device-scope changes since Flow Library `0.2.3`: `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC type supports them
+- document the current device-matrix flow behavior: one-click run-all read/write buttons, status-lamp feedback, JSONL result logging, `plcFamily` records, and skip/error summary counts
+
 ## 0.2.11 - 2026-05-02
 
-- remove the public device range catalog API from the Node-RED package
+- remove the interim device-range catalog helper from the Node-RED package
 - keep ordinary Node-RED read/write validation to address format and protocol constraints, leaving actual device-range errors to the PLC response
 - reject device codes that the selected `plcFamily` does not expose in the public high-level table, aligned with the .NET `DEVICE_RANGES.md` support matrix
 
@@ -33,7 +41,7 @@
 ## 0.2.7 - 2026-04-14
 
 - require explicit `plcFamily` on the standard packaged client and connection-node route, while keeping manual frame/profile selection only for internal diagnostic paths
-- switch the standard device-range example to `readDeviceRangeCatalog()` so the high-level Node surface consistently derives frame, profile, address, and range handling from one family selection
+- switch the standard device-range example to the interim catalog helper so the high-level Node surface consistently derives frame, profile, address, and range handling from one family selection
 
 ## 0.2.6 - 2026-04-14
 
@@ -42,7 +50,7 @@
 
 ## 0.2.5 - 2026-04-14
 
-- add public device-range catalog helpers and CPU operation-state support to the packaged SLMP client surface
+- add interim device-range catalog helpers and CPU operation-state support to the packaged SLMP client surface
 - add regression tests and README coverage for the new device-range and CPU-state helpers
 
 ## 0.2.4 - 2026-04-13

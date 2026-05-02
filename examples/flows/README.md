@@ -36,3 +36,6 @@ Available flows:
 Notes:
 
 - The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior.
+- In `slmp-device-matrix.json`, `Run all reads` and `Run all writes` are the auto-run buttons. The `Auto run status lamp` shows active, pending, idle, and error state in the editor.
+- Family-unsupported device codes are sent with `slmpSkipUnsupported` by the matrix flow, so they become yellow `SKIPPED` result records instead of red node failures.
+- Each matrix JSONL result includes `plcFamily` near the top of the record, followed by request, operation, address, status, and timing fields.

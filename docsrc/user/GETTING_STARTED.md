@@ -9,7 +9,7 @@ Recommended first path:
 1. Install the package into your Node-RED user directory.
 2. Restart Node-RED.
 3. Add one `slmp-connection` config node.
-4. Set `host`, `port`, `transport`, and `PLC family`.
+4. Set `host`, `port`, `transport`, and `PLC type`.
 5. Import `examples/flows/slmp-basic-read-write.json`.
 6. Replace the host and safe test addresses.
 7. Deploy and confirm that one `D` read succeeds.
@@ -42,10 +42,10 @@ Set these fields explicitly on `slmp-connection`:
 - `host`
 - `port`
 - `transport`
-- `PLC family`
+- `PLC type`
 - timeout
 
-Canonical `PLC family` values:
+Canonical `PLC type` values:
 
 - `iq-f`
 - `iq-r`
@@ -87,7 +87,7 @@ After the basic flow succeeds:
 
 If the first read fails, check these in order:
 
-- correct `PLC family`
+- correct `PLC type`
 - correct `tcp` or `udp` selection
 - a simple `D` address instead of a typed, count, or string form
 - editor validation messages before deploy

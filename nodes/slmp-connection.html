@@ -99,7 +99,7 @@
     <input type="text" id="node-config-input-timeout" placeholder="3000" />
   </div>
   <div class="form-row">
-    <label for="node-config-input-plcFamily"><i class="fa fa-cog"></i> PLC family</label>
+    <label for="node-config-input-plcFamily"><i class="fa fa-cog"></i> PLC type</label>
     <select id="node-config-input-plcFamily">
       <option value="iq-f">iQ-F</option>
       <option value="iq-r">iQ-R</option>
@@ -136,6 +136,6 @@
 
 <script type="text/html" data-help-name="slmp-connection">
   <p>Reusable SLMP connection profile for Mitsubishi PLC access over binary 3E or 4E frames.</p>
-  <p>Select one explicit PLC family. The node derives the frame type, access profile, and string address rules from that family.</p>
+  <p>Select one explicit PLC type. The node derives the frame type, access profile, and string address rules from that type.</p>
   <p><code>slmp-read</code> and <code>slmp-write</code> can send <code>connect</code>, <code>disconnect</code>, and <code>reinitialize</code> control messages through this shared connection.</p>
 </script>

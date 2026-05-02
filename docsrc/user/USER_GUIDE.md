@@ -15,7 +15,7 @@ See also:
 ## Quick start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
-2. Create one `slmp-connection` and set `host`, `port`, `transport`, and `PLC family`.
+2. Create one `slmp-connection` and set `host`, `port`, `transport`, and `PLC type`.
 3. Drop in `slmp-read` and try a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. Once reads work, add `slmp-write` and verify with known-safe test devices.
 
@@ -62,16 +62,25 @@ Configure these explicitly on the connection node:
 - host
 - port
 - transport: `tcp` or `udp`
-- PLC family: `iq-f`, `iq-r`, `iq-l`, `mx-f`, `mx-r`, `qcpu`, `lcpu`, `qnu`, or `qnudv`
+- PLC type: `iq-f`, `iq-r`, `iq-l`, `mx-f`, `mx-r`, `qcpu`, `lcpu`, `qnu`, or `qnudv`
 - route fields: network, station, module I/O, multidrop
 
-The connection node derives `frameType`, access profile, and string-address interpretation from the explicit `PLC family`.
+The connection node stores the selection as `plcFamily` internally and derives `frameType`, access profile, and string-address interpretation from the explicit `PLC type`.
 
 Validated PLC models:
 
 - `FX5UC-32MT/D`
 - `Q06UDVCPU`
 - `R08CPU`
+
+## Changes since Flow Library 0.2.3
+
+The Node-RED Flow Library currently shows `0.2.3` as the published baseline for this scoped package.
+
+- Existing `0.2.3` flows used `PLC series` and `frame type`; current flows must use one explicit `PLC type` on every `slmp-connection`.
+- `X/Y` string addresses are PLC-type-specific. Use `iq-f` for octal `X/Y`; other supported PLC types use hexadecimal `X/Y`.
+- `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC type supports them.
+- Device codes unsupported by the selected PLC type are rejected by default. The device-matrix sample can log them as `SKIPPED` records when it sends `slmpSkipUnsupported`.
 
 ## Supported devices
 
@@ -94,13 +103,13 @@ Supported word devices:
 Address notes:
 
 - `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal numbering
-- `X` and `Y` require explicit `PLC family`
+- `X` and `Y` require explicit `PLC type`
 - `iq-f` interprets string `X/Y` addresses in octal
 - all other supported families interpret string `X/Y` addresses in hexadecimal
 - most other devices use decimal numbering
 - Node-RED input validation checks address format and protocol constraints, not PLC model-specific device ranges or upper bounds
 - if an address is outside the connected PLC's actual range, the PLC response is returned as the runtime error
-- Node-RED input validation does reject device codes that the selected `PLC family` does not expose in the public device table
+- Node-RED input validation does reject device codes that the selected `PLC type` does not expose in the public device table
 - word devices support `.bit`, for example `D50.3`
 - count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the high-level nodes
@@ -263,4 +272,4 @@ Recommended first import:
 - a single client connection keeps requests serialized by default
 - the read and write nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior
 - read/write errors can throw, attach to `msg.error`, or go to a second output
-- the editor validates connection ranges, literal address lists, literal update payloads, and literal route JSON before save
+- the editor validates connection fields, literal address lists, literal update payloads, and literal route JSON before save
