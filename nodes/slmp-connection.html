@@ -101,11 +101,11 @@
   <div class="form-row">
     <label for="node-config-input-plcFamily"><i class="fa fa-cog"></i> PLC family</label>
     <select id="node-config-input-plcFamily">
-      <option value="iq-f">iQ-F / FX</option>
+      <option value="iq-f">iQ-F</option>
       <option value="iq-r">iQ-R</option>
       <option value="iq-l">iQ-L</option>
-      <option value="mx-f">MELSECNET/H MX-F</option>
-      <option value="mx-r">MELSECNET/H MX-R</option>
+      <option value="mx-f">MX-F</option>
+      <option value="mx-r">MX-R</option>
       <option value="qcpu">QCPU</option>
       <option value="lcpu">LCPU</option>
       <option value="qnu">QnU</option>
@@ -136,6 +136,6 @@
 
 <script type="text/html" data-help-name="slmp-connection">
   <p>Reusable SLMP connection profile for Mitsubishi PLC access over binary 3E or 4E frames.</p>
-  <p>Select one explicit PLC family. The node derives the frame type, access profile, string address rules, and device-range behavior from that family.</p>
+  <p>Select one explicit PLC family. The node derives the frame type, access profile, and string address rules from that family.</p>
   <p><code>slmp-read</code> and <code>slmp-write</code> can send <code>connect</code>, <code>disconnect</code>, and <code>reinitialize</code> control messages through this shared connection.</p>
 </script>

@@ -11,6 +11,7 @@ const {
   deviceToString,
   encodeDeviceSpec,
   encodeRequest,
+  isDeviceCodeSupportedForFamily,
   packBitValues,
   parseDevice,
   resolveConnectionProfile,
@@ -31,6 +32,20 @@ test("parseDevice uses octal X/Y numbering for iq-f when plcFamily is explicit",
   assert.equal(deviceToString({ code: "Y", number: 0x90 }, { plcFamily: "iq-f" }), "Y220");
 });
 
+test("parseDevice rejects device codes that are unsupported by the explicit PLC family", () => {
+  assert.deepEqual(parseDevice("LZ0", { plcFamily: "iq-f" }), { code: "LZ", number: 0 });
+  assert.deepEqual(parseDevice("LTS10", { plcFamily: "iq-r" }), { code: "LTS", number: 10 });
+  assert.throws(() => parseDevice("V10", { plcFamily: "iq-f" }), /not supported for plcFamily 'iq-f'/);
+  assert.throws(() => parseDevice("DX10", { plcFamily: "iq-f" }), /not supported for plcFamily 'iq-f'/);
+  assert.throws(() => parseDevice("DY10", { plcFamily: "iq-f" }), /not supported for plcFamily 'iq-f'/);
+  assert.throws(() => parseDevice("LCS10", { plcFamily: "lcpu" }), /not supported for plcFamily 'lcpu'/);
+  assert.throws(() => parseDevice("RD10", { plcFamily: "qnudv" }), /not supported for plcFamily 'qnudv'/);
+  assert.throws(() => parseDevice("LZ0", { plcFamily: "qnu" }), /not supported for plcFamily 'qnu'/);
+  assert.throws(() => parseDevice("G10", { plcFamily: "iq-r" }), /not supported for plcFamily 'iq-r'/);
+  assert.equal(isDeviceCodeSupportedForFamily("LZ", "qnudv"), false);
+  assert.equal(isDeviceCodeSupportedForFamily("G", "qnu"), false);
+});
+
 test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {
   const profile = resolveConnectionProfile({ plcFamily: "iq-l" });
   assert.deepEqual(profile, {
@@ -38,7 +53,6 @@ test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {
     plcSeries: "iqr",
     frameType: "4e",
     deviceFamily: "iq-r",
-    rangeFamily: "iq-l",
   });
   assert.throws(
     () => resolveConnectionProfile({ plcFamily: "iq-r", plcSeries: "ql" }),

@@ -1,6 +1,8 @@
 "use strict";
 
-const { normalizeTarget, writeNamed } = require("../lib/slmp");
+const { normalizeAddress, normalizeTarget, writeNamed } = require("../lib/slmp");
+
+const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcFamily '([^']+)'/;
 
 module.exports = function registerSlmpWrite(RED) {
   function SlmpWriteNode(config) {
@@ -35,7 +37,8 @@ module.exports = function registerSlmpWrite(RED) {
         }
 
         this.status({ fill: "blue", shape: "dot", text: "writing" });
-        const updates = await resolveUpdates(RED, this, msg);
+        const profile = this.connection.getProfile();
+        const updates = validateUpdatesForConnection(await resolveUpdates(RED, this, msg), profile);
         const target = await resolveTarget(RED, this, msg);
         const keys = Object.keys(updates);
         if (keys.length === 0) {
@@ -44,7 +47,6 @@ module.exports = function registerSlmpWrite(RED) {
 
         const client = this.connection.getClient();
         await writeNamed(client, updates, target ? { target } : {});
-        const profile = this.connection.getProfile();
         applyMetadata(msg, this.metadataMode, {
           updates,
           connection: profile,
@@ -246,6 +248,10 @@ function buildMinimalMetadata(existing, metadata) {
 
 function fail(node, msg, send, done, error) {
   const normalized = error instanceof Error ? error : new Error(String(error));
+  if (shouldSkipUnsupportedDevice(msg, normalized)) {
+    sendUnsupportedDeviceSkip(node, msg, send, done, normalized);
+    return;
+  }
   node.status({ fill: "red", shape: "ring", text: normalized.message });
   if (node.errorHandling === "msg") {
     msg.error = normalized;
@@ -259,6 +265,48 @@ function fail(node, msg, send, done, error) {
     return;
   }
   done(normalized);
+}
+
+function validateUpdatesForConnection(updates, profile) {
+  const options = profile && profile.plcFamily ? { plcFamily: profile.plcFamily } : {};
+  const normalized = {};
+  for (const [address, value] of Object.entries(updates || {})) {
+    normalized[normalizeAddress(address, options)] = value;
+  }
+  return normalized;
+}
+
+function shouldSkipUnsupportedDevice(msg, error) {
+  const skipRequested = Boolean(
+    msg && (msg.slmpSkipUnsupported === true || (isPlainObject(msg.slmp) && msg.slmp.skipUnsupported === true))
+  );
+  return skipRequested && UNSUPPORTED_DEVICE_RE.test(error.message || "");
+}
+
+function sendUnsupportedDeviceSkip(node, msg, send, done, error) {
+  error.code = "SLMP_UNSUPPORTED_DEVICE";
+  const profile = node.connection && typeof node.connection.getProfile === "function" ? node.connection.getProfile() : undefined;
+  const skipped = {
+    ...msg,
+    error,
+    skipped: true,
+    slmpSkippedUnsupported: true,
+    skipReason: error.message,
+    slmp: {
+      ...(isPlainObject(msg.slmp) ? msg.slmp : {}),
+      ...(profile ? { connection: profile } : {}),
+      skipped: true,
+      skipStatus: "UNSUPPORTED_DEVICE",
+      skipReason: error.message,
+    },
+  };
+  node.status({ fill: "yellow", shape: "ring", text: "skipped unsupported device" });
+  if (node.errorHandling === "output2") {
+    send([null, skipped]);
+  } else {
+    send(skipped);
+  }
+  done();
 }
 
 function getControlAction(msg) {

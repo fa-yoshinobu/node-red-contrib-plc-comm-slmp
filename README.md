@@ -43,7 +43,7 @@ If you are working from this repository, import one of the ready-to-run flows un
 
 - [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json) for plain TCP scalar read/write
 - [`slmp-array-string.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-array-string.json) for `,count` and string access
-- [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json) for one-by-one high-level coverage across the matrix catalog
+- [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json) for one-by-one and run-all high-level coverage across the matrix catalog
 - [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json) for UDP validation
 
 Start with `D` word devices for the first smoke test. Do not start with `slmp-device-matrix.json`.
@@ -51,7 +51,7 @@ Start with `D` word devices for the first smoke test. Do not start with `slmp-de
 ## Release Information
 
 - package name: `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`
-- package version: `0.2.10`
+- package version: `0.2.11`
 - npm package: <https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp>
 - Node-RED requirement: `>=3.0.0`
 - Node.js requirement: `>=18`
@@ -89,7 +89,7 @@ Start with these register/device families first:
 
 - word devices: `D`, `SD`, `R`, `ZR`, `TN`, `CN`
 - bit devices: `M`, `X`, `Y`, `SM`, `B`
-- typed forms: `D200:F`, `D300:L`
+- typed forms: `D100:S`, `D100:I`, `D200:F`, `D300:L`
 - special Node-RED forms: `D100,10`, `M1000,8`, `D100:STR,10`, `DSTR100,10`
 - bit-in-word form: `D50.3`
 
@@ -119,7 +119,7 @@ Maintainer-only notes and retained evidence live under `internal_docs/`.
 - configurable error handling with throw / `msg.error` / second output
 - connection control via `connect` / `disconnect` / `reinitialize` messages
 
-Set one explicit `plcFamily` for each connection. The node derives `frameType`, access profile, `X/Y` string-address rules, and device-range rules from that family.
+Set one explicit `plcFamily` for each connection. The node derives `frameType`, access profile, and `X/Y` string-address rules from that family.
 
 Supported canonical `plcFamily` values:
 
@@ -135,10 +135,10 @@ Supported canonical `plcFamily` values:
 
 ## Underlying JS Helper
 
-The package also exports the underlying SLMP helper library. For device-range reads, choose the PLC family explicitly and read one family SD block:
+The package also exports the underlying SLMP helper library for the same read/write model used by the Node-RED nodes:
 
 ```js
-const { SlmpClient } = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp/lib/slmp");
+const { SlmpClient, readNamed } = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp/lib/slmp");
 
 async function main() {
   const client = new SlmpClient({
@@ -146,22 +146,30 @@ async function main() {
     port: 1025,
     plcFamily: "qnu",
   });
-  const catalog = await client.readDeviceRangeCatalog();
-  for (const entry of catalog.entries) {
-    console.log(entry.device, entry.pointCount, entry.addressRange);
-  }
+  const values = await readNamed(client, ["D300", "D300,4"]);
+  console.log(values);
 }
 ```
 
-This path does not call `readTypeName()`. The caller chooses the family such as `iq-f`, `qnu`, `qnudv`, or `lcpu`, and the standard client derives the rest.
+The helper validates address format, protocol constraints, and device-code support for the selected `plcFamily`, but does not pre-check PLC model-specific device ranges or upper bounds.
+If an address is outside the connected PLC's actual range, the PLC response is returned as the runtime error.
 
 ## Current Public Register Scope
 
 - bit devices: `SM`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `TS`, `TC`, `LTS`, `LTC`, `STS`, `STC`, `LSTS`, `LSTC`, `CS`, `CC`, `LCS`, `LCC`, `SB`, `DX`, `DY`
 - word devices: `SD`, `D`, `W`, `TN`, `LTN`, `STN`, `LSTN`, `CN`, `LCN`, `SW`, `Z`, `LZ`, `R`, `ZR`, `RD`
-- typed views: `:S`, `:D`, `:L`, `:F`
+- typed views: `:S`, `:I` (alias of `:S`), `:D`, `:L`, `:F`
 - string/count views: `,count`, `:STR`, `DSTR`
 - word-bit view: `.bit`
+
+Public device-code support by `plcFamily`:
+
+| PLC family | Public device codes accepted by the high-level API and Node-RED editor |
+| --- | --- |
+| `iq-r`, `iq-l`, `mx-f`, `mx-r` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `LTS`, `LTC`, `LTN`, `STS`, `STC`, `STN`, `LSTS`, `LSTC`, `LSTN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `DX`, `DY`, `Z`, `LZ`, `R`, `ZR`, `RD` |
+| `iq-f` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `Z`, `LZ`, `R` |
+| `qcpu` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `Z`, `R`, `ZR` |
+| `lcpu`, `qnu`, `qnudv` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `Z`, `R`, `ZR` |
 
 Validated public hardware summary:
 
@@ -175,7 +183,7 @@ Validated public hardware summary:
 - [`slmp-basic-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-basic-read-write.json): scalar, float, and bit read/write over TCP
 - [`slmp-array-string.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-array-string.json): array and string read/write over TCP
 - [`slmp-control-error.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-control-error.json): control messages, `msg` source, and second-output errors
-- [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with completed-result history, run summary, and JSONL logging in `Node-RED userDir/logs/slmp-device-matrix-<session>.jsonl`
+- [`slmp-device-matrix.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-device-matrix.json): one-by-one and run-all high-level read, write, and readback across the matrix catalog with one outstanding request at a time, status lamp feedback, completed-result history, run summary, unsupported-device skip records, and JSONL logging in `Node-RED userDir/logs/slmp-device-matrix-<session>.jsonl`
 - [`slmp-routing.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-routing.json): per-request routing with `msg.target`
 - [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
@@ -199,7 +207,7 @@ cmd /c npm.cmd test
 
 - `.bit` notation is only valid for word devices such as `D50.3`
 - direct bit devices should be addressed directly as `M1000`, `X1F`, `Y20`
-- `LTN`, `LSTN`, `LCN`, and `LZ` default to 32-bit `:D` access in high-level helpers
+- `LTN`, `LSTN`, `LCN`, and `LZ` default to 32-bit `:D` access in high-level helpers; iQ-F `LZ` samples should use `LZ0` or `LZ1`
 - `LCN` current-value reads and writes use random dword access in the high-level helpers
 - `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.2.11 - 2026-05-02
+
+- remove the public device range catalog API from the Node-RED package
+- keep ordinary Node-RED read/write validation to address format and protocol constraints, leaving actual device-range errors to the PLC response
+- reject device codes that the selected `plcFamily` does not expose in the public high-level table, aligned with the .NET `DEVICE_RANGES.md` support matrix
+
 - remove stale user-guide and TODO wording that still described `LCS` and `LCC`
   as future support; the high-level helpers route reads through direct bit read
   and writes through random bit write (`0x1402`)

@@ -59,6 +59,8 @@ async function main() {
   } finally {
     if (child) {
       stopProcessTree(child.pid);
+      child.stdout.unpipe(stdout);
+      child.stderr.unpipe(stderr);
     }
     stdout.end();
     stderr.end();

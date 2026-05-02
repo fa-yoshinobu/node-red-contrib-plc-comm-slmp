@@ -38,6 +38,7 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   assert.equal(normalizeAddress(" d200:f "), "D200:F");
   assert.equal(normalizeAddress("d50.a"), "D50.A");
   assert.equal(normalizeAddress("dstr200,8"), "D200:STR,8");
+  assert.equal(normalizeAddress("d100:i"), "D100:S");
   assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
   assert.throws(() => normalizeAddress("x1a"), /require explicit plcFamily/i);
   assert.equal(normalizeAddress("x1a", { plcFamily: "iq-r" }), "X1A");
@@ -1063,6 +1064,39 @@ test("slmp-read can route errors to the second output", async () => {
   });
 });
 
+test("slmp-read can opt in to skip unsupported device errors", async () => {
+  await withMockedSlmp({
+    readNamed: async () => {
+      throw new Error("SLMP device code 'LTC' is not supported for plcFamily 'lcpu'.");
+    },
+  }, async () => {
+    const { RED, create, setNode } = createMockRed();
+    require("../nodes/slmp-read")(RED);
+
+    setNode("cfg-read-skip-unsupported", {
+      getClient: () => ({}),
+      getProfile: () => ({ plcFamily: "lcpu" }),
+    });
+
+    const node = create("slmp-read", {
+      id: "read-skip-unsupported",
+      connection: "cfg-read-skip-unsupported",
+      addresses: "LTC10",
+      errorHandling: "output2",
+    });
+
+    const result = await invokeNode(node, { slmpSkipUnsupported: true });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.sent.length, 1);
+    assert.equal(result.sent[0][0], null);
+    assert.equal(result.sent[0][1].slmpSkippedUnsupported, true);
+    assert.equal(result.sent[0][1].slmp.skipStatus, "UNSUPPORTED_DEVICE");
+    assert.equal(result.sent[0][1].error.code, "SLMP_UNSUPPORTED_DEVICE");
+    assert.deepEqual(node.statusCalls.at(-1), { fill: "yellow", shape: "ring", text: "skipped unsupported device" });
+  });
+});
+
 test("slmp-read supports connect/disconnect/reinitialize control messages", async () => {
   const actions = [];
 
@@ -1391,6 +1425,39 @@ test("slmp-write can route errors to the second output", async () => {
     assert.equal(result.sent.length, 1);
     assert.equal(result.sent[0][0], null);
     assert.equal(result.sent[0][1].error.message, "write failed");
+  });
+});
+
+test("slmp-write can opt in to skip unsupported device errors", async () => {
+  await withMockedSlmp({
+    writeNamed: async () => {
+      throw new Error("SLMP device code 'LTC' is not supported for plcFamily 'lcpu'.");
+    },
+  }, async () => {
+    const { RED, create, setNode } = createMockRed();
+    require("../nodes/slmp-write")(RED);
+
+    setNode("cfg-write-skip-unsupported", {
+      getClient: () => ({}),
+      getProfile: () => ({ plcFamily: "lcpu" }),
+    });
+
+    const node = create("slmp-write", {
+      id: "write-skip-unsupported",
+      connection: "cfg-write-skip-unsupported",
+      updates: "LTC10=true",
+      errorHandling: "output2",
+    });
+
+    const result = await invokeNode(node, { slmp: { skipUnsupported: true } });
+
+    assert.equal(result.error, undefined);
+    assert.equal(result.sent.length, 1);
+    assert.equal(result.sent[0][0], null);
+    assert.equal(result.sent[0][1].slmpSkippedUnsupported, true);
+    assert.equal(result.sent[0][1].slmp.skipStatus, "UNSUPPORTED_DEVICE");
+    assert.equal(result.sent[0][1].error.code, "SLMP_UNSUPPORTED_DEVICE");
+    assert.deepEqual(node.statusCalls.at(-1), { fill: "yellow", shape: "ring", text: "skipped unsupported device" });
   });
 });
 

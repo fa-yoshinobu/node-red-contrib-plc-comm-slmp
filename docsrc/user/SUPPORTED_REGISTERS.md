@@ -45,7 +45,7 @@ This page is the canonical public register/device table for the Node-RED high-le
 | `LCN` | word | `LCN10` | decimal |
 | `SW` | word | `SW20` | hexadecimal |
 | `Z` | word | `Z10` | decimal |
-| `LZ` | word | `LZ10` | decimal |
+| `LZ` | dword | `LZ0` / `LZ1` | decimal |
 | `R` | word | `R100` | decimal |
 | `ZR` | word | `ZR100` | decimal |
 | `RD` | word | `RD100` | decimal |
@@ -55,7 +55,7 @@ This page is the canonical public register/device table for the Node-RED high-le
 | Form | Example | Meaning |
 | --- | --- | --- |
 | plain word | `D100` | unsigned 16-bit word |
-| signed view | `D100:S` | signed 16-bit value |
+| signed view | `D100:S` or `D100:I` | signed 16-bit value (`I` normalizes to `S`) |
 | dword view | `D200:D` | unsigned 32-bit value |
 | long view | `D300:L` | signed 32-bit value |
 | float view | `D200:F` | float32 value |
@@ -77,7 +77,21 @@ This page is the canonical public register/device table for the Node-RED high-le
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the public high-level nodes.
 - `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers.
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`).
-- `LZ` defaults to 32-bit random DWord access in the public high-level nodes.
+- `LZ` defaults to 32-bit random DWord access in the public high-level nodes. On iQ-F, use `LZ0` or `LZ1`.
+
+## Family-Specific Unsupported Devices
+
+These are device-code support rules only. The editor and helper APIs use them to reject or skip device codes that the selected family does not expose in the public surface; they are not address upper-bound checks.
+
+| PLC family | Unsupported device codes in the public Node-RED surface |
+| --- | --- |
+| all families | `G`, `HG` |
+| `iq-r`, `iq-l`, `mx-f`, `mx-r` | none beyond `G`, `HG` |
+| `iq-f` | `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD` |
+| `qcpu` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
+| `lcpu`, `qnu`, `qnudv` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
+
+This table follows only the supported/unsupported device-code portion of the .NET library's `DEVICE_RANGES.md`; Node-RED does not use it for PLC range or upper-bound validation.
 
 ## Not Currently in the Public Surface
 
