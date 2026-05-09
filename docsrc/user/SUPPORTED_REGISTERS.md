@@ -93,6 +93,39 @@ These are device-code support rules only. The editor and helper APIs use them to
 
 This table follows only the supported/unsupported device-code portion of the .NET library's `DEVICE_RANGES.md`; Node-RED does not use it for PLC range or upper-bound validation.
 
+## iQ-R SD Range Maximum Reference
+
+For iQ-R-series targets, the PLC-configured current point count is read from
+the family-specific `SD` range registers by libraries that expose a device range
+catalog. The maximum below is the cap for that SD-derived point count:
+
+`point_count = min(SD point count, max_point_count)`
+
+The displayed upper bound is then `point_count - 1`. Node-RED keeps this as a
+reference table only; it still does not pre-check PLC model-specific address
+upper bounds. If an address exceeds the connected PLC's actual configured
+range, the PLC response is returned as the runtime error.
+
+| Item | Node-RED device codes | Max address | max_point_count | Setting unit |
+| --- | --- | --- | --- | --- |
+| `X` | `X` | `X2FFF` | `12288` (`0x3000`) | n/a |
+| `Y` | `Y` | `Y2FFF` | `12288` (`0x3000`) | n/a |
+| `M` | `M` | `M94674943` | `94674944` (`0x5A4A000`) | 64 points |
+| `B` | `B` | `B5A49FFF` | `94674944` (`0x5A4A000`) | 64 points |
+| `F` | `F` | `F32767` | `32768` | 64 points |
+| `SB` | `SB` | `SB5A49FFF` | `94674944` (`0x5A4A000`) | 64 points |
+| `V` | `V` | `V32767` | `32768` | 64 points |
+| `L` | `L` | `L32767` | `32768` | 64 points |
+| `T` | `TS`, `TC`, `TN` | `T5259711` | `5259712` | 32 points |
+| `ST` | `STS`, `STC`, `STN` | `ST5259711` | `5259712` | 32 points |
+| `LT` | `LTS`, `LTC`, `LTN` | `LT1479295` | `1479296` | 1 point |
+| `LST` | `LSTS`, `LSTC`, `LSTN` | `LST1479295` | `1479296` | 1 point |
+| `C` | `CS`, `CC`, `CN` | `C5259711` | `5259712` | 32 points |
+| `LC` | `LCS`, `LCC`, `LCN` | `LC2784543` | `2784544` | 32 points |
+| `D` | `D` | `D5917183` | `5917184` (`0x5A4A00`) | 4 points |
+| `W` | `W` | `W5A49FF` | `5917184` (`0x5A4A00`) | 4 points |
+| `SW` | `SW` | `SW5A49FF` | `5917184` (`0x5A4A00`) | 4 points |
+
 ## Not Currently in the Public Surface
 
 - `G`
