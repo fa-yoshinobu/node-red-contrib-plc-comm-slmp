@@ -16,6 +16,14 @@ const SHARED_SPEC_DIR = path.resolve(
   "shared"
 );
 
+const sharedSpecAvailable = fs.existsSync(SHARED_SPEC_DIR);
+
+function sharedVectorTest(name, fn) {
+  return sharedSpecAvailable
+    ? test(name, fn)
+    : test.skip(name, { skip: "shared verification vectors are not checked out" }, fn);
+}
+
 function loadJson(name) {
   return JSON.parse(fs.readFileSync(path.join(SHARED_SPEC_DIR, name), "utf8"));
 }
@@ -54,7 +62,7 @@ class CaptureClient extends slmp.SlmpClient {
   }
 }
 
-test("shared address normalization vectors match Node high-level helpers", () => {
+sharedVectorTest("shared address normalization vectors match Node high-level helpers", () => {
   const data = loadJson("high_level_address_normalize_vectors.json");
   for (const entry of data.cases) {
     if (!entry.implementations.includes("node")) {
@@ -65,7 +73,7 @@ test("shared address normalization vectors match Node high-level helpers", () =>
   }
 });
 
-test("shared address parse vectors match Node high-level parser", () => {
+sharedVectorTest("shared address parse vectors match Node high-level parser", () => {
   const data = loadJson("high_level_address_parse_vectors.json");
   for (const entry of data.cases) {
     if (!entry.implementations.includes("node")) {
@@ -84,7 +92,7 @@ test("shared address parse vectors match Node high-level parser", () => {
   }
 });
 
-test("shared device vectors match Node low-level encoder", () => {
+sharedVectorTest("shared device vectors match Node low-level encoder", () => {
   const data = loadJson("device_spec_vectors.json");
   for (const entry of data.vectors) {
     if (!entry.implementations.includes("node")) {
@@ -96,7 +104,7 @@ test("shared device vectors match Node low-level encoder", () => {
   }
 });
 
-test("shared frame vectors match Node client requests", async () => {
+sharedVectorTest("shared frame vectors match Node client requests", async () => {
   const data = loadJson("frame_golden_vectors.json");
   for (const entry of data.cases) {
     if (!entry.implementations.includes("node")) {
