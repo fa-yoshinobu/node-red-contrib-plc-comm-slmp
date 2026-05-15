@@ -12,7 +12,7 @@ released support guidance is available:
 
 - `G`
   - routed high-level access still needs stable released support guidance;
-    QnUDV `U0\G10` read-only returned `0xC070` on the current target
+    QnUDV `U0\G10` read-only returned `[0]` on the current Q06UDVCPU target
 - `HG`
   - routed high-level access still needs stable released support guidance;
     Q-series targets such as QnUDV do not have `HG`
