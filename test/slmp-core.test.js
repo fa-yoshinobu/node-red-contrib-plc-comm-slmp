@@ -252,7 +252,7 @@ test("remote and memory helpers build expected commands", async () => {
   assert.deepEqual(
     calls.map((call) => [call.command, call.subcommand, call.data.toString("hex"), call.expectResponse]),
     [
-      [Command.REMOTE_RUN, 0x0000, "01000200", undefined],
+      [Command.REMOTE_RUN, 0x0000, "01000000", undefined],
       [Command.REMOTE_STOP, 0x0000, "0100", undefined],
       [Command.REMOTE_RESET, 0x0000, "", false],
       [Command.MEMORY_READ, 0x0000, "000100000200", undefined],
