@@ -683,6 +683,9 @@ test("slmp-connection creates a client and closes it with the node", async () =>
       station: "255",
       moduleIO: "03FF",
       multidrop: "2",
+      credentials: {
+        remotePassword: "secret1",
+      },
     });
 
     assert.equal(constructorOptions.length, 1);
@@ -691,6 +694,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     assert.equal(constructorOptions[0].transport, "udp");
     assert.equal(constructorOptions[0].timeout, 4500);
     assert.equal(constructorOptions[0].plcFamily, "iq-r");
+    assert.equal(constructorOptions[0].remotePassword, "secret1");
     assert.ok(node.getClient() instanceof FakeSlmpClient);
     assert.deepEqual(node.getProfile(), {
       host: "192.168.0.10",
@@ -705,6 +709,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
         moduleIO: 0x03ff,
         multidrop: 2,
       },
+      remotePasswordConfigured: true,
     });
     assert.deepEqual(node.statusCalls[0], { fill: "grey", shape: "ring", text: "ready" });
 
@@ -1513,6 +1518,7 @@ function createMockRed() {
         node.send = (message) => node.sendCalls.push(message);
         node.status = (status) => node.statusCalls.push(status);
         node.id = config.id;
+        node.credentials = config.credentials || {};
         if (config.id) {
           nodes.set(config.id, node);
         }

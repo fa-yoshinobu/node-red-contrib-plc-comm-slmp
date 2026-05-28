@@ -35,7 +35,7 @@ This package is documented for the high-level Node-RED workflow only:
 ## Quick Start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
-2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, and `PLC type`.
+2. Add one `slmp-connection` config node and set `host`, `port`, `transport`, and `PLC type`. If the route is protected, set `Remote password`.
 3. Add `slmp-read` for the first smoke test, using a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. When read works, add `slmp-write` and use known-safe test devices before moving to production addresses.
 
@@ -129,6 +129,7 @@ Maintainer-only notes and retained evidence live under `internal_docs/`.
 - connection control via `connect` / `disconnect` / `reinitialize` messages
 
 Set one explicit PLC type for each connection. The node stores it as `plcFamily` internally and derives `frameType`, access profile, and `X/Y` string-address rules from that selection.
+If `Remote password` is set, the connection unlocks the PLC remote-password protection after opening the SLMP transport and tries to lock it again before disconnecting.
 
 Supported canonical PLC type values:
 

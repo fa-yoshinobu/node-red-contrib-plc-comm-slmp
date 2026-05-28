@@ -13,6 +13,7 @@ module.exports = function registerSlmpConnection(RED) {
     this.timeout = Number(config.timeout || 3000);
     this.plcFamily = config.plcFamily ? String(config.plcFamily).trim() : "";
     this.monitoringTimer = Number(config.monitoringTimer || 0x0010);
+    this.remotePassword = this.credentials && this.credentials.remotePassword ? String(this.credentials.remotePassword) : "";
     this.target = {
       network: config.network,
       station: config.station,
@@ -32,6 +33,7 @@ module.exports = function registerSlmpConnection(RED) {
       plcFamily: this.plcFamily,
       monitoringTimer: this.monitoringTimer,
       defaultTarget: this.target,
+      remotePassword: this.remotePassword,
     };
 
     this.client = new SlmpClient(clientOptions);
@@ -48,6 +50,7 @@ module.exports = function registerSlmpConnection(RED) {
       frameType: this.client.frameType,
       plcSeries: this.client.plcSeries,
       target: this.client.defaultTarget,
+      remotePasswordConfigured: this.remotePassword.length > 0,
     });
     this.connect = async () => {
       this._setState("yellow", "ring", "connecting");
@@ -79,5 +82,9 @@ module.exports = function registerSlmpConnection(RED) {
     });
   }
 
-  RED.nodes.registerType("slmp-connection", SlmpConnectionNode);
+  RED.nodes.registerType("slmp-connection", SlmpConnectionNode, {
+    credentials: {
+      remotePassword: { type: "password" },
+    },
+  });
 };

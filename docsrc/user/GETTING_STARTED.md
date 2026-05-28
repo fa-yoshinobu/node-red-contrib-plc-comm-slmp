@@ -9,7 +9,7 @@ Recommended first path:
 1. Install the package into your Node-RED user directory.
 2. Restart Node-RED.
 3. Add one `slmp-connection` config node.
-4. Set `host`, `port`, `transport`, and `PLC type`.
+4. Set `host`, `port`, `transport`, and `PLC type`. If the PLC route uses remote-password protection, set `Remote password`.
 5. Import `examples/flows/slmp-basic-read-write.json`.
 6. Replace the host and safe test addresses.
 7. Deploy and confirm that one `D` read succeeds.
@@ -43,6 +43,7 @@ Set these fields explicitly on `slmp-connection`:
 - `port`
 - `transport`
 - `PLC type`
+- `Remote password` when required by the PLC route
 - timeout
 
 Canonical `PLC type` values:

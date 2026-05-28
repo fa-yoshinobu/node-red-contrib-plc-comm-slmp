@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- add an optional `Remote password` credential to `slmp-connection`; configured connections unlock remote-password protection after opening SLMP transport and try to lock it before disconnecting
+
 ## 0.2.12 - 2026-05-02
 
 - bump the release revision for npm and Node-RED Flow Library publishing; the Flow Library currently shows `0.2.3` as the public baseline

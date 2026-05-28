@@ -15,7 +15,7 @@ See also:
 ## Quick start
 
 1. Install the package into your Node-RED user directory and restart Node-RED.
-2. Create one `slmp-connection` and set `host`, `port`, `transport`, and `PLC type`.
+2. Create one `slmp-connection` and set `host`, `port`, `transport`, and `PLC type`. Set `Remote password` when the PLC route is protected.
 3. Drop in `slmp-read` and try a safe address such as `D300`, `D300,4`, or `DSTR320,10`.
 4. Once reads work, add `slmp-write` and verify with known-safe test devices.
 
@@ -63,9 +63,11 @@ Configure these explicitly on the connection node:
 - port
 - transport: `tcp` or `udp`
 - PLC type: `iq-f`, `iq-r`, `iq-l`, `mx-f`, `mx-r`, `qcpu`, `lcpu`, `qnu`, or `qnudv`
+- Remote password: optional SLMP remote-password credential for protected PLC routes
 - route fields: network, station, module I/O, multidrop
 
 The connection node stores the selection as `plcFamily` internally and derives `frameType`, access profile, and string-address interpretation from the explicit `PLC type`.
+When `Remote password` is configured, the shared connection sends remote-password unlock after opening the SLMP transport and attempts remote-password lock before disconnecting.
 
 Validated PLC models:
 
