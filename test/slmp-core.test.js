@@ -261,6 +261,110 @@ test("remote and memory helpers build expected commands", async () => {
   );
 });
 
+test("configured remote password unlocks before lazy requests and locks on close", async () => {
+  const client = new SlmpClient({
+    host: "127.0.0.1",
+    frameType: "3e",
+    plcSeries: "iqr",
+    remotePassword: "secret1",
+    _allowManualProfile: true,
+  });
+  const calls = [];
+  let transportOpen = false;
+
+  client._connectTransport = async () => {
+    if (!transportOpen) {
+      calls.push({ kind: "connect" });
+      transportOpen = true;
+    }
+  };
+  client._hasOpenTransport = () => transportOpen;
+  client._closeTransport = async () => {
+    calls.push({ kind: "close" });
+    transportOpen = false;
+  };
+  client._sendAndReceive = async (frame, _serial, options = {}) => {
+    await client.connect({ skipRemotePasswordLifecycle: Boolean(options.skipRemotePasswordLifecycle) });
+    calls.push({
+      kind: "request",
+      command: frame.readUInt16LE(11),
+      subcommand: frame.readUInt16LE(13),
+      data: frame.subarray(15).toString("hex"),
+      skipRemotePasswordLifecycle: Boolean(options.skipRemotePasswordLifecycle),
+    });
+    return Buffer.from("d00000ffff030002000000", "hex");
+  };
+
+  await client.remoteStop();
+  await client.close();
+
+  assert.deepEqual(calls, [
+    { kind: "connect" },
+    {
+      kind: "request",
+      command: Command.REMOTE_PASSWORD_UNLOCK,
+      subcommand: 0x0000,
+      data: "070073656372657431",
+      skipRemotePasswordLifecycle: true,
+    },
+    {
+      kind: "request",
+      command: Command.REMOTE_STOP,
+      subcommand: 0x0000,
+      data: "0100",
+      skipRemotePasswordLifecycle: false,
+    },
+    {
+      kind: "request",
+      command: Command.REMOTE_PASSWORD_LOCK,
+      subcommand: 0x0000,
+      data: "070073656372657431",
+      skipRemotePasswordLifecycle: true,
+    },
+    { kind: "close" },
+  ]);
+});
+
+test("concurrent remote password requests wait for the same unlock", async () => {
+  const client = new SlmpClient({
+    host: "127.0.0.1",
+    frameType: "4e",
+    plcSeries: "iqr",
+    remotePassword: "secret1",
+    allowConcurrentRequests: true,
+    _allowManualProfile: true,
+  });
+  const commands = [];
+  let transportOpen = false;
+
+  client._connectTransport = async () => {
+    transportOpen = true;
+  };
+  client._hasOpenTransport = () => transportOpen;
+  client._closeTransport = async () => {
+    transportOpen = false;
+  };
+  client._sendAndReceive = async (frame, serial, options = {}) => {
+    await client.connect({ skipRemotePasswordLifecycle: Boolean(options.skipRemotePasswordLifecycle) });
+    const command = frame.readUInt16LE(15);
+    commands.push(command);
+    if (command === Command.REMOTE_PASSWORD_UNLOCK) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    const response = Buffer.from("d4000000000000ffff030002000000", "hex");
+    response.writeUInt16LE(serial, 2);
+    return response;
+  };
+
+  await Promise.all([client.remoteStop(), client.remotePause()]);
+
+  assert.equal(commands.filter((command) => command === Command.REMOTE_PASSWORD_UNLOCK).length, 1);
+  assert.equal(commands[0], Command.REMOTE_PASSWORD_UNLOCK);
+  const observedRemoteCommands = commands.slice(1).sort((left, right) => left - right);
+  const expectedRemoteCommands = [Command.REMOTE_STOP, Command.REMOTE_PAUSE].sort((left, right) => left - right);
+  assert.deepEqual(observedRemoteCommands, expectedRemoteCommands);
+});
+
 test("extend unit helpers build expected commands", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
