@@ -5,6 +5,10 @@ const assert = require("node:assert/strict");
 
 const {
   Command,
+  getEndCodeMessage,
+  getEndCodeName,
+  isRemotePasswordEndCode,
+  SlmpError,
   SlmpClient,
   ValueError,
   decodeResponse,
@@ -363,6 +367,119 @@ test("concurrent remote password requests wait for the same unlock", async () =>
   const observedRemoteCommands = commands.slice(1).sort((left, right) => left - right);
   const expectedRemoteCommands = [Command.REMOTE_STOP, Command.REMOTE_PAUSE].sort((left, right) => left - right);
   assert.deepEqual(observedRemoteCommands, expectedRemoteCommands);
+});
+
+test("configured remote password unlock reports password errors clearly", async () => {
+  const client = new SlmpClient({
+    host: "127.0.0.1",
+    frameType: "3e",
+    plcSeries: "iqr",
+    remotePassword: "123456",
+    _allowManualProfile: true,
+  });
+  let transportOpen = false;
+  let closed = false;
+
+  client._connectTransport = async () => {
+    transportOpen = true;
+  };
+  client._hasOpenTransport = () => transportOpen;
+  client._closeTransport = async () => {
+    closed = true;
+    transportOpen = false;
+  };
+  client._sendAndReceive = async (frame, _serial, options = {}) => {
+    await client.connect({ skipRemotePasswordLifecycle: Boolean(options.skipRemotePasswordLifecycle) });
+    assert.equal(frame.readUInt16LE(11), Command.REMOTE_PASSWORD_UNLOCK);
+    return Buffer.from("d00000ffff0300020010c8", "hex");
+  };
+
+  await assert.rejects(
+    () => client.remoteStop(),
+    (error) =>
+      error instanceof SlmpError &&
+      error.endCode === 0xc810 &&
+      error.endCodeName === "slmp_end_code_c810" &&
+      /Remote password authentication has failed/.test(error.message) &&
+      /Set a correct password and retry/.test(error.endCodeMessage) &&
+      error.isRemotePasswordError &&
+      /end_code=0xC810/.test(error.rawMessage)
+  );
+  assert.equal(closed, true);
+});
+
+test("request reports remote password lock errors clearly", async () => {
+  const client = new SlmpClient({
+    host: "127.0.0.1",
+    frameType: "3e",
+    plcSeries: "iqr",
+    _allowManualProfile: true,
+  });
+
+  client._connectTransport = async () => {};
+  client._hasOpenTransport = () => true;
+  client._sendAndReceive = async () => Buffer.from("d00000ffff0300020001c2", "hex");
+
+  await assert.rejects(
+    () => client.readDevices("D100", 1),
+    (error) =>
+      error instanceof SlmpError &&
+      error.endCode === 0xc201 &&
+      error.command === Command.DEVICE_READ &&
+      error.endCodeName === "slmp_end_code_c201" &&
+      /remote password status/.test(error.message) &&
+      /lock status/.test(error.endCodeMessage) &&
+      error.isRemotePasswordError &&
+      /end_code=0xC201/.test(error.rawMessage)
+  );
+});
+
+test("remote password end-code helper classifies password codes", () => {
+  assert.equal(getEndCodeName(0xc201), "slmp_end_code_c201");
+  assert.equal(getEndCodeName(0xc810), "slmp_end_code_c810");
+  assert.equal(getEndCodeName(0xdead), "unknown_plc_end_code");
+  assert.equal(
+    getEndCodeMessage(0xc810),
+    "Remote password authentication has failed when required. Set a correct password and retry."
+  );
+  assert.equal(getEndCodeMessage(0xdead), undefined);
+  assert.equal(isRemotePasswordEndCode(0xc201), true);
+  assert.equal(isRemotePasswordEndCode(0xc810), true);
+  assert.equal(isRemotePasswordEndCode(0xc814), true);
+  assert.equal(isRemotePasswordEndCode(0xc051), false);
+});
+
+test("remote password authentication retry delay messages are code-specific", async () => {
+  const client = new SlmpClient({
+    host: "127.0.0.1",
+    frameType: "3e",
+    plcSeries: "iqr",
+    _allowManualProfile: true,
+  });
+
+  client._connectTransport = async () => {};
+  client._hasOpenTransport = () => true;
+
+  const cases = [
+    [0xc811, /retry after 1 minute/],
+    [0xc812, /retry after 5 minutes/],
+    [0xc813, /retry after 15 minutes/],
+    [0xc814, /retry after 60 minutes/],
+    [0xc815, /retry after 60 minutes/],
+  ];
+
+  for (const [endCode, messagePattern] of cases) {
+    client._sendAndReceive = async () => {
+      const response = Buffer.from("d00000ffff030002000000", "hex");
+      response.writeUInt16LE(endCode, 9);
+      return response;
+    };
+
+    await assert.rejects(
+      () => client.readDevices("D100", 1),
+      (error) => error instanceof SlmpError && error.endCode === endCode && messagePattern.test(error.message)
+    );
+  }
 });
 
 test("extend unit helpers build expected commands", async () => {
