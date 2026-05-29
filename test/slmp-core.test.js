@@ -439,11 +439,13 @@ test("request reports remote password lock errors clearly", async () => {
 test("remote password end-code helper classifies password codes", () => {
   assert.equal(getEndCodeName(0xc201), "slmp_end_code_c201");
   assert.equal(getEndCodeName(0xc810), "slmp_end_code_c810");
+  assert.equal(getEndCodeName(0xd913), "slmp_end_code_d913");
   assert.equal(getEndCodeName(0xdead), "unknown_plc_end_code");
   assert.equal(
     getEndCodeMessage(0xc810),
     "Remote password authentication has failed when required. Set a correct password and retry."
   );
+  assert.equal(getEndCodeMessage(0xd913), "An error was detected in the network module.");
   assert.equal(getEndCodeMessage(0xdead), undefined);
   assert.equal(isRemotePasswordEndCode(0xc201), true);
   assert.equal(isRemotePasswordEndCode(0xc810), true);
