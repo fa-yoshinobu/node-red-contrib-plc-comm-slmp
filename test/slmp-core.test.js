@@ -185,6 +185,81 @@ test("4E TCP response matching uses serial instead of FIFO order", async () => {
   assert.deepEqual([...secondDecoded.data], [0x22, 0x22]);
 });
 
+test("3E TCP frame extraction waits for split response chunks", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  const response = make3EResponse([0x34, 0x12]);
+  const pending = client._awaitTcpFrame(0);
+
+  client._handleTcpData(response.subarray(0, 6));
+  client._handleTcpData(response.subarray(6));
+
+  const frame = await pending;
+  const decoded = decodeResponse(frame, { frameType: "3e" });
+  assert.deepEqual([...decoded.data], [0x34, 0x12]);
+});
+
+test("TCP sendAndReceive resolves a split response injected by a mock socket", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", timeout: 50, _allowManualProfile: true });
+  const writes = [];
+  const request = Buffer.from([0x01, 0x02, 0x03]);
+  const response = make4EResponse(0x2222, [0x44, 0x55]);
+  client._transport._tcpSocket = {
+    destroyed: false,
+    write(frame, callback) {
+      writes.push(Buffer.from(frame));
+      setTimeout(() => {
+        client._handleTcpData(response.subarray(0, 8));
+        client._handleTcpData(response.subarray(8));
+      }, 0);
+      callback();
+    },
+  };
+
+  const raw = await client._sendAndReceive(request, 0x2222, { skipRemotePasswordLifecycle: true });
+  const decoded = decodeResponse(raw, { frameType: "4e" });
+
+  assert.deepEqual([...writes[0]], [...request]);
+  assert.equal(decoded.serial, 0x2222);
+  assert.deepEqual([...decoded.data], [0x44, 0x55]);
+});
+
+test("3E TCP frame extraction queues combined response chunks in order", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+
+  client._handleTcpData(Buffer.concat([make3EResponse([0x11, 0x11]), make3EResponse([0x22, 0x22])]));
+
+  const first = decodeResponse(await client._awaitTcpFrame(0), { frameType: "3e" });
+  const second = decodeResponse(await client._awaitTcpFrame(1), { frameType: "3e" });
+  assert.deepEqual([...first.data], [0x11, 0x11]);
+  assert.deepEqual([...second.data], [0x22, 0x22]);
+});
+
+test("TCP frame wait reports the existing timeout message", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", timeout: 5, _allowManualProfile: true });
+
+  await assert.rejects(() => client._awaitTcpFrame(0), /TCP communication timeout/);
+});
+
+test("TCP failure rejects pending waits with the provided error", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", _allowManualProfile: true });
+  const pending = client._awaitTcpFrame(0x1001);
+
+  client._handleTcpFailure(new SlmpError("synthetic TCP close"));
+
+  await assert.rejects(() => pending, /synthetic TCP close/);
+});
+
+test("4E TCP response matching queues unmatched serials for later waits", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", _allowManualProfile: true });
+
+  client._handleTcpData(make4EResponse(0x1002, [0x22, 0x22]));
+
+  const queued = await client._awaitTcpFrame(0x1002);
+  const decoded = decodeResponse(queued, { frameType: "4e" });
+  assert.equal(decoded.serial, 0x1002);
+  assert.deepEqual([...decoded.data], [0x22, 0x22]);
+});
+
 test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   const calls = [];
@@ -713,5 +788,19 @@ function make4EResponse(serial, data) {
   buffer.writeUInt16LE(2 + payload.length, 11);
   buffer.writeUInt16LE(0x0000, 13);
   payload.copy(buffer, 15);
+  return buffer;
+}
+
+function make3EResponse(data) {
+  const payload = Buffer.from(data);
+  const buffer = Buffer.alloc(11 + payload.length);
+  buffer.writeUInt16LE(0x00d0, 0);
+  buffer.writeUInt8(0x00, 2);
+  buffer.writeUInt8(0xff, 3);
+  buffer.writeUInt16LE(0x03ff, 4);
+  buffer.writeUInt8(0x00, 6);
+  buffer.writeUInt16LE(2 + payload.length, 7);
+  buffer.writeUInt16LE(0x0000, 9);
+  payload.copy(buffer, 11);
   return buffer;
 }
