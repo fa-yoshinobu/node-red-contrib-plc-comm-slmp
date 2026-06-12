@@ -5,6 +5,8 @@
 - add an optional `Remote password` credential to `slmp-connection`; configured connections unlock remote-password protection after opening SLMP transport and try to lock it before disconnecting
 - add SLMP end-code name/message helpers backed by the full English communication error-code table, and expose remote-password end-code classification on `SlmpError`
 - add forced remote STOP support through `remoteStop({ force: true })`
+- fix `writeBlock()` payload layout so each `1406` block writes its data immediately after that block's device spec and point count
+- add maintainer notes for the resolved mixed `1406` layout root cause and current no-fallback behavior
 
 ## 0.2.12 - 2026-05-02
 

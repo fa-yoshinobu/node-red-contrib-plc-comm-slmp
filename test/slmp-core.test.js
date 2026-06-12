@@ -740,6 +740,34 @@ test("writeBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
+test("writeBlock inlines each block's data after its own spec", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let captured;
+  client.request = async (command, subcommand, data) => {
+    captured = { command, subcommand, data: Buffer.from(data) };
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await client.writeBlock({
+    wordBlocks: [["D300", [0x1111, 0x2222]]],
+    bitBlocks: [["M200", [0x00ff]]],
+    series: "iqr",
+  });
+
+  assert.equal(captured.command, Command.DEVICE_WRITE_BLOCK);
+  assert.equal(captured.subcommand, 0x0002);
+  assert.equal(
+    captured.data.toString("hex"),
+    Buffer.concat([
+      Buffer.from([0x01, 0x01]),
+      encodeDeviceSpec("D300", { series: "iqr" }),
+      Buffer.from([0x02, 0x00, 0x11, 0x11, 0x22, 0x22]),
+      encodeDeviceSpec("M200", { series: "iqr" }),
+      Buffer.from([0x01, 0x00, 0xff, 0x00]),
+    ]).toString("hex")
+  );
+});
+
 test("writeBlock rejects long current and LZ block routes before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
