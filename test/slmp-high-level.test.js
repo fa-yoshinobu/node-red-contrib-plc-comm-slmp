@@ -37,9 +37,11 @@ test("parseAddress supports count and string forms", () => {
 test("normalizeAddress and formatParsedAddress keep one canonical spelling", () => {
   assert.equal(normalizeAddress(" d200:f "), "D200:F");
   assert.equal(normalizeAddress("d50.a"), "D50.A");
+  assert.equal(normalizeAddress("d50.d"), "D50.D");
   assert.equal(normalizeAddress("dstr200,8"), "D200:STR,8");
   assert.equal(normalizeAddress("d100:i"), "D100:S");
   assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
+  assert.throws(() => normalizeAddress("d50.10"), /invalid bit-in-word/i);
   assert.throws(() => normalizeAddress("x1a"), /require explicit plcFamily/i);
   assert.equal(normalizeAddress("x1a", { plcFamily: "iq-r" }), "X1A");
   assert.equal(normalizeAddress("y217", { plcFamily: "iq-f" }), "Y217");
