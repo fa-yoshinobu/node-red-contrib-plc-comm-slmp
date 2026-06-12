@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.13 - 2026-06-12
+## 0.2.14 - 2026-06-12
 
 - add an optional `Remote password` credential to `slmp-connection`; configured connections unlock remote-password protection after opening SLMP transport and try to lock it before disconnecting
 - add SLMP end-code name/message helpers backed by the full English communication error-code table, and expose remote-password end-code classification on `SlmpError`
