@@ -46,8 +46,12 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
   assert.throws(() => parseDevice("RD10", { plcFamily: "qnudv" }), /not supported for plcFamily 'qnudv'/);
   assert.throws(() => parseDevice("LZ0", { plcFamily: "qnu" }), /not supported for plcFamily 'qnu'/);
   assert.throws(() => parseDevice("G10", { plcFamily: "iq-r" }), /not supported for plcFamily 'iq-r'/);
+  assert.throws(() => parseDevice("G10"), /not supported in the Node-RED public high-level surface/);
+  assert.throws(() => parseDevice("HG10"), /not supported in the Node-RED public high-level surface/);
   assert.equal(isDeviceCodeSupportedForFamily("LZ", "qnudv"), false);
   assert.equal(isDeviceCodeSupportedForFamily("G", "qnu"), false);
+  assert.equal(isDeviceCodeSupportedForFamily("G", null), false);
+  assert.equal(isDeviceCodeSupportedForFamily("HG", null), false);
 });
 
 test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {

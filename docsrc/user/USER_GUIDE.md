@@ -116,7 +116,7 @@ Address notes:
 - count and string forms work on supported devices, for example `D300,10`, `M1000,8`, and `DSTR320,10`
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the high-level nodes
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
-- future routed device support candidates such as `G` and `HG` are tracked in [`TODO.md`](../../TODO.md)
+- `G` and `HG` are intentionally unsupported in the public Node-RED high-level surface
 
 Family-specific unsupported device codes:
 

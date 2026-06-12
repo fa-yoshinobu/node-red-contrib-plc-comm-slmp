@@ -1,12 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.2.13 - 2026-06-12
 
 - add an optional `Remote password` credential to `slmp-connection`; configured connections unlock remote-password protection after opening SLMP transport and try to lock it before disconnecting
 - add SLMP end-code name/message helpers backed by the full English communication error-code table, and expose remote-password end-code classification on `SlmpError`
 - add forced remote STOP support through `remoteStop({ force: true })`
 - fix `writeBlock()` payload layout so each `1406` block writes its data immediately after that block's device spec and point count
 - add maintainer notes for the resolved mixed `1406` layout root cause and current no-fallback behavior
+- clarify that `G` and `HG` are intentionally unsupported in the public Node-RED high-level surface, not pending TODO items
+- reject direct `G` and `HG` device names even when no `plcFamily` is supplied, keeping the public surface from sending unitless Extended Specification-only devices
 
 ## 0.2.12 - 2026-05-02
 
@@ -25,8 +27,8 @@
 - remove stale user-guide and TODO wording that still described `LCS` and `LCC`
   as future support; the high-level helpers route reads through direct bit read
   and writes through random bit write (`0x1402`)
-- keep `G` and `HG` out of the default public device-matrix flow while they
-  remain routed-device follow-up items
+- keep `G` and `HG` out of the default public device-matrix flow because they
+  are not part of the public high-level surface
 
 ## 0.2.10 - 2026-04-27
 
