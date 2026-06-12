@@ -60,6 +60,10 @@ class CaptureClient extends slmp.SlmpClient {
     this.capturedFrame = Buffer.from(frame);
     return build4EResponse(frame, this.responseData);
   }
+
+  async _sendOnly(frame) {
+    this.capturedFrame = Buffer.from(frame);
+  }
 }
 
 sharedVectorTest("shared address normalization vectors match Node high-level helpers", () => {
@@ -159,6 +163,9 @@ async function dispatchFrameCase(client, entry) {
     }
     case "remote_password_unlock":
       await client.remotePasswordUnlock(args.password);
+      return;
+    case "remote_reset":
+      await client.remoteReset({ expectResponse: args.expect_response ?? true });
       return;
     default:
       throw new Error(`Unsupported shared frame operation for Node: ${entry.operation}`);

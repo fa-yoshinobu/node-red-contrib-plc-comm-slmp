@@ -109,6 +109,33 @@ test("readNamed batches word and dword requests like the Python helper layer", a
   );
 });
 
+test("readNamed splits random reads at the iQ-R manual batch limit", async () => {
+  const calls = [];
+  const fakeClient = {
+    async readRandom({ wordDevices, dwordDevices }) {
+      const wordNames = wordDevices.map((device) => `${device.code}${device.number}`);
+      calls.push({ wordDevices: wordNames, dwordDevices });
+      return {
+        word: Object.fromEntries(wordDevices.map((device) => [`${device.code}${device.number}`, device.number])),
+        dword: {},
+      };
+    },
+    async readDevices() {
+      throw new Error("unexpected direct read");
+    },
+  };
+
+  const addresses = Array.from({ length: 97 }, (_, index) => `D${index * 2}`);
+  const snapshot = await readNamed(fakeClient, addresses);
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].wordDevices.length, 96);
+  assert.equal(calls[1].wordDevices.length, 1);
+  assert.equal(calls[1].wordDevices[0], "D192");
+  assert.equal(snapshot.D0, 0);
+  assert.equal(snapshot.D192, 192);
+});
+
 test("writeNamed supports word, bit-in-word, direct bit, and float writes", async () => {
   const writes = [];
   const fakeClient = {
@@ -149,6 +176,26 @@ test("writeNamed supports word, bit-in-word, direct bit, and float writes", asyn
   assert.equal(randomWrite.dwordValues[0][0], "D200");
   assert.deepEqual(wordWrite, { kind: "writeDevices", device: "D50", values: [8], bitUnit: false });
   assert.deepEqual(bitWrite, { kind: "writeDevices", device: "M1000", values: [true], bitUnit: true });
+});
+
+test("writeNamed splits random word writes at the iQ-R manual weighted limit", async () => {
+  const writes = [];
+  const fakeClient = {
+    async writeRandomWords({ wordValues, dwordValues }) {
+      writes.push({
+        wordValues: wordValues.map(([device, value]) => [`${device.code}${device.number}`, value]),
+        dwordValues,
+      });
+    },
+  };
+
+  const updates = Object.fromEntries(Array.from({ length: 81 }, (_, index) => [`D${index * 2}`, index]));
+  await writeNamed(fakeClient, updates);
+
+  assert.equal(writes.length, 2);
+  assert.equal(writes[0].wordValues.length, 80);
+  assert.equal(writes[1].wordValues.length, 1);
+  assert.deepEqual(writes[1].wordValues[0], ["D160", 80]);
 });
 
 test("readNamed coalesces contiguous direct bits and word ranges into block reads", async () => {
