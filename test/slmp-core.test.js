@@ -317,6 +317,38 @@ test("writeDevices rejects direct long-family state writes before transport", as
   assert.equal(calls, 0);
 });
 
+test("iQ-R manual point limits reject overruns before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  const wordDevices = Array.from({ length: 97 }, (_, index) => `D${index}`);
+  const wordValues = Array.from({ length: 81 }, (_, index) => [`D${8000 + index}`, 0]);
+  const dwordValues = Array.from({ length: 69 }, (_, index) => [`D${8200 + index * 2}`, 0]);
+  const bitValues = Array.from({ length: 95 }, (_, index) => [`M${4000 + index}`, false]);
+
+  await assert.rejects(() => client.readDevices("D0", 961), /1\.\.960/);
+  await assert.rejects(() => client.writeDevices("D0", new Array(961).fill(0)), /1\.\.960/);
+  await assert.rejects(() => client.readDevices("M0", 7169, { bitUnit: true }), /1\.\.7168/);
+  await assert.rejects(() => client.writeDevices("M0", new Array(7169).fill(false), { bitUnit: true }), /1\.\.7168/);
+  await assert.rejects(() => client.readRandom({ wordDevices }), /1\.\.96/);
+  await assert.rejects(() => client.writeRandomWords({ wordValues }), /word\/dword access points/);
+  await assert.rejects(() => client.writeRandomWords({ dwordValues }), /word\/dword access points/);
+  await assert.rejects(() => client.writeRandomBits({ bitValues }), /1\.\.94/);
+  await assert.rejects(() => client.readBlock({ wordBlocks: [["D0", 961]] }), /total device points/);
+  await assert.rejects(() => client.writeBlock({ wordBlocks: [["D8000", new Array(952).fill(0)]] }), /total device points/);
+  await assert.rejects(() => client.memoryReadWords(0, 481), /1\.\.480/);
+  await assert.rejects(() => client.memoryWriteWords(0, new Array(481).fill(0)), /1\.\.480/);
+  await assert.rejects(() => client.extendUnitReadWords(0, 961, 0x03e0), /1\.\.960/);
+  await assert.rejects(() => client.extendUnitWriteWords(0, 0x03e0, new Array(961).fill(0)), /1\.\.960/);
+  await assert.rejects(() => client.extendUnitReadBytes(0, 1921, 0x03e0), /2\.\.1920/);
+  await assert.rejects(() => client.extendUnitWriteBytes(0, 0x03e0, Buffer.alloc(1921)), /2\.\.1920/);
+  assert.equal(calls, 0);
+});
+
 test("remote and memory helpers build expected commands", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
@@ -338,11 +370,19 @@ test("remote and memory helpers build expected commands", async () => {
     [
       [Command.REMOTE_RUN, 0x0000, "01000000", undefined],
       [Command.REMOTE_STOP, 0x0000, "0100", undefined],
-      [Command.REMOTE_STOP, 0x0000, "0300", undefined],
-      [Command.REMOTE_RESET, 0x0000, "", false],
+      [Command.REMOTE_STOP, 0x0000, "0100", undefined],
+      [Command.REMOTE_RESET, 0x0000, "0100", false],
       [Command.MEMORY_READ, 0x0000, "000100000200", undefined],
       [Command.MEMORY_WRITE, 0x0000, "0001000002006400c800", undefined],
     ]
+  );
+});
+
+test("remoteReset rejects non-zero subcommands before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  await assert.rejects(
+    () => client.remoteReset({ subcommand: 0x0001 }),
+    (error) => error instanceof ValueError && /remote reset subcommand must be 0x0000/.test(error.message)
   );
 });
 
