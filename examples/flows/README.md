@@ -1,41 +1,31 @@
-# Example Flows
+# Example flows
 
-See also:
+## What is in this directory
 
-- [Project README](../../README.md)
-- [User Guide](../../docsrc/user/USER_GUIDE.md)
-- [Documentation Index](../../docsrc/index.md)
+This directory contains importable Node-RED JSON flow files for the public `slmp-connection`, `slmp-read`, and `slmp-write` nodes. Start with the basic TCP flow, then use the other flows for arrays, strings, error routing, UDP, route overrides, and broader device coverage.
 
-Import one of these files into Node-RED, then update the connection host, port, transport, and safe device addresses for the target PLC before deploy.
+## How to import
 
-Start here:
+1. Open the Node-RED editor.
+2. Open the import menu.
+3. Paste the JSON from one flow file.
+4. Import the flow.
+5. Open the `slmp-connection` config node.
+6. Set Host to `192.168.250.100`.
+7. Set the TCP Port to `1025`, or set the UDP Port to `1035`.
+8. Select the correct PLC type, such as `melsec:iq-r`.
+9. Deploy.
 
-- [`slmp-basic-read-write.json`](slmp-basic-read-write.json) for the first TCP smoke test
-- [`slmp-array-string.json`](slmp-array-string.json) when you want to check `,count` and `DSTR`
-- [`slmp-device-matrix.json`](slmp-device-matrix.json) when you want one-by-one high-level coverage across the matrix catalog with run-all read/write buttons, status lamp feedback, persistent JSONL logging, pending tracking, and timeout detection
-- [`slmp-udp-read-write.json`](slmp-udp-read-write.json) when you need UDP first
+## Flow index
 
-Optional local runtime smoke test from the repository root:
+| File | What it demonstrates | Recommended first-use order |
+| --- | --- | --- |
+| [`slmp-basic-read-write.json`](slmp-basic-read-write.json) | Basic TCP read and write with scalar words, float values, and bit-in-word access. | 1 |
+| [`slmp-array-string.json`](slmp-array-string.json) | TCP array access with `,count`, float arrays, and `:STR` string access. | 2 |
+| [`slmp-control-error.json`](slmp-control-error.json) | Connection control messages, `msg`-provided addresses, and second-output error routing. | 3 |
+| [`slmp-routing.json`](slmp-routing.json) | Per-request route override with `msg.target`. | 4 |
+| [`slmp-udp-read-write.json`](slmp-udp-read-write.json) | Basic UDP read and write. Set the UDP port to `1035` before deploy. | 5 |
+| [`slmp-device-matrix.json`](slmp-device-matrix.json) | One-by-one and run-all high-level read/write coverage with status feedback, skipped unsupported devices, timeout tracking, and JSONL logging. | 6 |
+| [`slmp-demo.json`](slmp-demo.json) | Combined demo with connection controls, array read, string read, write, and error output examples. | 7 |
 
-```bash
-npm run smoke:editor
-```
-
-This imports `slmp-basic-read-write.json` into an isolated temporary userDir and verifies that the temporary Node-RED runtime reaches `Started flows`.
-
-Available flows:
-
-- [`slmp-demo.json`](slmp-demo.json): combined demo with control messages, array read, string read, and error second output
-- [`slmp-basic-read-write.json`](slmp-basic-read-write.json): basic TCP read and write with scalar, float, and word-bit examples
-- [`slmp-array-string.json`](slmp-array-string.json): TCP array and string read/write examples using `,count` and `DSTR`
-- [`slmp-control-error.json`](slmp-control-error.json): connection control, configured `msg` source, and second-output error routing
-- [`slmp-device-matrix.json`](slmp-device-matrix.json): one-by-one high-level read, write, and readback across the matrix catalog with run-all read/write buttons, status lamp feedback, completed-result history, run summary, and `logs/slmp-device-matrix-<session>.jsonl`
-- [`slmp-routing.json`](slmp-routing.json): per-request routing using `msg.lookup` and `msg.target`
-- [`slmp-udp-read-write.json`](slmp-udp-read-write.json): basic UDP read and write example
-
-Notes:
-
-- The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior.
-- In `slmp-device-matrix.json`, `Run all reads` and `Run all writes` are the auto-run buttons. The `Auto run status lamp` shows active, pending, idle, and error state in the editor.
-- Family-unsupported device codes are sent with `slmpSkipUnsupported` by the matrix flow, so they become yellow `SKIPPED` result records instead of red node failures.
-- Each matrix JSONL result includes `plcProfile` near the top of the record, followed by request, operation, address, status, and timing fields.
+The device-matrix flow is for verification after your first simple read works. Do not use it as the first smoke test.

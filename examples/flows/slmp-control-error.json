@@ -11,7 +11,7 @@
         "type":  "comment",
         "z":  "tab-slmp-control-error",
         "name":  "Control messages, msg source, and second-output error routing",
-        "info":  "",
+        "info":  "Shows connect, disconnect, and reinitialize control messages, msg-provided addresses, and second-output error routing from slmp-read.",
         "x":  280,
         "y":  40,
         "wires":  [

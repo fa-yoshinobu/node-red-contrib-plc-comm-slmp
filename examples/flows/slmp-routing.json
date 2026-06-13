@@ -11,7 +11,7 @@
         "type":  "comment",
         "z":  "tab-slmp-routing",
         "name":  "Read with msg-provided addresses and per-request route target",
-        "info":  "",
+        "info":  "Shows a read request that supplies addresses and the SLMP route target from msg fields instead of fixed literal node configuration.",
         "x":  300,
         "y":  40,
         "wires":  [

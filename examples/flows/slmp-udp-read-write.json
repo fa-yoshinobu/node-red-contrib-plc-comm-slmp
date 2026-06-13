@@ -11,7 +11,7 @@
         "type":  "comment",
         "z":  "tab-slmp-udp",
         "name":  "Basic UDP read/write example",
-        "info":  "",
+        "info":  "Basic UDP read/write flow. Set the connection host to 192.168.250.100, UDP port to 1035, and PLC type to melsec:iq-r before deploy.",
         "x":  220,
         "y":  40,
         "wires":  [

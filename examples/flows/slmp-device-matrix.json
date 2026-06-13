@@ -11,7 +11,7 @@
     "type": "comment",
     "z": "tab-slmp-device-matrix",
     "name": "High-level one-by-one read/write sample with JSONL logging, timeout tracking, and unsupported-device skip records",
-    "info": "",
+    "info": "Broad verification flow for one-by-one and run-all high-level device reads/writes. Use it after a simple D-register read succeeds.",
     "x": 350,
     "y": 40,
     "wires": []
@@ -21,7 +21,7 @@
     "type": "comment",
     "z": "tab-slmp-device-matrix",
     "name": "Edit the catalog in 'Prepare next device sample' before deploy. Completed results append to logs/slmp-device-matrix-<session>.jsonl",
-    "info": "",
+    "info": "Edit only the sample catalog in the Prepare next device sample function when changing test devices. Results append to logs/slmp-device-matrix-<session>.jsonl.",
     "x": 400,
     "y": 80,
     "wires": []

@@ -11,7 +11,7 @@
         "type":  "comment",
         "z":  "tab-slmp-basic",
         "name":  "Basic TCP read/write using safe scalar addresses",
-        "info":  "",
+        "info":  "First-use TCP flow. Configure the connection for 192.168.250.100:1025 with PLC type melsec:iq-r, then trigger the read node before trying writes.",
         "x":  260,
         "y":  40,
         "wires":  [

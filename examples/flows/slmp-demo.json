@@ -11,7 +11,7 @@
         "type":  "comment",
         "z":  "tab-slmp-demo",
         "name":  "Update connection and safe device addresses before deploy",
-        "info":  "",
+        "info":  "Combined demo for connection controls, array and string reads, writes, and error output behavior. Use the smaller example flows first.",
         "x":  270,
         "y":  40,
         "wires":  [

@@ -11,7 +11,7 @@
         "type":  "comment",
         "z":  "tab-slmp-array-string",
         "name":  "TCP array and string examples using ,count and DSTR",
-        "info":  "",
+        "info":  "TCP examples for counted word reads, float arrays, and UTF-8 strings. Use this after slmp-basic-read-write.json succeeds.",
         "x":  270,
         "y":  40,
         "wires":  [

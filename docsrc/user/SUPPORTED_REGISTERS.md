@@ -1,134 +1,83 @@
-# Supported PLC Registers
+# Supported registers
 
-This page is the canonical public register/device table for the Node-RED high-level nodes.
+This page lists the public device families and address forms accepted by the Node-RED high-level nodes.
 
-## Supported Bit Devices
+## Bit device families
 
-| Family | Kind | Example | Numbering |
+| Family | Example | Numbering | Notes |
 | --- | --- | --- | --- |
-| `SM` | bit | `SM400` | decimal |
-| `X` | bit | `X20` | `melsec:iq-f`: octal, otherwise hexadecimal |
-| `Y` | bit | `Y20` | `melsec:iq-f`: octal, otherwise hexadecimal |
-| `M` | bit | `M1000` | decimal |
-| `L` | bit | `L100` | decimal |
-| `F` | bit | `F10` | decimal |
-| `V` | bit | `V10` | decimal |
-| `B` | bit | `B20` | hexadecimal |
-| `TS` | bit | `TS10` | decimal |
-| `TC` | bit | `TC10` | decimal |
-| `LTS` | bit | `LTS10` | decimal |
-| `LTC` | bit | `LTC10` | decimal |
-| `STS` | bit | `STS10` | decimal |
-| `STC` | bit | `STC10` | decimal |
-| `LSTS` | bit | `LSTS10` | decimal |
-| `LSTC` | bit | `LSTC10` | decimal |
-| `CS` | bit | `CS10` | decimal |
-| `CC` | bit | `CC10` | decimal |
-| `LCS` | bit | `LCS10` | decimal |
-| `LCC` | bit | `LCC10` | decimal |
-| `SB` | bit | `SB20` | hexadecimal |
-| `DX` | bit | `DX20` | hexadecimal |
-| `DY` | bit | `DY20` | hexadecimal |
+| `SM` | `SM400` | Decimal | Special relay. |
+| `X` | `X20` | Octal on `melsec:iq-f`, hexadecimal on other profiles | Input. |
+| `Y` | `Y20` | Octal on `melsec:iq-f`, hexadecimal on other profiles | Output. |
+| `M` | `M1000` | Decimal | Internal relay. |
+| `L` | `L100` | Decimal | Latch relay. |
+| `F` | `F10` | Decimal | Annunciator. |
+| `V` | `V10` | Decimal | Edge relay where supported. Not valid for `melsec:iq-f`. |
+| `B` | `B20` | Hexadecimal | Link relay. |
+| `TS` | `TS10` | Decimal | Timer contact. |
+| `TC` | `TC10` | Decimal | Timer coil. |
+| `LTS` | `LTS10` | Decimal | Long timer contact where supported. |
+| `LTC` | `LTC10` | Decimal | Long timer coil where supported. |
+| `STS` | `STS10` | Decimal | Retentive timer contact. |
+| `STC` | `STC10` | Decimal | Retentive timer coil. |
+| `LSTS` | `LSTS10` | Decimal | Long retentive timer contact where supported. |
+| `LSTC` | `LSTC10` | Decimal | Long retentive timer coil where supported. |
+| `CS` | `CS10` | Decimal | Counter contact. |
+| `CC` | `CC10` | Decimal | Counter coil. |
+| `LCS` | `LCS10` | Decimal | Long counter contact where supported. |
+| `LCC` | `LCC10` | Decimal | Long counter coil where supported. |
+| `SB` | `SB20` | Hexadecimal | Link special relay. |
+| `DX` | `DX20` | Hexadecimal | Direct input. Not valid for `melsec:iq-f`. |
+| `DY` | `DY20` | Hexadecimal | Direct output. Not valid for `melsec:iq-f`. |
 
-## Supported Word Devices
+## Word device families
 
-| Family | Kind | Example | Numbering |
+| Family | Example | Numbering | Notes |
 | --- | --- | --- | --- |
-| `SD` | word | `SD100` | decimal |
-| `D` | word | `D100` | decimal |
-| `W` | word | `W20` | hexadecimal |
-| `TN` | word | `TN10` | decimal |
-| `LTN` | word | `LTN10` | decimal |
-| `STN` | word | `STN10` | decimal |
-| `LSTN` | word | `LSTN10` | decimal |
-| `CN` | word | `CN10` | decimal |
-| `LCN` | word | `LCN10` | decimal |
-| `SW` | word | `SW20` | hexadecimal |
-| `Z` | word | `Z10` | decimal |
-| `LZ` | dword | `LZ0` / `LZ1` | decimal |
-| `R` | word | `R100` | decimal |
-| `ZR` | word | `ZR100` | decimal |
-| `RD` | word | `RD100` | decimal |
+| `SD` | `SD100` | Decimal | Special register. |
+| `D` | `D100` | Decimal | Data register. Recommended for the first read. |
+| `W` | `W20` | Hexadecimal | Link register. |
+| `TN` | `TN10` | Decimal | Timer current value. |
+| `LTN` | `LTN10:D` | Decimal | Long timer current value where supported. Use `:D` or `:L`. |
+| `STN` | `STN10` | Decimal | Retentive timer current value. |
+| `LSTN` | `LSTN10:D` | Decimal | Long retentive timer current value where supported. Use `:D` or `:L`. |
+| `CN` | `CN10` | Decimal | Counter current value. |
+| `LCN` | `LCN10:D` | Decimal | Long counter current value where supported. Use `:D` or `:L`. |
+| `SW` | `SW20` | Hexadecimal | Link special register. |
+| `Z` | `Z10` | Decimal | Index register. |
+| `LZ` | `LZ0:D` | Decimal | Long index register where supported. Use `:D` or `:L`. |
+| `R` | `R100` | Decimal | File register where supported. |
+| `ZR` | `ZR100` | Decimal | Extended file register where supported. Not valid for `melsec:iq-f`. |
+| `RD` | `RD100` | Decimal | Direct access register where supported. Not valid for `melsec:iq-f`. |
 
-## High-Level Address Forms
+## Address syntax
 
 | Form | Example | Meaning |
 | --- | --- | --- |
-| plain word | `D100` | unsigned 16-bit word |
-| signed view | `D100:S` or `D100:I` | signed 16-bit value (`I` normalizes to `S`) |
-| dword view | `D200:D` | unsigned 32-bit value |
-| long view | `D300:L` | signed 32-bit value |
-| float view | `D200:F` | float32 value |
-| bit in word | `D50.3` | one bit inside a word |
-| counted word read | `D100,10` | 10 consecutive values |
-| counted bit read | `M1000,8` | 8 consecutive bits |
-| string view | `D100:STR,10` | UTF-8 string packed into words |
-| compatibility alias | `DSTR100,10` | alias for `D100:STR,10` |
+| Plain word | `D100` | Unsigned 16-bit word. |
+| Signed word | `D100:S` | Signed 16-bit word. |
+| Signed word alias | `D100:I` | Alias that normalizes to `D100:S`. |
+| Unsigned dword | `D100:D` | Unsigned 32-bit value. |
+| Signed dword | `D100:L` | Signed 32-bit value. |
+| Float | `D100:F` | 32-bit float. |
+| String | `D100:STR,10` | UTF-8 string with a 10-byte maximum, packed two bytes per word. |
+| String alias | `DSTR100,10` | Compatibility alias for `D100:STR,10`. |
+| Bit in word | `D50.3` | One bit inside a word device. |
+| Counted word | `D100,4` | Four consecutive word values. |
+| Direct bit | `M1000` | One bit device. |
+| Counted bit | `M1000,8` | Eight consecutive bit values. |
 
-## Addressing Notes
+## Addressing notes
 
-- Start with `D` for the first smoke test.
-- `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal device numbers.
-- `X` and `Y` require explicit `plcProfile`.
-- `melsec:iq-f` interprets string `X/Y` addresses in octal.
-- all other supported PLC profiles interpret string `X/Y` addresses in hexadecimal.
-- Most other families use decimal numbers.
-- `.bit` is valid only on word devices such as `D50.3`.
-- `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the public high-level nodes.
-- `LTS`, `LTC`, `LSTS`, and `LSTC` state reads use the long timer 4-word decode helpers.
-- `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`).
-- `LZ` defaults to 32-bit random DWord access in the public high-level nodes. On iQ-F, use `LZ0` or `LZ1`.
+- `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit families. Use `:D` or `:L`, for example `LTN0:D` or `LCN0:L`.
+- `G` and `HG` are not in the public node surface.
+- `DX` and `DY` are not valid for `melsec:iq-f`.
+- `X` and `Y` numbering is octal for `melsec:iq-f` and hexadecimal for all other profiles.
+- `.bit` notation is only valid on word devices, for example `D50.3`.
+- `.bit,count` is not supported.
+- String forms require a length, for example `D100:STR,10`.
+- The editor validates address format and PLC-profile support. It does not validate your PLC model's configured upper address range.
 
-## PLC-Profile-Specific Unsupported Devices
+## Profile pointer
 
-These are device-code support rules only. The editor and helper APIs use them to reject or skip device codes that the selected PLC profile does not expose in the public surface; they are not address upper-bound checks.
-
-| PLC type | Unsupported device codes in the public Node-RED surface |
-| --- | --- |
-| all PLC profiles | `G`, `HG` |
-| `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r` | none beyond `G`, `HG` |
-| `melsec:iq-f` | `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD` |
-| `melsec:qcpu` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
-| `melsec:lcpu`, `melsec:qnu`, `melsec:qnudv` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
-
-This table follows only the supported/unsupported device-code portion of the .NET library's `DEVICE_RANGES.md`; Node-RED does not use it for PLC range or upper-bound validation.
-
-## iQ-R SD Range Maximum Reference
-
-For iQ-R-series targets, the PLC-configured current point count is read from
-the PLC-profile-specific `SD` range registers by libraries that expose a device range
-catalog. The maximum below is the cap for that SD-derived point count:
-
-`point_count = min(SD point count, max_point_count)`
-
-The displayed upper bound is then `point_count - 1`. Node-RED keeps this as a
-reference table only; it still does not pre-check PLC model-specific address
-upper bounds. If an address exceeds the connected PLC's actual configured
-range, the PLC response is returned as the runtime error.
-
-| Item | Node-RED device codes | Max address | max_point_count | Setting unit |
-| --- | --- | --- | --- | --- |
-| `X` | `X` | `X2FFF` | `12288` (`0x3000`) | n/a |
-| `Y` | `Y` | `Y2FFF` | `12288` (`0x3000`) | n/a |
-| `M` | `M` | `M94674943` | `94674944` (`0x5A4A000`) | 64 points |
-| `B` | `B` | `B5A49FFF` | `94674944` (`0x5A4A000`) | 64 points |
-| `F` | `F` | `F32767` | `32768` | 64 points |
-| `SB` | `SB` | `SB5A49FFF` | `94674944` (`0x5A4A000`) | 64 points |
-| `V` | `V` | `V32767` | `32768` | 64 points |
-| `L` | `L` | `L32767` | `32768` | 64 points |
-| `T` | `TS`, `TC`, `TN` | `T5259711` | `5259712` | 32 points |
-| `ST` | `STS`, `STC`, `STN` | `ST5259711` | `5259712` | 32 points |
-| `LT` | `LTS`, `LTC`, `LTN` | `LT1479295` | `1479296` | 1 point |
-| `LST` | `LSTS`, `LSTC`, `LSTN` | `LST1479295` | `1479296` | 1 point |
-| `C` | `CS`, `CC`, `CN` | `C5259711` | `5259712` | 32 points |
-| `LC` | `LCS`, `LCC`, `LCN` | `LC2784543` | `2784544` | 32 points |
-| `D` | `D` | `D5917183` | `5917184` (`0x5A4A00`) | 4 points |
-| `W` | `W` | `W5A49FF` | `5917184` (`0x5A4A00`) | 4 points |
-| `SW` | `SW` | `SW5A49FF` | `5917184` (`0x5A4A00`) | 4 points |
-
-## Not Currently in the Public Surface
-
-- `G`
-- `HG`
-
-If a family is not listed above, do not treat it as publicly supported by the current Node-RED package.
+See [PLC profiles](./PROFILES.md) for the exact PLC type strings, frame mapping, and profile-specific cautions.

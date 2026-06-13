@@ -1,100 +1,97 @@
-# Getting Started
+# Getting started
 
-## Start Here
+## Start here
 
-Use this package when you want the shortest Node-RED path to Mitsubishi SLMP communication through the public high-level nodes.
+Use this page to make your first Mitsubishi SLMP read from Node-RED. Start with one simple TCP flow, then move to arrays, strings, UDP, routing, or broader verification.
 
-Recommended first path:
+## Prerequisites
 
-1. Install the package into your Node-RED user directory.
-2. Restart Node-RED.
-3. Add one `slmp-connection` config node.
-4. Set `host`, `port`, `transport`, and `PLC type`. If the PLC route uses remote-password protection, set `Remote password`.
-5. Import `examples/flows/slmp-basic-read-write.json`.
-6. Replace the host and safe test addresses.
-7. Deploy and confirm that one `D` read succeeds.
+| Requirement | Value |
+| --- | --- |
+| Node-RED | 3.0 or later |
+| PLC | Mitsubishi PLC reachable from your Node-RED host |
+| First TCP target | `192.168.250.100:1025` |
+| Starting PLC type | `melsec:iq-r` |
 
-## First PLC Registers To Try
+## Install
 
-Start with these first:
+1. Open the Node-RED editor.
+2. Open Manage palette.
+3. Open the Install tab.
+4. Search for `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`.
+5. Install the package.
+6. Restart Node-RED if your environment requires it.
 
-- `D100`
-- `D100,4`
-- `D200:F`
-- `D300:L`
-- `D50.3`
-- `M1000`
+## Create a connection node
 
-These stay on the public high-level surface and avoid the more complex routing and validation cases.
+Create or open a `slmp-connection` config node and set these fields:
 
-Do not start with these:
+| `slmp-connection` field | Example value | Description |
+| --- | --- | --- |
+| Host | `192.168.250.100` | PLC IP address or host name. |
+| Port | `1025` | TCP port for the first example. |
+| Transport | `TCP` | Use TCP for the first run. |
+| PLC type | `melsec:iq-r` | Required PLC profile string. |
 
-- `slmp-device-matrix.json`
-- routed or multi-station requests
-- routed device families such as `G` and `HG`
-- long timer/counter state devices such as `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, and `LCC`
-- 32-bit-only devices such as `LTN`, `LSTN`, `LCN`, and `LZ`
+Leave the route fields at their defaults unless your PLC network needs a different target.
 
-## First Connection Checklist
+## Import the basic flow
 
-Set these fields explicitly on `slmp-connection`:
+1. Open the Node-RED import dialog.
+2. Import `examples/flows/slmp-basic-read-write.json`.
+3. Open its `slmp-connection` node.
+4. Confirm Host is `192.168.250.100`.
+5. Confirm Port is `1025`.
+6. Confirm Transport is `TCP`.
+7. Confirm PLC type is `melsec:iq-r`.
+8. Deploy.
+9. Trigger the read inject node.
+10. Open the debug sidebar and verify `msg.payload`.
 
-- `host`
-- `port`
-- `transport`
-- `PLC type`
-- `Remote password` when required by the PLC route
-- timeout
+In object output mode, a successful read looks like this shape:
 
-Canonical `PLC type` values:
+```json
+{
+  "D300": 123
+}
+```
 
-- `melsec:iq-f`
-- `melsec:iq-r`
-- `melsec:iq-l`
-- `melsec:mx-f`
-- `melsec:mx-r`
-- `melsec:qcpu`
-- `melsec:lcpu`
-- `melsec:qnu`
-- `melsec:qnudv`
+The value depends on your PLC memory.
 
-If you do not already know a safe writable area, start with reads only.
+## Read your first value
 
-## First Successful Run
+To build the first read manually, add an `slmp-read` node and set:
 
-The easiest sequence is:
+| `slmp-read` field | Example value | Description |
+| --- | --- | --- |
+| Connection | Your `slmp-connection` node | Shared PLC connection. |
+| Source | Literal text | The address list is entered in the editor. |
+| Addresses | `D300` | First safe word register to read. |
+| Output | Object payload | Returns an object keyed by address. |
+| Metadata | Full `msg.slmp` | Includes connection and target metadata. |
+| Errors | Throw | Lets Node-RED route runtime errors normally. |
 
-1. Import `slmp-basic-read-write.json`.
-2. Use a safe word address such as `D100`.
-3. Deploy.
-4. Confirm that `msg.payload` returns a scalar word value.
-5. Move to `slmp-array-string.json` only after the first read is stable.
+Trigger the node with any message. A successful response sets `msg.payload.D300` to the current value.
 
-Expected result:
+## Confirm success
 
-- the flow deploys without editor validation errors
-- the read node returns a value in `msg.payload`
-- the connection node remains stable across repeated injects
+1. The flow deploys without editor validation errors.
+2. The `slmp-connection` node has PLC type `melsec:iq-r`.
+3. The read inject node produces a debug message.
+4. `msg.payload` contains a `D300` key.
+5. The connection status does not stay red after repeated reads.
 
-## What To Try Next
+## If it does not work
 
-After the basic flow succeeds:
+| Symptom | Check |
+| --- | --- |
+| The read returns nothing or errors immediately | PLC type on `slmp-connection` must be set. It is required, and there is no runtime default. |
+| The first flow feels too busy | Import `slmp-basic-read-write.json` first, not `slmp-device-matrix.json`. |
+| Address validation fails on the first run | Start with `D300`. Do not test with `G` or `HG` on the first run. |
+| TCP does not connect | Confirm the PLC is reachable at `192.168.250.100:1025` from the Node-RED host. |
+| UDP is your target | Move to the UDP example after TCP works, and set the UDP port to `1035`. |
 
-- import `slmp-array-string.json` for `,count` and string handling
-- use `slmp-udp-read-write.json` when you want to confirm UDP
-- use `slmp-device-matrix.json` only when you need one-by-one coverage across the public matrix
+## Next pages
 
-## Common Beginner Checks
-
-If the first read fails, check these in order:
-
-- correct `PLC type`
-- correct `tcp` or `udp` selection
-- a simple `D` address instead of a typed, count, or string form
-- editor validation messages before deploy
-
-## Next Pages
-
-- [Supported PLC Registers](./SUPPORTED_REGISTERS.md)
-- [Latest Communication Verification](./LATEST_COMMUNICATION_VERIFICATION.md)
-- [User Guide](./USER_GUIDE.md)
+- [Usage guide](./USAGE_GUIDE.md)
+- [Supported registers](./SUPPORTED_REGISTERS.md)
