@@ -46,7 +46,7 @@ class CaptureClient extends slmp.SlmpClient {
   constructor(responseData) {
     super({
       host: "127.0.0.1",
-      plcFamily: "iq-r",
+      plcProfile: "melsec:iq-r",
       monitoringTimer: 0x0010,
       raiseOnError: true,
     });
@@ -72,7 +72,7 @@ sharedVectorTest("shared address normalization vectors match Node high-level hel
     if (!entry.implementations.includes("node")) {
       continue;
     }
-    const options = requiresExplicitPlcFamily(entry.input) ? { plcFamily: "iq-r" } : undefined;
+    const options = requiresExplicitPlcProfile(entry.input) ? { plcProfile: "melsec:iq-r" } : undefined;
     assert.equal(options ? slmp.normalizeAddress(entry.input, options) : slmp.normalizeAddress(entry.input), entry.expected, entry.id);
   }
 });
@@ -172,6 +172,6 @@ async function dispatchFrameCase(client, entry) {
   }
 }
 
-function requiresExplicitPlcFamily(address) {
+function requiresExplicitPlcProfile(address) {
   return /^[\s]*[XY]/i.test(String(address || ""));
 }

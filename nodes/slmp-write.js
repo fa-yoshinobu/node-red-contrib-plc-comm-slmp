@@ -2,7 +2,7 @@
 
 const { normalizeAddress, normalizeTarget, writeNamed } = require("../lib/slmp");
 
-const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcFamily '([^']+)'/;
+const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcProfile '([^']+)'/;
 
 module.exports = function registerSlmpWrite(RED) {
   function SlmpWriteNode(config) {
@@ -268,7 +268,7 @@ function fail(node, msg, send, done, error) {
 }
 
 function validateUpdatesForConnection(updates, profile) {
-  const options = profile && profile.plcFamily ? { plcFamily: profile.plcFamily } : {};
+  const options = profile && profile.plcProfile ? { plcProfile: profile.plcProfile } : {};
   const normalized = {};
   for (const [address, value] of Object.entries(updates || {})) {
     normalized[normalizeAddress(address, options)] = value;

@@ -37,6 +37,17 @@
     qnudv: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
   });
   const SLMP_WRITE_DTYPE_SUFFIXES = new Set(["S", "D", "L", "F", "STR", "STRING"]);
+  const SLMP_WRITE_PLC_PROFILE_DEVICE_FAMILY = Object.freeze({
+    "melsec:iq-f": "iq-f",
+    "melsec:iq-r": "iq-r",
+    "melsec:iq-l": "iq-l",
+    "melsec:mx-f": "mx-f",
+    "melsec:mx-r": "mx-r",
+    "melsec:qcpu": "qcpu",
+    "melsec:lcpu": "lcpu",
+    "melsec:qnu": "qnu",
+    "melsec:qnudv": "qnudv"
+  });
 
   function slmpGetWriteCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
@@ -52,12 +63,13 @@
 
   function slmpValidateWriteAddress(address, connectionId) {
     const token = String(address || "").trim();
-    return SLMP_WRITE_ADDRESS_TOKEN_RE.test(token) && slmpValidateWriteAddressToken(token, slmpWriteCurrentPlcFamily(connectionId));
+    return SLMP_WRITE_ADDRESS_TOKEN_RE.test(token) && slmpValidateWriteAddressToken(token, slmpWriteCurrentPlcProfile(connectionId));
   }
 
-  function slmpWriteCurrentPlcFamily(connectionId) {
+  function slmpWriteCurrentPlcProfile(connectionId) {
     const connection = connectionId && RED.nodes.node(connectionId);
-    return connection && connection.plcFamily ? String(connection.plcFamily).trim().toLowerCase() : "";
+    const normalized = connection && connection.plcProfile ? String(connection.plcProfile).trim().toLowerCase() : "";
+    return SLMP_WRITE_PLC_PROFILE_DEVICE_FAMILY[normalized] || normalized;
   }
 
   function slmpValidateWriteAddressToken(value, family) {

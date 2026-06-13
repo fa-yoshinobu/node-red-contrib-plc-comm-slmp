@@ -4,11 +4,13 @@
 
 - add an optional `Remote password` credential to `slmp-connection`; configured connections unlock remote-password protection after opening SLMP transport and try to lock it before disconnecting
 - add SLMP end-code name/message helpers backed by the full English communication error-code table, and expose remote-password end-code classification on `SlmpError`
-- keep `remoteStop({ force: true })` as a compatibility option while sending the manual fixed Remote STOP data `01 00`
+- reject the non-manual `remoteStop({ force: true })` option; Remote STOP now exposes only the manual fixed request data `01 00`
+- restrict `plcProfile` text parsing to canonical `melsec:...` profile names; short aliases such as `iq-r`, `iqr`, `q`, and `qnudvcpu` are now rejected
+- add manual point-limit preflight checks for continuous, random, block, memory, and helper-layer requests so oversized requests fail before transport
 - fix `writeBlock()` payload layout so each `1406` block writes its data immediately after that block's device spec and point count
 - add maintainer notes for the resolved mixed `1406` layout root cause and current no-fallback behavior
 - clarify that `G` and `HG` are intentionally unsupported in the public Node-RED high-level surface, not pending TODO items
-- reject direct `G` and `HG` device names even when no `plcFamily` is supplied, keeping the public surface from sending unitless Extended Specification-only devices
+- reject direct `G` and `HG` device names even when no `plcProfile` is supplied, keeping the public surface from sending unitless Extended Specification-only devices
 
 ## 0.2.12 - 2026-05-02
 
@@ -16,13 +18,13 @@
 - refresh README, user-guide, latest-verification, and example-flow docs with compatibility notes from the published Flow Library version
 - document the public compatibility change from separate `PLC series` / `frame type` fields to one `PLC type` selector
 - document the public device-scope changes since Flow Library `0.2.3`: `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC type supports them
-- document the current device-matrix flow behavior: one-click run-all read/write buttons, status-lamp feedback, JSONL result logging, `plcFamily` records, and skip/error summary counts
+- document the current device-matrix flow behavior: one-click run-all read/write buttons, status-lamp feedback, JSONL result logging, `plcProfile` records, and skip/error summary counts
 
 ## 0.2.11 - 2026-05-02
 
 - remove the interim device-range catalog helper from the Node-RED package
 - keep ordinary Node-RED read/write validation to address format and protocol constraints, leaving actual device-range errors to the PLC response
-- reject device codes that the selected `plcFamily` does not expose in the public high-level table, aligned with the .NET `DEVICE_RANGES.md` support matrix
+- reject device codes that the selected `plcProfile` does not expose in the public high-level table, aligned with the .NET `DEVICE_RANGES.md` support matrix
 
 - remove stale user-guide and TODO wording that still described `LCS` and `LCC`
   as future support; the high-level helpers route reads through direct bit read
@@ -48,13 +50,13 @@
 
 ## 0.2.7 - 2026-04-14
 
-- require explicit `plcFamily` on the standard packaged client and connection-node route, while keeping manual frame/profile selection only for internal diagnostic paths
+- require explicit `plcProfile` on the standard packaged client and connection-node route, while keeping manual frame/profile selection only for internal diagnostic paths
 - switch the standard device-range example to the interim catalog helper so the high-level Node surface consistently derives frame, profile, address, and range handling from one family selection
 
 ## 0.2.6 - 2026-04-14
 
-- replace connection-node `plcSeries` / `frameType` selection with one explicit `plcFamily` that derives the fixed frame, access profile, address-family, and range-family defaults
-- make high-level `X/Y` string addresses require explicit `plcFamily`, treat `iq-f` `X/Y` as octal, and refresh tests, docs, and example flows for the stricter family-driven model
+- replace connection-node `plcSeries` / `frameType` selection with one explicit `plcProfile` that derives the fixed frame, access profile, address-family, and range-family defaults
+- make high-level `X/Y` string addresses require explicit `plcProfile`, treat `iq-f` `X/Y` as octal, and refresh tests, docs, and example flows for the stricter family-driven model
 
 ## 0.2.5 - 2026-04-14
 

@@ -11,7 +11,7 @@ module.exports = function registerSlmpConnection(RED) {
     this.port = Number(config.port || 5000);
     this.transport = config.transport || "tcp";
     this.timeout = Number(config.timeout || 3000);
-    this.plcFamily = config.plcFamily ? String(config.plcFamily).trim() : "";
+    this.plcProfile = config.plcProfile ? String(config.plcProfile).trim() : "";
     this.monitoringTimer = Number(config.monitoringTimer || 0x0010);
     this.remotePassword = this.credentials && this.credentials.remotePassword ? String(this.credentials.remotePassword) : "";
     this.target = {
@@ -21,8 +21,8 @@ module.exports = function registerSlmpConnection(RED) {
       multidrop: config.multidrop,
     };
 
-    if (!this.plcFamily) {
-      throw new Error("slmp-connection requires plcFamily");
+    if (!this.plcProfile) {
+      throw new Error("slmp-connection requires plcProfile");
     }
 
     const clientOptions = {
@@ -30,7 +30,7 @@ module.exports = function registerSlmpConnection(RED) {
       port: this.port,
       transport: this.transport,
       timeout: this.timeout,
-      plcFamily: this.plcFamily,
+      plcProfile: this.plcProfile,
       monitoringTimer: this.monitoringTimer,
       defaultTarget: this.target,
       remotePassword: this.remotePassword,
@@ -46,7 +46,7 @@ module.exports = function registerSlmpConnection(RED) {
       host: this.host,
       port: this.port,
       transport: this.transport,
-      plcFamily: this.client.plcFamily,
+      plcProfile: this.client.plcProfile,
       frameType: this.client.frameType,
       plcSeries: this.client.plcSeries,
       target: this.client.defaultTarget,

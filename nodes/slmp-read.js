@@ -2,7 +2,7 @@
 
 const { normalizeAddress, normalizeAddressList, normalizeTarget, readNamed } = require("../lib/slmp");
 
-const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcFamily '([^']+)'/;
+const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcProfile '([^']+)'/;
 
 module.exports = function registerSlmpRead(RED) {
   function SlmpReadNode(config) {
@@ -125,7 +125,7 @@ function fail(node, msg, send, done, error) {
 }
 
 function validateAddressesForConnection(addresses, profile) {
-  const options = profile && profile.plcFamily ? { plcFamily: profile.plcFamily } : {};
+  const options = profile && profile.plcProfile ? { plcProfile: profile.plcProfile } : {};
   return addresses.map((address) => normalizeAddress(address, options));
 }
 
