@@ -206,7 +206,7 @@
         "port":  "1025",
         "transport":  "tcp",
         "timeout":  "3000",
-        "plcFamily":  "iq-r",
+        "plcProfile":  "melsec:iq-r",
         "monitoringTimer":  "16",
         "network":  "0",
         "station":  "255",

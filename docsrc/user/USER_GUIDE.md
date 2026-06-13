@@ -62,11 +62,11 @@ Configure these explicitly on the connection node:
 - host
 - port
 - transport: `tcp` or `udp`
-- PLC type: `iq-f`, `iq-r`, `iq-l`, `mx-f`, `mx-r`, `qcpu`, `lcpu`, `qnu`, or `qnudv`
+- PLC type: `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:qcpu`, `melsec:lcpu`, `melsec:qnu`, or `melsec:qnudv`
 - Remote password: optional SLMP remote-password credential for protected PLC routes
 - route fields: network, station, module I/O, multidrop
 
-The connection node stores the selection as `plcFamily` internally and derives `frameType`, access profile, and string-address interpretation from the explicit `PLC type`.
+The connection node stores the selection as `plcProfile` internally and derives `frameType`, access profile, and string-address interpretation from the explicit `PLC type`.
 When `Remote password` is configured, the shared connection sends remote-password unlock after opening the SLMP transport and attempts remote-password lock before disconnecting.
 
 Validated PLC models:
@@ -80,7 +80,7 @@ Validated PLC models:
 The Node-RED Flow Library currently shows `0.2.3` as the published baseline for this scoped package.
 
 - Existing `0.2.3` flows used `PLC series` and `frame type`; current flows must use one explicit `PLC type` on every `slmp-connection`.
-- `X/Y` string addresses are PLC-type-specific. Use `iq-f` for octal `X/Y`; other supported PLC types use hexadecimal `X/Y`.
+- `X/Y` string addresses are PLC-type-specific. Use `melsec:iq-f` for octal `X/Y`; other supported PLC types use hexadecimal `X/Y`.
 - `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC type supports them.
 - Device codes unsupported by the selected PLC type are rejected by default. The device-matrix sample can log them as `SKIPPED` records when it sends `slmpSkipUnsupported`.
 
@@ -106,8 +106,8 @@ Address notes:
 
 - `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal numbering
 - `X` and `Y` require explicit `PLC type`
-- `iq-f` interprets string `X/Y` addresses in octal
-- all other supported families interpret string `X/Y` addresses in hexadecimal
+- `melsec:iq-f` interprets string `X/Y` addresses in octal
+- all other supported PLC profiles interpret string `X/Y` addresses in hexadecimal
 - most other devices use decimal numbering
 - Node-RED input validation checks address format and protocol constraints, not PLC model-specific device ranges or upper bounds
 - if an address is outside the connected PLC's actual range, the PLC response is returned as the runtime error
@@ -118,13 +118,13 @@ Address notes:
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
 - `G` and `HG` are intentionally unsupported in the public Node-RED high-level surface
 
-Family-specific unsupported device codes:
+PLC-profile-specific unsupported device codes:
 
-- all families: `G`, `HG`
-- `iq-r`, `iq-l`, `mx-f`, `mx-r`: none beyond `G`, `HG`
-- `iq-f`: `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD`
-- `qcpu`: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD`
-- `lcpu`, `qnu`, `qnudv`: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD`
+- all PLC profiles: `G`, `HG`
+- `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`: none beyond `G`, `HG`
+- `melsec:iq-f`: `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD`
+- `melsec:qcpu`: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD`
+- `melsec:lcpu`, `melsec:qnu`, `melsec:qnudv`: `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD`
 
 ## Address model
 

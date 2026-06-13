@@ -12,7 +12,7 @@ This page keeps the current public summary only. Older detailed notes are not ke
 - retained first-run smoke path: `slmp-basic-read-write.json`
 - 2026-05-01 iQ-R live check: `R08CPU` at `192.168.250.100:1025` over TCP
   returned `LCS10=false` and `LCC10=false` through `readNamed`
-- 2026-05-02 release-prep docs align the Node-RED matrix flow with one-click run-all read/write, status-lamp feedback, JSONL logging, `plcFamily` result records, and PLC-type-unsupported `SKIPPED` records
+- 2026-05-02 release-prep docs align the Node-RED matrix flow with one-click run-all read/write, status-lamp feedback, JSONL logging, `plcProfile` result records, and PLC-type-unsupported `SKIPPED` records
 
 ## Confirmed Public Register Scope
 

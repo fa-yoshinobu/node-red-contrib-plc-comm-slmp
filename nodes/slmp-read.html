@@ -37,6 +37,17 @@
     qnudv: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
   });
   const SLMP_DTYPE_SUFFIXES = new Set(["S", "D", "L", "F", "STR", "STRING"]);
+  const SLMP_PLC_PROFILE_DEVICE_FAMILY = Object.freeze({
+    "melsec:iq-f": "iq-f",
+    "melsec:iq-r": "iq-r",
+    "melsec:iq-l": "iq-l",
+    "melsec:mx-f": "mx-f",
+    "melsec:mx-r": "mx-r",
+    "melsec:qcpu": "qcpu",
+    "melsec:lcpu": "lcpu",
+    "melsec:qnu": "qnu",
+    "melsec:qnudv": "qnudv"
+  });
 
   function slmpGetCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
@@ -81,15 +92,16 @@
       return true;
     }
     const tokens = slmpTokenizeAddressList(text);
-    const family = slmpCurrentPlcFamily(connectionId);
+    const family = slmpCurrentPlcProfile(connectionId);
     return Array.isArray(tokens) && tokens.every(function (token) {
       return slmpValidateAddressToken(token, family);
     });
   }
 
-  function slmpCurrentPlcFamily(connectionId) {
+  function slmpCurrentPlcProfile(connectionId) {
     const connection = connectionId && RED.nodes.node(connectionId);
-    return connection && connection.plcFamily ? String(connection.plcFamily).trim().toLowerCase() : "";
+    const normalized = connection && connection.plcProfile ? String(connection.plcProfile).trim().toLowerCase() : "";
+    return SLMP_PLC_PROFILE_DEVICE_FAMILY[normalized] || normalized;
   }
 
   function slmpValidateAddressToken(value, family) {

@@ -48,15 +48,15 @@ Set these fields explicitly on `slmp-connection`:
 
 Canonical `PLC type` values:
 
-- `iq-f`
-- `iq-r`
-- `iq-l`
-- `mx-f`
-- `mx-r`
-- `qcpu`
-- `lcpu`
-- `qnu`
-- `qnudv`
+- `melsec:iq-f`
+- `melsec:iq-r`
+- `melsec:iq-l`
+- `melsec:mx-f`
+- `melsec:mx-r`
+- `melsec:qcpu`
+- `melsec:lcpu`
+- `melsec:qnu`
+- `melsec:qnudv`
 
 If you do not already know a safe writable area, start with reads only.
 

@@ -137,20 +137,20 @@ Maintainer-only notes and retained evidence live under `internal_docs/`.
 - configurable error handling with throw / `msg.error` / second output
 - connection control via `connect` / `disconnect` / `reinitialize` messages
 
-Set one explicit PLC type for each connection. The node stores it as `plcFamily` internally and derives `frameType`, access profile, and `X/Y` string-address rules from that selection.
+Set one explicit PLC type for each connection. The node stores it as `plcProfile` internally and derives `frameType`, access profile, and `X/Y` string-address rules from that selection.
 If `Remote password` is set, the connection unlocks the PLC remote-password protection after opening the SLMP transport and tries to lock it again before disconnecting.
 
 Supported canonical PLC type values:
 
-- `iq-f`
-- `iq-r`
-- `iq-l`
-- `mx-f`
-- `mx-r`
-- `qcpu`
-- `lcpu`
-- `qnu`
-- `qnudv`
+- `melsec:iq-f`
+- `melsec:iq-r`
+- `melsec:iq-l`
+- `melsec:mx-f`
+- `melsec:mx-r`
+- `melsec:qcpu`
+- `melsec:lcpu`
+- `melsec:qnu`
+- `melsec:qnudv`
 
 ## Underlying JS Helper
 
@@ -163,14 +163,14 @@ async function main() {
   const client = new SlmpClient({
     host: "192.168.250.100",
     port: 1025,
-    plcFamily: "qnu",
+    plcProfile: "melsec:qnu",
   });
   const values = await readNamed(client, ["D300", "D300,4"]);
   console.log(values);
 }
 ```
 
-The helper validates address format, protocol constraints, and device-code support for the selected `plcFamily`, but does not pre-check PLC model-specific device ranges or upper bounds.
+The helper validates address format, protocol constraints, and device-code support for the selected `plcProfile`, but does not pre-check PLC model-specific device ranges or upper bounds.
 If an address is outside the connected PLC's actual range, the PLC response is returned as the runtime error.
 
 ## Current Public Register Scope
@@ -181,14 +181,14 @@ If an address is outside the connected PLC's actual range, the PLC response is r
 - string/count views: `,count`, `:STR`, `DSTR`
 - word-bit view: `.bit`
 
-Public device-code support by `plcFamily`:
+Public device-code support by `plcProfile`:
 
 | PLC type | Public device codes accepted by the high-level API and Node-RED editor |
 | --- | --- |
-| `iq-r`, `iq-l`, `mx-f`, `mx-r` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `LTS`, `LTC`, `LTN`, `STS`, `STC`, `STN`, `LSTS`, `LSTC`, `LSTN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `DX`, `DY`, `Z`, `LZ`, `R`, `ZR`, `RD` |
-| `iq-f` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `Z`, `LZ`, `R` |
-| `qcpu` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `Z`, `R`, `ZR` |
-| `lcpu`, `qnu`, `qnudv` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `Z`, `R`, `ZR` |
+| `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `LTS`, `LTC`, `LTN`, `STS`, `STC`, `STN`, `LSTS`, `LSTC`, `LSTN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `DX`, `DY`, `Z`, `LZ`, `R`, `ZR`, `RD` |
+| `melsec:iq-f` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `LCS`, `LCC`, `LCN`, `SB`, `SW`, `Z`, `LZ`, `R` |
+| `melsec:qcpu` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `Z`, `R`, `ZR` |
+| `melsec:lcpu`, `melsec:qnu`, `melsec:qnudv` | `SM`, `SD`, `X`, `Y`, `M`, `L`, `F`, `V`, `B`, `D`, `W`, `TS`, `TC`, `TN`, `STS`, `STC`, `STN`, `CS`, `CC`, `CN`, `SB`, `SW`, `DX`, `DY`, `Z`, `R`, `ZR` |
 
 Validated public hardware summary:
 
@@ -206,7 +206,7 @@ Validated public hardware summary:
 - [`slmp-routing.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-routing.json): per-request routing with `msg.target`
 - [`slmp-udp-read-write.json`](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-udp-read-write.json): basic UDP read/write
 
-The device-matrix flow records `plcFamily` in each JSONL result, keeps one outstanding request at a time, and summarizes `OK`, `SKIPPED`, `NG`, mismatch, timeout, and pending counts.
+The device-matrix flow records `plcProfile` in each JSONL result, keeps one outstanding request at a time, and summarizes `OK`, `SKIPPED`, `NG`, mismatch, timeout, and pending counts.
 
 ## Known Limitations
 
@@ -234,5 +234,5 @@ cmd /c npm.cmd test
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`)
 - low-level direct bit writes are guarded for `LTS`/`LTC`/`LSTS`/`LSTC`/`LCS`/`LCC`
 - `X/Y` string addresses require explicit PLC type selection
-- `iq-f` interprets `X/Y` string addresses in octal, while other supported families use hexadecimal `X/Y`
+- `melsec:iq-f` interprets `X/Y` string addresses in octal, while other supported profiles use hexadecimal `X/Y`
 - random read batching follows the Python helper layer for batchable word devices

@@ -42,9 +42,10 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   assert.equal(normalizeAddress("d100:i"), "D100:S");
   assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
   assert.throws(() => normalizeAddress("d50.10"), /invalid bit-in-word/i);
-  assert.throws(() => normalizeAddress("x1a"), /require explicit plcFamily/i);
-  assert.equal(normalizeAddress("x1a", { plcFamily: "iq-r" }), "X1A");
-  assert.equal(normalizeAddress("y217", { plcFamily: "iq-f" }), "Y217");
+  assert.throws(() => normalizeAddress("x1a"), /require explicit plcProfile/i);
+  assert.equal(normalizeAddress("x1a", { plcProfile: "melsec:iq-r" }), "X1A");
+  assert.equal(normalizeAddress("y217", { plcProfile: "melsec:iq-f" }), "Y217");
+  assert.throws(() => normalizeAddress("x1a", { plcProfile: "iq-r" }), /Unsupported plcProfile/);
 });
 
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {
@@ -701,9 +702,9 @@ test("slmp-connection creates a client and closes it with the node", async () =>
   class FakeSlmpClient {
     constructor(options) {
       constructorOptions.push(options);
-      this.plcFamily = options.plcFamily || null;
-      this.frameType = options.plcFamily ? "4e" : options.frameType;
-      this.plcSeries = options.plcFamily ? "iqr" : options.plcSeries;
+      this.plcProfile = options.plcProfile || null;
+      this.frameType = options.plcProfile ? "4e" : options.frameType;
+      this.plcSeries = options.plcProfile ? "iqr" : options.plcSeries;
       this.defaultTarget = slmp.normalizeTarget(options.defaultTarget);
     }
 
@@ -726,7 +727,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
       port: "5001",
       transport: "udp",
       timeout: "4500",
-      plcFamily: "iq-r",
+      plcProfile: "melsec:iq-r",
       monitoringTimer: "32",
       network: "1",
       station: "255",
@@ -742,14 +743,14 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     assert.equal(constructorOptions[0].port, 5001);
     assert.equal(constructorOptions[0].transport, "udp");
     assert.equal(constructorOptions[0].timeout, 4500);
-    assert.equal(constructorOptions[0].plcFamily, "iq-r");
+    assert.equal(constructorOptions[0].plcProfile, "melsec:iq-r");
     assert.equal(constructorOptions[0].remotePassword, "secret1");
     assert.ok(node.getClient() instanceof FakeSlmpClient);
     assert.deepEqual(node.getProfile(), {
       host: "192.168.0.10",
       port: 5001,
       transport: "udp",
-      plcFamily: "iq-r",
+      plcProfile: "melsec:iq-r",
       frameType: "4e",
       plcSeries: "iqr",
       target: {
@@ -1121,7 +1122,7 @@ test("slmp-read can route errors to the second output", async () => {
 test("slmp-read can opt in to skip unsupported device errors", async () => {
   await withMockedSlmp({
     readNamed: async () => {
-      throw new Error("SLMP device code 'LTC' is not supported for plcFamily 'lcpu'.");
+      throw new Error("SLMP device code 'LTC' is not supported for plcProfile 'melsec:lcpu'.");
     },
   }, async () => {
     const { RED, create, setNode } = createMockRed();
@@ -1129,7 +1130,7 @@ test("slmp-read can opt in to skip unsupported device errors", async () => {
 
     setNode("cfg-read-skip-unsupported", {
       getClient: () => ({}),
-      getProfile: () => ({ plcFamily: "lcpu" }),
+      getProfile: () => ({ plcProfile: "melsec:lcpu" }),
     });
 
     const node = create("slmp-read", {
@@ -1485,7 +1486,7 @@ test("slmp-write can route errors to the second output", async () => {
 test("slmp-write can opt in to skip unsupported device errors", async () => {
   await withMockedSlmp({
     writeNamed: async () => {
-      throw new Error("SLMP device code 'LTC' is not supported for plcFamily 'lcpu'.");
+      throw new Error("SLMP device code 'LTC' is not supported for plcProfile 'melsec:lcpu'.");
     },
   }, async () => {
     const { RED, create, setNode } = createMockRed();
@@ -1493,7 +1494,7 @@ test("slmp-write can opt in to skip unsupported device errors", async () => {
 
     setNode("cfg-write-skip-unsupported", {
       getClient: () => ({}),
-      getProfile: () => ({ plcFamily: "lcpu" }),
+      getProfile: () => ({ plcProfile: "melsec:lcpu" }),
     });
 
     const node = create("slmp-write", {

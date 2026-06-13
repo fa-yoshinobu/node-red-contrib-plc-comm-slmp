@@ -31,21 +31,21 @@ test("parseDevice handles decimal and hex devices", () => {
   assert.throws(() => parseDevice("DFFFF"), /device code 'D'/);
 });
 
-test("parseDevice uses octal X/Y numbering for iq-f when plcFamily is explicit", () => {
-  assert.deepEqual(parseDevice("X217", { plcFamily: "iq-f" }), { code: "X", number: 0x8f });
-  assert.equal(deviceToString({ code: "Y", number: 0x90 }, { plcFamily: "iq-f" }), "Y220");
+test("parseDevice uses octal X/Y numbering for iq-f when plcProfile is explicit", () => {
+  assert.deepEqual(parseDevice("X217", { plcProfile: "melsec:iq-f" }), { code: "X", number: 0x8f });
+  assert.equal(deviceToString({ code: "Y", number: 0x90 }, { plcProfile: "melsec:iq-f" }), "Y220");
 });
 
 test("parseDevice rejects device codes that are unsupported by the explicit PLC family", () => {
-  assert.deepEqual(parseDevice("LZ0", { plcFamily: "iq-f" }), { code: "LZ", number: 0 });
-  assert.deepEqual(parseDevice("LTS10", { plcFamily: "iq-r" }), { code: "LTS", number: 10 });
-  assert.throws(() => parseDevice("V10", { plcFamily: "iq-f" }), /not supported for plcFamily 'iq-f'/);
-  assert.throws(() => parseDevice("DX10", { plcFamily: "iq-f" }), /not supported for plcFamily 'iq-f'/);
-  assert.throws(() => parseDevice("DY10", { plcFamily: "iq-f" }), /not supported for plcFamily 'iq-f'/);
-  assert.throws(() => parseDevice("LCS10", { plcFamily: "lcpu" }), /not supported for plcFamily 'lcpu'/);
-  assert.throws(() => parseDevice("RD10", { plcFamily: "qnudv" }), /not supported for plcFamily 'qnudv'/);
-  assert.throws(() => parseDevice("LZ0", { plcFamily: "qnu" }), /not supported for plcFamily 'qnu'/);
-  assert.throws(() => parseDevice("G10", { plcFamily: "iq-r" }), /not supported for plcFamily 'iq-r'/);
+  assert.deepEqual(parseDevice("LZ0", { plcProfile: "melsec:iq-f" }), { code: "LZ", number: 0 });
+  assert.deepEqual(parseDevice("LTS10", { plcProfile: "melsec:iq-r" }), { code: "LTS", number: 10 });
+  assert.throws(() => parseDevice("V10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
+  assert.throws(() => parseDevice("DX10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
+  assert.throws(() => parseDevice("DY10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
+  assert.throws(() => parseDevice("LCS10", { plcProfile: "melsec:lcpu" }), /not supported for plcProfile 'melsec:lcpu'/);
+  assert.throws(() => parseDevice("RD10", { plcProfile: "melsec:qnudv" }), /not supported for plcProfile 'melsec:qnudv'/);
+  assert.throws(() => parseDevice("LZ0", { plcProfile: "melsec:qnu" }), /not supported for plcProfile 'melsec:qnu'/);
+  assert.throws(() => parseDevice("G10", { plcProfile: "melsec:iq-r" }), /not supported for plcProfile 'melsec:iq-r'/);
   assert.throws(() => parseDevice("G10"), /not supported in the Node-RED public high-level surface/);
   assert.throws(() => parseDevice("HG10"), /not supported in the Node-RED public high-level surface/);
   assert.equal(isDeviceCodeSupportedForFamily("LZ", "qnudv"), false);
@@ -54,24 +54,28 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
   assert.equal(isDeviceCodeSupportedForFamily("HG", null), false);
 });
 
-test("resolveConnectionProfile derives fixed defaults from plcFamily", () => {
-  const profile = resolveConnectionProfile({ plcFamily: "iq-l" });
+test("resolveConnectionProfile derives fixed defaults from plcProfile", () => {
+  const profile = resolveConnectionProfile({ plcProfile: "melsec:iq-l" });
   assert.deepEqual(profile, {
-    plcFamily: "iq-l",
+    plcProfile: "melsec:iq-l",
     plcSeries: "iqr",
     frameType: "4e",
     deviceFamily: "iq-r",
   });
   assert.throws(
-    () => resolveConnectionProfile({ plcFamily: "iq-r", plcSeries: "ql" }),
+    () => resolveConnectionProfile({ plcProfile: "melsec:iq-r", plcSeries: "ql" }),
     /already determines frameType, plcSeries/
+  );
+  assert.throws(
+    () => resolveConnectionProfile({ plcProfile: "iq-r" }),
+    /Unsupported plcProfile/
   );
 });
 
-test("resolveConnectionProfile rejects missing plcFamily on the standard route", () => {
+test("resolveConnectionProfile rejects missing plcProfile on the standard route", () => {
   assert.throws(
     () => resolveConnectionProfile({ frameType: "4e", plcSeries: "iqr" }),
-    /plcFamily is required for the standard client profile/
+    /plcProfile is required for the standard client profile/
   );
 });
 
@@ -359,7 +363,6 @@ test("remote and memory helpers build expected commands", async () => {
 
   await client.remoteRun();
   await client.remoteStop();
-  await client.remoteStop({ force: true });
   await client.remoteReset();
   const values = await client.memoryReadWords(0x100, 2);
   await client.memoryWriteWords(0x100, [100, 200]);
@@ -370,11 +373,18 @@ test("remote and memory helpers build expected commands", async () => {
     [
       [Command.REMOTE_RUN, 0x0000, "01000000", undefined],
       [Command.REMOTE_STOP, 0x0000, "0100", undefined],
-      [Command.REMOTE_STOP, 0x0000, "0100", undefined],
       [Command.REMOTE_RESET, 0x0000, "0100", false],
       [Command.MEMORY_READ, 0x0000, "000100000200", undefined],
       [Command.MEMORY_WRITE, 0x0000, "0001000002006400c800", undefined],
     ]
+  );
+});
+
+test("remoteStop rejects non-manual force option", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  await assert.rejects(
+    () => client.remoteStop({ force: true }),
+    (error) => error instanceof ValueError && /remoteStop does not support force/.test(error.message)
   );
 });
 

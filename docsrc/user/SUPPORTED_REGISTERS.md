@@ -7,8 +7,8 @@ This page is the canonical public register/device table for the Node-RED high-le
 | Family | Kind | Example | Numbering |
 | --- | --- | --- | --- |
 | `SM` | bit | `SM400` | decimal |
-| `X` | bit | `X20` | `iq-f`: octal, otherwise hexadecimal |
-| `Y` | bit | `Y20` | `iq-f`: octal, otherwise hexadecimal |
+| `X` | bit | `X20` | `melsec:iq-f`: octal, otherwise hexadecimal |
+| `Y` | bit | `Y20` | `melsec:iq-f`: octal, otherwise hexadecimal |
 | `M` | bit | `M1000` | decimal |
 | `L` | bit | `L100` | decimal |
 | `F` | bit | `F10` | decimal |
@@ -69,9 +69,9 @@ This page is the canonical public register/device table for the Node-RED high-le
 
 - Start with `D` for the first smoke test.
 - `B`, `W`, `SB`, `SW`, `DX`, and `DY` use hexadecimal device numbers.
-- `X` and `Y` require explicit `plcFamily`.
-- `iq-f` interprets string `X/Y` addresses in octal.
-- all other supported families interpret string `X/Y` addresses in hexadecimal.
+- `X` and `Y` require explicit `plcProfile`.
+- `melsec:iq-f` interprets string `X/Y` addresses in octal.
+- all other supported PLC profiles interpret string `X/Y` addresses in hexadecimal.
 - Most other families use decimal numbers.
 - `.bit` is valid only on word devices such as `D50.3`.
 - `LTN`, `LSTN`, and `LCN` default to 32-bit current-value access in the public high-level nodes.
@@ -79,24 +79,24 @@ This page is the canonical public register/device table for the Node-RED high-le
 - `LCS` and `LCC` state reads use direct bit read; high-level state writes use random bit write (`0x1402`).
 - `LZ` defaults to 32-bit random DWord access in the public high-level nodes. On iQ-F, use `LZ0` or `LZ1`.
 
-## Family-Specific Unsupported Devices
+## PLC-Profile-Specific Unsupported Devices
 
-These are device-code support rules only. The editor and helper APIs use them to reject or skip device codes that the selected family does not expose in the public surface; they are not address upper-bound checks.
+These are device-code support rules only. The editor and helper APIs use them to reject or skip device codes that the selected PLC profile does not expose in the public surface; they are not address upper-bound checks.
 
 | PLC type | Unsupported device codes in the public Node-RED surface |
 | --- | --- |
-| all families | `G`, `HG` |
-| `iq-r`, `iq-l`, `mx-f`, `mx-r` | none beyond `G`, `HG` |
-| `iq-f` | `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD` |
-| `qcpu` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
-| `lcpu`, `qnu`, `qnudv` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
+| all PLC profiles | `G`, `HG` |
+| `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r` | none beyond `G`, `HG` |
+| `melsec:iq-f` | `V`, `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `DX`, `DY`, `ZR`, `RD` |
+| `melsec:qcpu` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
+| `melsec:lcpu`, `melsec:qnu`, `melsec:qnudv` | `LTS`, `LTC`, `LTN`, `LSTS`, `LSTC`, `LSTN`, `LCS`, `LCC`, `LCN`, `LZ`, `RD` |
 
 This table follows only the supported/unsupported device-code portion of the .NET library's `DEVICE_RANGES.md`; Node-RED does not use it for PLC range or upper-bound validation.
 
 ## iQ-R SD Range Maximum Reference
 
 For iQ-R-series targets, the PLC-configured current point count is read from
-the family-specific `SD` range registers by libraries that expose a device range
+the PLC-profile-specific `SD` range registers by libraries that expose a device range
 catalog. The maximum below is the cap for that SD-derived point count:
 
 `point_count = min(SD point count, max_point_count)`
