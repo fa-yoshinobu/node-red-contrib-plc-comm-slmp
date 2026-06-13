@@ -26,29 +26,17 @@
     return right.length - left.length || left.localeCompare(right);
   });
   const SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY = Object.freeze({
-    "iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD", "G", "HG"],
-    "iq-r": ["G", "HG"],
-    "iq-l": ["G", "HG"],
-    "mx-f": ["G", "HG"],
-    "mx-r": ["G", "HG"],
-    qcpu: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    lcpu: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    qnu: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    qnudv: ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
+    "melsec:iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD", "G", "HG"],
+    "melsec:iq-r": ["G", "HG"],
+    "melsec:iq-l": ["G", "HG"],
+    "melsec:mx-f": ["G", "HG"],
+    "melsec:mx-r": ["G", "HG"],
+    "melsec:qcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
+    "melsec:lcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
+    "melsec:qnu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
+    "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
   });
   const SLMP_DTYPE_SUFFIXES = new Set(["S", "D", "L", "F", "STR", "STRING"]);
-  const SLMP_PLC_PROFILE_DEVICE_FAMILY = Object.freeze({
-    "melsec:iq-f": "iq-f",
-    "melsec:iq-r": "iq-r",
-    "melsec:iq-l": "iq-l",
-    "melsec:mx-f": "mx-f",
-    "melsec:mx-r": "mx-r",
-    "melsec:qcpu": "qcpu",
-    "melsec:lcpu": "lcpu",
-    "melsec:qnu": "qnu",
-    "melsec:qnudv": "qnudv"
-  });
-
   function slmpGetCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
     if (field.length > 0 && field.val()) {
@@ -101,7 +89,7 @@
   function slmpCurrentPlcProfile(connectionId) {
     const connection = connectionId && RED.nodes.node(connectionId);
     const normalized = connection && connection.plcProfile ? String(connection.plcProfile).trim().toLowerCase() : "";
-    return SLMP_PLC_PROFILE_DEVICE_FAMILY[normalized] || normalized;
+    return normalized;
   }
 
   function slmpValidateAddressToken(value, family) {
@@ -201,7 +189,7 @@
   }
 
   function slmpValidateDeviceNumber(code, numberText, defaultRadix, family) {
-    const radix = (family === "iq-f" && (code === "X" || code === "Y")) ? 8 : defaultRadix;
+    const radix = (family === "melsec:iq-f" && (code === "X" || code === "Y")) ? 8 : defaultRadix;
     if (radix === 8) {
       return /^[0-7]+$/.test(numberText);
     }

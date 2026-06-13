@@ -4,15 +4,20 @@
 
 The `slmp-connection` node requires one PLC type string. The node uses that value to choose the SLMP frame, PLC series behavior, and address-numbering rules.
 
+The node intentionally does not infer this value from `ReadTypeName`, model
+text, or model code. Some PLCs or communication paths cannot return a reliable
+type name, and a wrong inference can select the wrong address grammar or range
+catalog. Keep the PLC type as an explicit human/configuration choice.
+
 ## Supported PLC types
 
 | PLC type string | Hardware | Frame | Notes |
 | --- | --- | --- | --- |
 | `melsec:iq-f` | MELSEC iQ-F / FX5 | 3E | `X` and `Y` addresses use octal numbering. `DX` and `DY` are not valid. |
 | `melsec:iq-r` | MELSEC iQ-R | 4E | Default profile used by the examples. |
-| `melsec:iq-l` | MELSEC iQ-L | 4E | Uses the iQ-R address family rules in the current source. |
-| `melsec:mx-f` | MELSEC MX-F profile | 4E | Uses the MX-F address family rules in the current source. |
-| `melsec:mx-r` | MELSEC MX-R profile | 4E | Uses the MX-R address family rules in the current source. |
+| `melsec:iq-l` | MELSEC iQ-L | 4E | Uses its own profile with iQ-R-equivalent address rules in the current source. |
+| `melsec:mx-f` | MELSEC MX-F profile | 4E | Uses the MX-F profile rules in the current source. |
+| `melsec:mx-r` | MELSEC MX-R profile | 4E | Uses the MX-R profile rules in the current source. |
 | `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. |
 | `melsec:lcpu` | MELSEC LCPU | 3E | Q/L-series profile. |
 | `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. |

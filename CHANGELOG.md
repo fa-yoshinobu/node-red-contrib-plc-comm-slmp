@@ -51,12 +51,12 @@
 ## 0.2.7 - 2026-04-14
 
 - require explicit `plcProfile` on the standard packaged client and connection-node route, while keeping manual frame/profile selection only for internal diagnostic paths
-- switch the standard device-range example to the interim catalog helper so the high-level Node surface consistently derives frame, profile, address, and range handling from one family selection
+- switch the standard device-range example to the interim catalog helper so the high-level Node surface consistently derives frame, profile, address, and range handling from one profile selection
 
 ## 0.2.6 - 2026-04-14
 
-- replace connection-node `plcSeries` / `frameType` selection with one explicit `plcProfile` that derives the fixed frame, access profile, address-family, and range-family defaults
-- make high-level `X/Y` string addresses require explicit `plcProfile`, treat `iq-f` `X/Y` as octal, and refresh tests, docs, and example flows for the stricter family-driven model
+- replace connection-node `plcSeries` / `frameType` selection with one explicit `plcProfile` that derives the fixed frame, access profile, address profile, and range profile defaults
+- make high-level `X/Y` string addresses require explicit `plcProfile`, treat `iq-f` `X/Y` as octal, and refresh tests, docs, and example flows for the stricter profile-driven model
 
 ## 0.2.5 - 2026-04-14
 

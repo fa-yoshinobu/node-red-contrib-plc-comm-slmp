@@ -15,7 +15,7 @@ const {
   deviceToString,
   encodeDeviceSpec,
   encodeRequest,
-  isDeviceCodeSupportedForFamily,
+  isDeviceCodeSupportedForPlcProfile,
   packBitValues,
   parseDevice,
   resolveConnectionProfile,
@@ -36,7 +36,7 @@ test("parseDevice uses octal X/Y numbering for iq-f when plcProfile is explicit"
   assert.equal(deviceToString({ code: "Y", number: 0x90 }, { plcProfile: "melsec:iq-f" }), "Y220");
 });
 
-test("parseDevice rejects device codes that are unsupported by the explicit PLC family", () => {
+test("parseDevice rejects device codes that are unsupported by the explicit PLC profile", () => {
   assert.deepEqual(parseDevice("LZ0", { plcProfile: "melsec:iq-f" }), { code: "LZ", number: 0 });
   assert.deepEqual(parseDevice("LTS10", { plcProfile: "melsec:iq-r" }), { code: "LTS", number: 10 });
   assert.throws(() => parseDevice("V10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
@@ -48,10 +48,10 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
   assert.throws(() => parseDevice("G10", { plcProfile: "melsec:iq-r" }), /not supported for plcProfile 'melsec:iq-r'/);
   assert.throws(() => parseDevice("G10"), /not supported in the Node-RED public high-level surface/);
   assert.throws(() => parseDevice("HG10"), /not supported in the Node-RED public high-level surface/);
-  assert.equal(isDeviceCodeSupportedForFamily("LZ", "qnudv"), false);
-  assert.equal(isDeviceCodeSupportedForFamily("G", "qnu"), false);
-  assert.equal(isDeviceCodeSupportedForFamily("G", null), false);
-  assert.equal(isDeviceCodeSupportedForFamily("HG", null), false);
+  assert.equal(isDeviceCodeSupportedForPlcProfile("LZ", "melsec:qnudv"), false);
+  assert.equal(isDeviceCodeSupportedForPlcProfile("G", "melsec:qnu"), false);
+  assert.equal(isDeviceCodeSupportedForPlcProfile("G", null), false);
+  assert.equal(isDeviceCodeSupportedForPlcProfile("HG", null), false);
 });
 
 test("resolveConnectionProfile derives fixed defaults from plcProfile", () => {
@@ -60,7 +60,8 @@ test("resolveConnectionProfile derives fixed defaults from plcProfile", () => {
     plcProfile: "melsec:iq-l",
     plcSeries: "iqr",
     frameType: "4e",
-    deviceFamily: "iq-r",
+    addressProfile: "melsec:iq-l",
+    rangeProfile: "melsec:iq-l",
   });
   assert.throws(
     () => resolveConnectionProfile({ plcProfile: "melsec:iq-r", plcSeries: "ql" }),

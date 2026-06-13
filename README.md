@@ -19,9 +19,9 @@ Select one PLC type on every `slmp-connection` node.
 | --- | --- | --- | --- |
 | `melsec:iq-f` | MELSEC iQ-F / FX5 | 3E | `X` and `Y` addresses use octal numbering. |
 | `melsec:iq-r` | MELSEC iQ-R | 4E | Recommended starting point for the example flows. |
-| `melsec:iq-l` | MELSEC iQ-L | 4E | Uses iQ-R address-family behavior in the current source. |
-| `melsec:mx-f` | MELSEC MX-F profile | 4E | Uses MX-F address-family behavior in the current source. |
-| `melsec:mx-r` | MELSEC MX-R profile | 4E | Uses MX-R address-family behavior in the current source. |
+| `melsec:iq-l` | MELSEC iQ-L | 4E | Keeps its own iQ-L profile with iQ-R-equivalent address rules. |
+| `melsec:mx-f` | MELSEC MX-F profile | 4E | Uses MX-F profile behavior in the current source. |
+| `melsec:mx-r` | MELSEC MX-R profile | 4E | Uses MX-R profile behavior in the current source. |
 | `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. |
 | `melsec:lcpu` | MELSEC LCPU | 3E | Q/L-series profile. |
 | `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. |
