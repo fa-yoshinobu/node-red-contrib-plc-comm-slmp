@@ -19,7 +19,6 @@
     "node-red-contrib",
     "node-red-flow",
     "slmp",
-    "mitsubishi",
     "melsec",
     "plc"
   ],
