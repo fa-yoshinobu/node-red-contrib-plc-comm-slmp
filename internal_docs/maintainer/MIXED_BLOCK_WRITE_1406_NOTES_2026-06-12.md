@@ -53,7 +53,7 @@ commands instead of `0x0406`/`0x1406`.
 
 Manual references used for the fix:
 
-- English: `D:\_github_plc\sh080956engn.pdf`, PDF pages 76-78,
+- English manual, PDF pages 76-78,
   `Write Block (command: 1406)`.
-- Japanese: `D:\_github_plc\sh080931r.pdf`, PDF pages 75-77,
+- Japanese manual, PDF pages 75-77,
   `Write Block(コマンド: 1406)`.
