@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.0 - 2026-06-14
+
+- bump the package revision to 0.8.0 for the unified PLC communication library release
+
 ## 0.2.14 - 2026-06-12
 
 - add an optional `Remote password` credential to `slmp-connection`; configured connections unlock remote-password protection after opening SLMP transport and try to lock it before disconnecting
