@@ -2,14 +2,14 @@
 
 ## Start here
 
-Use this page to make your first Mitsubishi SLMP read from Node-RED. Start with one simple TCP flow, then move to arrays, strings, UDP, routing, or broader verification.
+Use this page to make your first MELSEC SLMP read from Node-RED. Start with one simple TCP flow, then move to arrays, strings, UDP, routing, or broader verification.
 
 ## Prerequisites
 
 | Requirement | Value |
 | --- | --- |
 | Node-RED | 3.0 or later |
-| PLC | Mitsubishi PLC reachable from your Node-RED host |
+| PLC | MELSEC PLC reachable from your Node-RED host |
 | First TCP target | `192.168.250.100:1025` |
 | Starting PLC type | `melsec:iq-r` |
 

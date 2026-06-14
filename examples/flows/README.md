@@ -13,7 +13,7 @@ This directory contains importable Node-RED JSON flow files for the public `slmp
 5. Open the `slmp-connection` config node.
 6. Set Host to `192.168.250.100`.
 7. Set the TCP Port to `1025`, or set the UDP Port to `1035`.
-8. Select the correct PLC type, such as `melsec:iq-r`.
+8. Select the correct PLC profile, such as `melsec:iq-r`.
 9. Deploy.
 
 ## Flow index

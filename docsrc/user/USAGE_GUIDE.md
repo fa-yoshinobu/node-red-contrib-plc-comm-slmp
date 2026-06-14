@@ -4,7 +4,7 @@
 
 | Node | Purpose |
 | --- | --- |
-| `slmp-connection` | Shared Mitsubishi SLMP connection profile for `slmp-read` and `slmp-write`. |
+| `slmp-connection` | Shared MELSEC SLMP connection profile for `slmp-read` and `slmp-write`. |
 | `slmp-read` | Reads one or more device addresses and writes the result to `msg.payload`. |
 | `slmp-write` | Writes one or more device values from static configuration or incoming messages. |
 

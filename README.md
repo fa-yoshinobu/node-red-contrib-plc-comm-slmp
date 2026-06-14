@@ -7,40 +7,17 @@
 ![Transport](https://img.shields.io/badge/Transport-TCP%20%2F%20UDP-0A7D5C)
 ![License](https://img.shields.io/badge/License-MIT-1F6FEB)
 
-# Node-RED SLMP Nodes for Mitsubishi PLCs
+# Node-RED MELSEC SLMP Nodes
 
-Node-RED nodes for Mitsubishi SLMP (Binary 3E/4E) PLC communication.
+Node-RED nodes for MELSEC SLMP (Binary 3E/4E) PLC communication.
 
-## Supported PLC types
+## Supported PLC profiles
 
-Select one PLC type on every `slmp-connection` node.
-
-| PLC type string | Hardware | Frame | Notes |
-| --- | --- | --- | --- |
-| `melsec:iq-f` | MELSEC iQ-F / FX5 | 3E | `X` and `Y` addresses use octal numbering. |
-| `melsec:iq-r` | MELSEC iQ-R | 4E | Recommended starting point for the example flows. |
-| `melsec:iq-l` | MELSEC iQ-L | 4E | Keeps its own iQ-L profile with iQ-R-equivalent address rules. |
-| `melsec:mx-f` | MELSEC MX-F profile | 4E | Uses MX-F profile behavior in the current source. |
-| `melsec:mx-r` | MELSEC MX-R profile | 4E | Uses MX-R profile behavior in the current source. |
-| `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. |
-| `melsec:lcpu` | MELSEC LCPU | 3E | Q/L-series profile. |
-| `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. |
-| `melsec:qnudv` | MELSEC QnUDV | 3E | Q/L-series profile. |
+The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choose one exact canonical PLC profile from that table.
 
 ## Supported device types
 
-Start with simple devices, then move into typed, counted, and string forms after the first read succeeds. See the full table in [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md).
-
-| Family | Use |
-| --- | --- |
-| `D` | Data registers for the first word read and write tests. |
-| `M` | Internal relays for bit reads and writes. |
-| `X` | Inputs. iQ-F uses octal numbering; other profiles use hexadecimal. |
-| `Y` | Outputs. iQ-F uses octal numbering; other profiles use hexadecimal. |
-| `W` | Link registers with hexadecimal numbering. |
-| `R` | File registers where supported by your PLC. |
-| `LTN` | Long timer current values, where supported. Use `:D` or `:L`. |
-| `LCN` | Long counter current values, where supported. Use `:D` or `:L`. |
+The maintained device and range tables are in [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md). Use that page for supported device families, address syntax, and profile-specific notes.
 
 ## Installation
 
@@ -60,7 +37,7 @@ In the Node-RED editor:
 4. Set Host to `192.168.250.100`.
 5. Set Port to `1025`.
 6. Set Transport to `TCP`.
-7. Set PLC type to `melsec:iq-r`.
+7. Set PLC profile to `melsec:iq-r`.
 8. Deploy the flow.
 9. Trigger the read inject node and check `msg.payload` in the debug sidebar.
 
@@ -68,29 +45,24 @@ Start with the basic flow before importing the device-matrix flow.
 
 ## Documentation
 
-- [Getting started](docsrc/user/GETTING_STARTED.md)
-- [Usage guide](docsrc/user/USAGE_GUIDE.md)
-- [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md)
-- [PLC profiles](docsrc/user/PROFILES.md)
-- [Example flows](examples/flows/README.md)
-- [Full documentation site](https://github.com/fa-yoshinobu/plc-comm-docs-site)
+| Page | Use it for |
+| --- | --- |
+| [Full documentation site](https://fa-yoshinobu.github.io/plc-comm-docs-site/) | Unified docs for all PLC communication libraries. |
+| [Getting started](docsrc/user/GETTING_STARTED.md) | Install the nodes, configure a connection, and run your first SLMP read. |
+| [Usage guide](docsrc/user/USAGE_GUIDE.md) | Use read/write nodes, routing fields, typed values, and flow patterns. |
+| [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md) | Check device families, address syntax, and numbering rules. |
+| [PLC profiles](docsrc/user/PROFILES.md) | Choose the canonical MELSEC profile and frame behavior. |
+| [Example flows](examples/flows/README.md) | Import maintained Node-RED example flows. |
 
 ## Hardware verified
 
-The retained public verification notes list these PLC models:
-
-| PLC model | Notes |
-| --- | --- |
-| `FX5UC-32MT/D` | iQ-F / FX5-class hardware. |
-| `Q06UDVCPU` | Q-series hardware. |
-| `R08CPU` | iQ-R hardware. A 2026-05-01 TCP check at `192.168.250.100:1025` returned `LCS10=false` and `LCC10=false` through `readNamed`. |
-
-Verified transports include TCP and UDP. See [Latest communication verification](docsrc/user/LATEST_COMMUNICATION_VERIFICATION.md) for the retained summary.
+Live-device verification is maintained in [Latest communication verification](docsrc/user/LATEST_COMMUNICATION_VERIFICATION.md).
+See that page for verified PLC models, transports, dates, limitations, and retained validation notes.
 
 ## License and registry
 
 | Item | Value |
 | --- | --- |
+| License | [MIT](LICENSE) |
+| Registry | [npm](https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp) |
 | Package | `@fa_yoshinobu/node-red-contrib-plc-comm-slmp` |
-| Registry | <https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp> |
-| License | MIT |

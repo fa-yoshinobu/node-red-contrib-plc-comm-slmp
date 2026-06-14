@@ -1,7 +1,7 @@
 {
   "name": "@fa_yoshinobu/node-red-contrib-plc-comm-slmp",
   "version": "0.2.14",
-  "description": "Node-RED nodes for Mitsubishi PLC communication over SLMP binary 3E/4E frames.",
+  "description": "Node-RED nodes for MELSEC PLC communication over SLMP binary 3E/4E frames.",
   "author": "fa-yoshinobu",
   "license": "MIT",
   "main": "lib/index.js",

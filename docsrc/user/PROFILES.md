@@ -2,16 +2,16 @@
 
 ## Intro
 
-The `slmp-connection` node requires one PLC type string. The node uses that value to choose the SLMP frame, PLC series behavior, and address-numbering rules.
+The `slmp-connection` node requires one canonical PLC profile string. The node uses that value to choose the SLMP frame, PLC series behavior, and address-numbering rules.
 
 The node intentionally does not infer this value from `ReadTypeName`, model
 text, or model code. Some PLCs or communication paths cannot return a reliable
 type name, and a wrong inference can select the wrong address grammar or range
 catalog. Keep the PLC type as an explicit human/configuration choice.
 
-## Supported PLC types
+## Supported PLC profiles
 
-| PLC type string | Hardware | Frame | Notes |
+| Canonical profile | Human label | Frame | Notes |
 | --- | --- | --- | --- |
 | `melsec:iq-f` | MELSEC iQ-F / FX5 | 3E | `X` and `Y` addresses use octal numbering. `DX` and `DY` are not valid. |
 | `melsec:iq-r` | MELSEC iQ-R | 4E | Default profile used by the examples. |
@@ -30,7 +30,7 @@ catalog. Keep the PLC type as an explicit human/configuration choice.
 | Host | `192.168.250.100` | IP address or host name for your PLC. |
 | Port | `1025` | Use `1025` for TCP examples or `1035` for UDP examples. |
 | Transport | `tcp` | Select `tcp` or `udp`. |
-| PLC type | `melsec:iq-r` | Select one exact PLC type string from the table above. |
+| PLC profile | `melsec:iq-r` | Select one exact canonical PLC profile from the table above. |
 
 Keep the default route fields unless your network requires a different target:
 
@@ -43,7 +43,7 @@ Keep the default route fields unless your network requires a different target:
 
 ## Profile-specific cautions
 
-| PLC type | Caution |
+| Canonical profile | Caution |
 | --- | --- |
 | `melsec:iq-f` | Frame 3E. `DX` and `DY` are not valid. `X` and `Y` addressing is octal. |
 | `melsec:iq-r` | Frame 4E. `X` and `Y` addressing is hexadecimal. |
