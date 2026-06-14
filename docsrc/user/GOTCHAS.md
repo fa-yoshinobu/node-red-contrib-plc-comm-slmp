@@ -1,49 +1,57 @@
 # Gotchas
 
+Each entry starts with the symptom you will see in the editor, debug sidebar, or node status. The fixes refer to the public `slmp-connection`, `slmp-read`, and `slmp-write` nodes.
+
 ## slmp-read returns nothing
 
-PLC type is not set on the connection node. It is required, and there is no runtime default.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| `slmp-read` produces no useful payload or errors immediately. | The selected `slmp-connection` has no PLC type at runtime. The runtime requires one explicit canonical PLC type. | Open the `slmp-connection` config node and select the correct PLC type, such as `melsec:iq-r`. |
 
-Fix: open the `slmp-connection` node and select the correct PLC type.
+## Mixed word+bit write fails
 
-## Mixed word+bit write in one slmp-write node fails
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject SLMP command `0x1406` for mixed word and bit block payloads. | Use one `slmp-write` node for word updates and another `slmp-write` node for bit updates. |
 
-The PLC rejects command `0x1406` for word + bit combinations.
+## G/HG rejected
 
-Fix: use separate `slmp-write` nodes for word writes and bit writes.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| `G` or `HG` addresses are rejected by `slmp-read` or `slmp-write`. | Module buffer access is not exposed through the high-level Node-RED node surface. | Keep `G` and `HG` out of high-level flows, or use a function node with the lower-level JavaScript API for raw module access. |
 
-## G or HG address is rejected
+## DX/DY fails on melsec:iq-f
 
-`G` and `HG` are not in the high-level node surface.
-
-Fix: use a function node with the low-level JS API if raw access is needed.
-
-## DX or DY fails on melsec:iq-f
-
-`DX` and `DY` are not valid for `melsec:iq-f`.
-
-Fix: use `X` and `Y` instead.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| `DX` or `DY` fails when the connection PLC type is `melsec:iq-f`. | The iQ-F profile does not support `DX` and `DY`. | Use `X` and `Y` for iQ-F, and remember that iQ-F `X`/`Y` text uses octal numbering. |
 
 ## LTN/LSTN/LCN/LZ reads return wrong data
 
-These are 32-bit families. Plain direct word access is rejected by the lower-level commands and can make a flow unclear.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| Long timer, long counter, or long index values look truncated or are rejected. | `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit current-value families, not normal 16-bit word values. | Address them as `LTN0:D`, `LSTN0:D`, `LCN0:D`, or `LZ0:D`; use `:L` for signed 32-bit values. |
 
-Fix: address them as `LTN0:D`, `LSTN0:D`, `LCN0:D`, or `LZ0:D`. Use `:L` when you need signed 32-bit values.
+## Non-canonical PLC type string rejected
 
-## X or Y address works on one PLC type but fails on another
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| A hand-edited flow or environment-provided PLC type is rejected. | The node accepts only exact canonical PLC type strings. Short names and aliases are not normalized. | Use one of the strings shown in the `slmp-connection` dropdown, such as `melsec:iq-r`. |
 
-`melsec:iq-f` uses octal numbering for `X` and `Y`. Other supported profiles use hexadecimal numbering.
+## X/Y works on one PLC type but fails on another
 
-Fix: check the PLC type on `slmp-connection` before copying `X` or `Y` addresses between flows.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| An `X` or `Y` address works after changing PLC type but points at a different I/O point. | `melsec:iq-f` uses octal `X`/`Y` text, while the other supported profiles use hexadecimal text. | Review `X` and `Y` addresses whenever you copy a flow between PLC profiles. |
 
 ## D50.3,count is rejected
 
-`.bit` notation is scalar-only. It is for one bit inside a word.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| An address such as `D50.3,8` is rejected. | `.bit` notation is scalar-only and means one bit inside one word. | Use `D50.3` for one bit, or use a direct bit range such as `M1000,8` for consecutive bit devices. |
 
-Fix: use `D50.3` for one bit, or use direct bit devices such as `M1000,8` when you need consecutive bit arrays.
+## Device-matrix flow is noisy as a first test
 
-## First test uses the device-matrix flow
-
-`slmp-device-matrix.json` is a broad verification flow. It is useful after the connection works, but it is noisy for a first test.
-
-Fix: import `slmp-basic-read-write.json` first and verify a simple `D300` read.
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| The first imported flow produces many skipped or failed entries. | `slmp-device-matrix.json` is a broad verification flow, not the smallest connection smoke test. | Import `slmp-basic-read-write.json` first and verify a simple `D300` read before using the matrix flow. |
