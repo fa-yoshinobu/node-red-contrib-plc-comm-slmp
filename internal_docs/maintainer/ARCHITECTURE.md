@@ -3,7 +3,7 @@
 See also:
 
 - [Project README](../../README.md)
-- [User Guide](../../docsrc/user/USER_GUIDE.md)
+- [Usage guide](../../docsrc/user/USAGE_GUIDE.md)
 - [Changelog](../../CHANGELOG.md)
 - [Documentation Index](../../docsrc/index.md)
 
