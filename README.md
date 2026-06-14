@@ -73,6 +73,7 @@ Start with the basic flow before importing the device-matrix flow.
 - [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md)
 - [PLC profiles](docsrc/user/PROFILES.md)
 - [Example flows](examples/flows/README.md)
+- [Full documentation site](https://github.com/fa-yoshinobu/plc-comm-docs-site)
 
 ## Hardware verified
 
