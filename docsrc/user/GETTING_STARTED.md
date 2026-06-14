@@ -11,7 +11,7 @@ Use this page to make your first MELSEC SLMP read from Node-RED. Start with one 
 | Node-RED | 3.0 or later |
 | PLC | MELSEC PLC reachable from your Node-RED host |
 | First TCP target | `192.168.250.100:1025` |
-| Starting PLC type | `melsec:iq-r` |
+| Starting PLC profile | `melsec:iq-r` |
 
 ## Install
 
@@ -31,7 +31,7 @@ Create or open a `slmp-connection` config node and set these fields:
 | Host | `192.168.250.100` | PLC IP address or host name. |
 | Port | `1025` | TCP port for the first example. |
 | Transport | `TCP` | Use TCP for the first run. |
-| PLC type | `melsec:iq-r` | Required PLC profile string. |
+| PLC profile | `melsec:iq-r` | Required canonical PLC profile. |
 
 Leave the route fields at their defaults unless your PLC network needs a different target.
 
@@ -43,7 +43,7 @@ Leave the route fields at their defaults unless your PLC network needs a differe
 4. Confirm Host is `192.168.250.100`.
 5. Confirm Port is `1025`.
 6. Confirm Transport is `TCP`.
-7. Confirm PLC type is `melsec:iq-r`.
+7. Confirm the PLC profile is `melsec:iq-r`.
 8. Deploy.
 9. Trigger the read inject node.
 10. Open the debug sidebar and verify `msg.payload`.
@@ -76,7 +76,7 @@ Trigger the node with any message. A successful response sets `msg.payload.D300`
 ## Confirm success
 
 1. The flow deploys without editor validation errors.
-2. The `slmp-connection` node has PLC type `melsec:iq-r`.
+2. The `slmp-connection` node has PLC profile `melsec:iq-r`.
 3. The read inject node produces a debug message.
 4. `msg.payload` contains a `D300` key.
 5. The connection status does not stay red after repeated reads.
@@ -85,7 +85,7 @@ Trigger the node with any message. A successful response sets `msg.payload.D300`
 
 | Symptom | Check |
 | --- | --- |
-| The read returns nothing or errors immediately | PLC type on `slmp-connection` must be set. It is required, and there is no runtime default. |
+| The read returns nothing or errors immediately | PLC profile on `slmp-connection` must be set. It is required, and there is no runtime default. |
 | The first flow feels too busy | Import `slmp-basic-read-write.json` first, not `slmp-device-matrix.json`. |
 | Address validation fails on the first run | Start with `D300`. Do not test with `G` or `HG` on the first run. |
 | TCP does not connect | Confirm the PLC is reachable at `192.168.250.100:1025` from the Node-RED host. |

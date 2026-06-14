@@ -17,7 +17,7 @@
 | Port | TCP or UDP port. Use `1025` for TCP examples and `1035` for UDP examples. |
 | Transport | `tcp` or `udp`. |
 | Timeout ms | Communication timeout in milliseconds. |
-| PLC type | Required PLC profile string. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:qcpu`, `melsec:lcpu`, `melsec:qnu`, and `melsec:qnudv`. |
+| PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:qcpu`, `melsec:lcpu`, `melsec:qnu`, and `melsec:qnudv`. |
 | Remote password | Optional SLMP remote password credential. When set, the connection unlocks after opening and tries to lock before disconnecting. |
 | Monitor timer | SLMP monitoring timer value sent in requests. |
 | Network | Target network number, `0` to `255`. |
@@ -150,7 +150,7 @@ When Metadata is `full`, `msg.slmp` includes:
 | --- | --- |
 | `msg.slmp.addresses` | Normalized read addresses. Present on `slmp-read`. |
 | `msg.slmp.updates` | Normalized write updates. Present on `slmp-write`. |
-| `msg.slmp.connection` | Connection profile with host, port, transport, PLC type, frame type, series, target, and remote password status. |
+| `msg.slmp.connection` | Connection profile with host, port, transport, PLC profile, frame type, series, target, and remote password status. |
 | `msg.slmp.target` | Effective request target after route overrides. |
 
 When Metadata is `minimal`, `msg.slmp` includes only `target`, `itemCount`, and `metadataMode`.

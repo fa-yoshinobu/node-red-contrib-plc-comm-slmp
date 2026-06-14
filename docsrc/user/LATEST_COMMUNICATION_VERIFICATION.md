@@ -23,8 +23,8 @@ This page keeps the current public summary only. Older detailed notes are not ke
 
 ## Practical Cautions
 
-- set one explicit `PLC type` for every connection
-- older Flow Library `0.2.3` flows must be updated from `PLC series` / `frame type` to `PLC type`
+- set one explicit PLC profile for every connection
+- older Flow Library `0.2.3` flows must be updated from `PLC series` / `frame type` to the current PLC profile selector
 - start with `D` reads before using typed, counted, or string forms
 - keep `slmp-device-matrix.json` for later verification, not for the first smoke test
 - do not rely on Node-RED for PLC model-specific range or upper-bound checks; format errors are local, range errors come from the PLC/runtime response

@@ -80,4 +80,4 @@ This page lists the public device families and address forms accepted by the Nod
 
 ## Profile pointer
 
-See [PLC profiles](./PROFILES.md) for the exact PLC type strings, frame mapping, and profile-specific cautions.
+See [PLC profiles](./PROFILES.md) for the exact canonical profiles, frame mapping, and profile-specific cautions.

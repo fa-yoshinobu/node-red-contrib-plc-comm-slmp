@@ -6,7 +6,7 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `slmp-read` produces no useful payload or errors immediately. | The selected `slmp-connection` has no PLC type at runtime. The runtime requires one explicit canonical PLC type. | Open the `slmp-connection` config node and select the correct PLC type, such as `melsec:iq-r`. |
+| `slmp-read` produces no useful payload or errors immediately. | The selected `slmp-connection` has no PLC profile at runtime. The runtime requires one explicit canonical PLC profile. | Open the `slmp-connection` config node and select the correct PLC profile, such as `melsec:iq-r`. |
 
 ## Mixed word+bit write fails
 
@@ -24,7 +24,7 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `DX` or `DY` fails when the connection PLC type is `melsec:iq-f`. | The iQ-F profile does not support `DX` and `DY`. | Use `X` and `Y` for iQ-F, and remember that iQ-F `X`/`Y` text uses octal numbering. |
+| `DX` or `DY` fails when the connection PLC profile is `melsec:iq-f`. | The iQ-F profile does not support `DX` and `DY`. | Use `X` and `Y` for iQ-F, and remember that iQ-F `X`/`Y` text uses octal numbering. |
 
 ## LTN/LSTN/LCN/LZ reads return wrong data
 
@@ -32,17 +32,17 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 | --- | --- | --- |
 | Long timer, long counter, or long index values look truncated or are rejected. | `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit current-value families, not normal 16-bit word values. | Address them as `LTN0:D`, `LSTN0:D`, `LCN0:D`, or `LZ0:D`; use `:L` for signed 32-bit values. |
 
-## Non-canonical PLC type string rejected
+## Non-canonical PLC profile rejected
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| A hand-edited flow or environment-provided PLC type is rejected. | The node accepts only exact canonical PLC type strings. Short names and aliases are not normalized. | Use one of the strings shown in the `slmp-connection` dropdown, such as `melsec:iq-r`. |
+| A hand-edited flow or environment-provided PLC profile is rejected. | The node accepts only exact canonical PLC profiles. Short names and aliases are not normalized. | Use one of the canonical profiles shown in the `slmp-connection` dropdown, such as `melsec:iq-r`. |
 
-## X/Y works on one PLC type but fails on another
+## X/Y works on one PLC profile but fails on another
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| An `X` or `Y` address works after changing PLC type but points at a different I/O point. | `melsec:iq-f` uses octal `X`/`Y` text, while the other supported profiles use hexadecimal text. | Review `X` and `Y` addresses whenever you copy a flow between PLC profiles. |
+| An `X` or `Y` address works after changing PLC profile but points at a different I/O point. | `melsec:iq-f` uses octal `X`/`Y` text, while the other supported profiles use hexadecimal text. | Review `X` and `Y` addresses whenever you copy a flow between PLC profiles. |
 
 ## D50.3,count is rejected
 

@@ -20,8 +20,8 @@
 
 - bump the release revision for npm and Node-RED Flow Library publishing; the Flow Library currently shows `0.2.3` as the public baseline
 - refresh README, user-guide, latest-verification, and example-flow docs with compatibility notes from the published Flow Library version
-- document the public compatibility change from separate `PLC series` / `frame type` fields to one `PLC type` selector
-- document the public device-scope changes since Flow Library `0.2.3`: `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC type supports them
+- document the public compatibility change from separate `PLC series` / `frame type` fields to one PLC profile selector
+- document the public device-scope changes since Flow Library `0.2.3`: `LTS`, `LTC`, `LSTS`, `LSTC`, `LCS`, `LCC`, and `LZ` are now in the high-level surface where the selected PLC profile supports them
 - document the current device-matrix flow behavior: one-click run-all read/write buttons, status-lamp feedback, JSONL result logging, `plcProfile` records, and skip/error summary counts
 
 ## 0.2.11 - 2026-05-02
