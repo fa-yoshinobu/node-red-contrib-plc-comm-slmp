@@ -5,7 +5,6 @@ See also:
 - [Project README](../../README.md)
 - [Usage guide](../../docsrc/user/USAGE_GUIDE.md)
 - [Changelog](../../CHANGELOG.md)
-- [Documentation Index](../../docsrc/index.md)
 
 This package has three layers:
 
