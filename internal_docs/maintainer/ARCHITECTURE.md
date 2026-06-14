@@ -3,9 +3,9 @@
 See also:
 
 - [Project README](../../README.md)
-- [User Guide](../user/USER_GUIDE.md)
+- [User Guide](../../docsrc/user/USER_GUIDE.md)
 - [Changelog](../../CHANGELOG.md)
-- [Documentation Index](../index.md)
+- [Documentation Index](../../docsrc/index.md)
 
 This package has three layers:
 
