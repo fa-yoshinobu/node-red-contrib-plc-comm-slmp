@@ -48,7 +48,7 @@ This page lists the public device families and address forms accepted by the Nod
 | `LZ` | `LZ0:D` | Decimal | Long index register where supported. Use `:D` or `:L`. |
 | `R` | `R100` | Decimal | File register where supported. |
 | `ZR` | `ZR100` | Decimal | Extended file register where supported. Not valid for `melsec:iq-f`. |
-| `RD` | `RD100` | Decimal | Direct access register where supported. Not valid for `melsec:iq-f`. |
+| `RD` | `RD100` | Decimal | Refresh data register where supported. Not valid for `melsec:iq-f`, `melsec:qcpu`, `melsec:lcpu`, `melsec:qnu`, or `melsec:qnudv`. |
 
 ## Address syntax
 

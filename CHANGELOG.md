@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- fix the default SLMP port from `5000` to `1025` in `slmp-connection` and direct `SlmpClient` construction
+
 ## 0.8.0 - 2026-06-14
 
 - bump the package revision to 0.8.0 for the unified PLC communication library release

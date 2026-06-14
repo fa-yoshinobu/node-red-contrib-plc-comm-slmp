@@ -80,6 +80,15 @@ test("resolveConnectionProfile rejects missing plcProfile on the standard route"
   );
 });
 
+test("SlmpClient defaults missing port to 1025 but rejects blank port", () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  assert.equal(client.port, 1025);
+  assert.throws(
+    () => new SlmpClient({ host: "127.0.0.1", port: "", plcProfile: "melsec:iq-r" }),
+    /port out of range/
+  );
+});
+
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "ql" })], [100, 0, 0, 0xa8]);
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "iqr" })], [100, 0, 0, 0, 0xa8, 0x00]);

@@ -792,6 +792,45 @@ test("slmp-connection creates a client and closes it with the node", async () =>
   });
 });
 
+test("slmp-connection defaults missing port but rejects blank port", async () => {
+  const constructorOptions = [];
+
+  class FakeSlmpClient {
+    constructor(options) {
+      constructorOptions.push(options);
+      this.plcProfile = options.plcProfile;
+      this.frameType = "4e";
+      this.plcSeries = "iqr";
+      this.defaultTarget = slmp.normalizeTarget(options.defaultTarget);
+    }
+
+    async close() {}
+  }
+
+  await withMockedSlmp({ SlmpClient: FakeSlmpClient }, async () => {
+    const { RED, create } = createMockRed();
+    require("../nodes/slmp-connection")(RED);
+
+    create("slmp-connection", {
+      id: "conn-missing-port",
+      host: "192.168.0.10",
+      plcProfile: "melsec:iq-r",
+    });
+
+    assert.equal(constructorOptions[0].port, 1025);
+    assert.throws(
+      () =>
+        create("slmp-connection", {
+          id: "conn-blank-port",
+          host: "192.168.0.10",
+          port: "",
+          plcProfile: "melsec:iq-r",
+        }),
+      /slmp-connection port is required/
+    );
+  });
+});
+
 test("slmp-read prefers msg.addresses and can return a single value", async () => {
   const calls = [];
   const fakeClient = { kind: "client" };
