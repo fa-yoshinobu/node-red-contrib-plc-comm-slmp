@@ -15,9 +15,9 @@ catalog. Keep the PLC profile as an explicit human/configuration choice.
 | --- | --- | --- | --- |
 | `melsec:iq-f` | MELSEC iQ-F | 3E | `X` and `Y` addresses use octal numbering. `DX` and `DY` are not valid. |
 | `melsec:iq-r` | MELSEC iQ-R | 4E | Default profile used by the examples. |
-| `melsec:iq-l` | MELSEC iQ-L | 4E | Uses its own profile with iQ-R-equivalent address rules in the current source. |
-| `melsec:mx-f` | MELSEC MX-F | 4E | Uses the MX-F profile rules in the current source. |
-| `melsec:mx-r` | MELSEC MX-R | 4E | Uses the MX-R profile rules in the current source. |
+| `melsec:iq-l` | MELSEC iQ-L | 4E | Use for MELSEC iQ-L targets. |
+| `melsec:mx-f` | MELSEC MX-F | 4E | Use for MELSEC MX-F targets. |
+| `melsec:mx-r` | MELSEC MX-R | 4E | Use for MELSEC MX-R targets. |
 | `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. |
 | `melsec:lcpu` | MELSEC LCPU | 3E | Q/L-series profile. |
 | `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. |
