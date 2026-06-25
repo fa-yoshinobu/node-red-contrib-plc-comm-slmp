@@ -80,24 +80,24 @@
       return true;
     }
     const tokens = slmpTokenizeAddressList(text);
-    const family = slmpCurrentPlcProfile(connectionId);
+    const plcProfile = slmpCurrentPlcProfile(connectionId);
     return Array.isArray(tokens) && tokens.every(function (token) {
-      return slmpValidateAddressToken(token, family);
+      return slmpValidateAddressToken(token, plcProfile);
     });
   }
 
   function slmpCurrentPlcProfile(connectionId) {
     const connection = connectionId && RED.nodes.node(connectionId);
-    const normalized = connection && connection.plcProfile ? String(connection.plcProfile).trim().toLowerCase() : "";
+    const normalized = connection && connection.plcProfile ? String(connection.plcProfile).trim() : "";
     return normalized;
   }
 
-  function slmpValidateAddressToken(value, family) {
+  function slmpValidateAddressToken(value, plcProfile) {
     let text = String(value == null ? "" : value).trim().toUpperCase();
     if (!text) {
       return false;
     }
-    const legacy = slmpParseLegacyStringAddress(text, family);
+    const legacy = slmpParseLegacyStringAddress(text, plcProfile);
     if (legacy !== null) {
       return legacy;
     }
@@ -128,11 +128,11 @@
         return false;
       }
       text = bitMatch[1].trim();
-      const parsed = slmpParseDeviceToken(text, family);
+      const parsed = slmpParseDeviceToken(text, plcProfile);
       return Boolean(parsed && parsed.unit === "word");
     }
 
-    const parsed = slmpParseDeviceToken(text, family);
+    const parsed = slmpParseDeviceToken(text, plcProfile);
     if (!parsed) {
       return false;
     }
@@ -145,7 +145,7 @@
     return true;
   }
 
-  function slmpParseLegacyStringAddress(text, family) {
+  function slmpParseLegacyStringAddress(text, plcProfile) {
     for (const code of SLMP_DEVICE_CODES) {
       const prefix = code + "STR";
       if (!text.startsWith(prefix)) {
@@ -155,23 +155,23 @@
       if (!match || Number.parseInt(match[2], 10) <= 0) {
         return false;
       }
-      const parsed = slmpParseDeviceToken(code + match[1], family);
+      const parsed = slmpParseDeviceToken(code + match[1], plcProfile);
       return Boolean(parsed && parsed.unit === "word");
     }
     return null;
   }
 
-  function slmpParseDeviceToken(text, family) {
+  function slmpParseDeviceToken(text, plcProfile) {
     for (const code of SLMP_DEVICE_CODES) {
       if (!text.startsWith(code)) {
         continue;
       }
-      if (!slmpDeviceCodeSupportedForFamily(code, family)) {
+      if (!slmpDeviceCodeSupportedForPlcProfile(code, plcProfile)) {
         return null;
       }
       const numberText = text.slice(code.length);
       const info = SLMP_DEVICE_INFO[code];
-      if (!numberText || !slmpValidateDeviceNumber(code, numberText, info.radix, family)) {
+      if (!numberText || !slmpValidateDeviceNumber(code, numberText, info.radix, plcProfile)) {
         return null;
       }
       return { code: code, unit: info.unit };
@@ -179,17 +179,17 @@
     return null;
   }
 
-  function slmpDeviceCodeSupportedForFamily(code, family) {
+  function slmpDeviceCodeSupportedForPlcProfile(code, plcProfile) {
     if (code === "G" || code === "HG") {
       return false;
     }
-    const normalizedFamily = String(family || "").trim().toLowerCase();
-    const unsupported = SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY[normalizedFamily];
+    const normalizedProfile = String(plcProfile || "").trim();
+    const unsupported = SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY[normalizedProfile];
     return !(unsupported && unsupported.indexOf(code) !== -1);
   }
 
-  function slmpValidateDeviceNumber(code, numberText, defaultRadix, family) {
-    const radix = (family === "melsec:iq-f" && (code === "X" || code === "Y")) ? 8 : defaultRadix;
+  function slmpValidateDeviceNumber(code, numberText, defaultRadix, plcProfile) {
+    const radix = (plcProfile === "melsec:iq-f" && (code === "X" || code === "Y")) ? 8 : defaultRadix;
     if (radix === 8) {
       return /^[0-7]+$/.test(numberText);
     }
