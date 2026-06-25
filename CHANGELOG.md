@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Removed the legacy `family` profile alias from SLMP device parsing and high-level helper options; callers should use `plcProfile` or `addressProfile`.
-- Made the Node-RED SLMP connection editor require an explicit PLC type selection instead of defaulting to `melsec:iq-r`.
+- [Library] Removed the legacy `family` profile alias from SLMP device parsing and high-level helper options; callers should use `plcProfile` or `addressProfile`.
+- [Node-RED editor] Made the SLMP connection editor require an explicit PLC type selection instead of defaulting to `melsec:iq-r`.
 
 ### Fixed
 
-- Aligned the UDP read/write example flow with the current SLMP UDP sample port (`1035`).
+- [Samples] Aligned the UDP read/write example flow with the current SLMP UDP sample port (`1035`).
+- [CI] Check npm duplicate package versions through registry metadata instead of requiring the local npm CLI.
 
 ## [1.0.0] - 2026-06-24
 
