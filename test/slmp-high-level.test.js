@@ -42,10 +42,25 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   assert.equal(normalizeAddress("d100:i"), "D100:S");
   assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
   assert.throws(() => normalizeAddress("d50.10"), /invalid bit-in-word/i);
+  assert.throws(() => parseAddress("D50:BIT_IN_WORD"), /no bit index/i);
   assert.throws(() => normalizeAddress("x1a"), /require explicit plcProfile/i);
   assert.equal(normalizeAddress("x1a", { plcProfile: "melsec:iq-r" }), "X1A");
   assert.equal(normalizeAddress("y217", { plcProfile: "melsec:iq-f" }), "Y217");
   assert.throws(() => normalizeAddress("x1a", { plcProfile: "iq-r" }), /Unsupported plcProfile/);
+});
+
+test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index", async () => {
+  const fakeClient = {
+    async readDevices() {
+      throw new Error("unexpected read");
+    },
+    async writeDevices() {
+      throw new Error("unexpected write");
+    },
+  };
+
+  await assert.rejects(() => readNamed(fakeClient, ["D50:BIT_IN_WORD"]), /no bit index/i);
+  await assert.rejects(() => writeNamed(fakeClient, { "D50:BIT_IN_WORD": true }), /no bit index/i);
 });
 
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {
