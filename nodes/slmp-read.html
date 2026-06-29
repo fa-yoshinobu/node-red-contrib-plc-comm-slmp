@@ -423,7 +423,7 @@
   <p><code>,count</code> returns arrays for numeric and direct-bit reads. String reads use UTF-8 bytes packed two per word.</p>
   <p>Output can be an object keyed by address, an array in address order, or a single scalar when exactly one address is requested.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
-  <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. At runtime, <code>msg.addresses</code> or a string/array in <code>msg.payload</code> still take priority.</p>
+  <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. At runtime, <code>msg.addresses</code> takes priority over the configured source.</p>
   <p>Per-request routing can be supplied as <code>msg.target</code>, <code>msg.slmp.target</code>, or a configured route source. Route objects can include <code>network</code>, <code>station</code>, <code>moduleIO</code>, and <code>multidrop</code>.</p>
   <p>Send <code>msg.connect</code>, <code>msg.disconnect</code>, or <code>msg.reinitialize</code> as <code>true</code>, or send the same words in <code>msg.topic</code>, to control the shared connection.</p>
   <p>The node keeps the caller-visible logical request shape. It does not silently retry one logical read as a different fallback split request.</p>

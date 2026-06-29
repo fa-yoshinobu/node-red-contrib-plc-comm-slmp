@@ -181,23 +181,8 @@
         return slmpValidateWriteAddress(address, connectionId);
       });
     } catch (_error) {
+      return false;
     }
-
-    const lines = text.split(/\r?\n/);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) {
-        continue;
-      }
-      const separatorIndex = trimmed.indexOf("=");
-      if (separatorIndex <= 0) {
-        return false;
-      }
-      if (!slmpValidateWriteAddress(trimmed.slice(0, separatorIndex).trim(), connectionId)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   function slmpValidateWriteIntegerString(value, min, max, base) {
@@ -379,7 +364,7 @@
   </div>
   <div class="form-row" id="node-input-updatesLiteralRow">
     <label for="node-input-updatesLiteral"><i class="fa fa-pencil"></i> Static updates</label>
-    <textarea id="node-input-updatesLiteral" style="height: 140px;" placeholder="{&quot;D100&quot;: 42, &quot;D100:I&quot;: -1, &quot;D100,3&quot;: [10,11,12], &quot;D100:STR,10&quot;: &quot;HELLO&quot;}&#10;&#10;or&#10;D100=42&#10;D100:I=-1&#10;D100:STR,10=&quot;HELLO&quot;"></textarea>
+    <textarea id="node-input-updatesLiteral" style="height: 140px;" placeholder="{&quot;D100&quot;: 42, &quot;D100:I&quot;: -1, &quot;D100,3&quot;: [10,11,12], &quot;D100:STR,10&quot;: &quot;HELLO&quot;}"></textarea>
   </div>
   <div class="form-row">
     <label for="node-input-routeTargetSource"><i class="fa fa-sitemap"></i> Route</label>
@@ -411,12 +396,12 @@
 
 <script type="text/html" data-help-name="slmp-write">
   <p>Writes one or more SLMP values using the same named-device foundation as the SLMP libraries, extended here with count and string forms.</p>
-  <p>Preferred dynamic input is <code>msg.payload</code> or <code>msg.updates</code> as an object, for example <code>{ "D100": 42, "D100:I": -1, "D100,3": [10,11,12], "D100:STR,10": "HELLO" }</code>.</p>
+  <p>Preferred dynamic input is <code>msg.updates</code> as an object, for example <code>{ "D100": 42, "D100:I": -1, "D100,3": [10,11,12], "D100:STR,10": "HELLO" }</code>.</p>
   <p>Count-qualified addresses expect arrays, while string addresses expect a string value. <code>DSTR100,10</code> is accepted as a compatibility alias.</p>
-  <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. Literal text accepts JSON objects or <code>address=value</code> lines.</p>
+  <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. Literal text accepts JSON objects only.</p>
   <p>Per-request routing can be supplied as <code>msg.target</code>, <code>msg.slmp.target</code>, or a configured route source. Route objects can include <code>network</code>, <code>station</code>, <code>moduleIO</code>, and <code>multidrop</code>.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
-  <p>You can also send a single write with <code>msg.address</code>, optional <code>msg.dtype</code>, and the value in <code>msg.value</code> or <code>msg.payload</code>. If <code>msg.address</code> already includes <code>,count</code>, the dtype is inserted before the count suffix.</p>
+  <p>You can also send a single write with <code>msg.address</code>, optional <code>msg.dtype</code>, and the value in <code>msg.value</code>. If <code>msg.address</code> already includes <code>,count</code>, the dtype is inserted before the count suffix.</p>
   <p>Send <code>msg.connect</code>, <code>msg.disconnect</code>, or <code>msg.reinitialize</code> as <code>true</code>, or send the same words in <code>msg.topic</code>, to control the shared connection.</p>
   <p>The node keeps the caller-visible logical write shape. It does not silently retry one logical update as a different fallback split request.</p>
   <p>Error handling can throw, attach the error to <code>msg.error</code>, or emit the failed message on the second output.</p>

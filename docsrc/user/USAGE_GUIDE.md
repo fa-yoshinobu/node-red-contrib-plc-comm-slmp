@@ -42,7 +42,6 @@
 | Msg field | Description |
 | --- | --- |
 | `msg.addresses` | Runtime address list. A string or array here takes priority over the configured Source. |
-| `msg.payload` | Runtime address list when it is a string or array and `msg.addresses` is not set. |
 | `msg.target` | Per-request route override object. |
 | `msg.slmp.target` | Per-request route override when `msg.target` is not set. |
 | `msg.topic` | `connect`, `disconnect`, or `reinitialize` controls the shared connection instead of reading. |
@@ -68,7 +67,7 @@
 | Name | Optional label shown in the editor. |
 | Connection | The `slmp-connection` config node to use. |
 | Source | Where to read updates from: literal text, `msg`, `flow`, `global`, or `env`. |
-| Static updates | Literal JSON object or `address=value` lines when Source is literal text. |
+| Static updates | Literal JSON object when Source is literal text. |
 | Route | Optional per-request route source: literal JSON, `msg`, `flow`, `global`, or `env`. |
 | Route JSON | Literal route object with `network`, `station`, `moduleIO`, and `multidrop`. |
 | Metadata | `full`, `minimal`, or `off` for `msg.slmp` output. |
@@ -77,10 +76,9 @@
 | Msg field | Description |
 | --- | --- |
 | `msg.updates` | Runtime update object, for example `{ "D300": 123, "M1000": true }`. |
-| `msg.payload` | Runtime update object or configured-source data when `msg.updates` is not set. |
 | `msg.address` | Single-address write path. |
 | `msg.dtype` | Optional data type for `msg.address` when the address has no suffix. |
-| `msg.value` | Single-address write value. If omitted, `msg.payload` is used. |
+| `msg.value` | Single-address write value. Required when `msg.address` is used. |
 | `msg.target` | Per-request route override object. |
 | `msg.slmp.target` | Per-request route override when `msg.target` is not set. |
 | `msg.topic` | `connect`, `disconnect`, or `reinitialize` controls the shared connection instead of writing. |

@@ -18,10 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] - 2026-06-28
 
+### Changed
+
+- Library: Made named-address parsing require explicit dtype suffixes such as `:U`, `:S`, `:D`, `:L`, `:F`, or `:BIT`; bare devices no longer default to `U`, `BIT`, or long-timer `D`.
+- Library: Removed `msg.payload` fallback for read/write parameters; read messages must use `msg.addresses`, and write messages must use `msg.updates` or `msg.address` plus `msg.value`.
+- Node-RED editor: Static write updates now require a JSON object; `address=value` line parsing and scalar value fallback are no longer accepted.
+- Library: Write clustering now validates that every clustered slot has an explicit source value instead of filling unspecified bit/word slots with `false` or `0`.
+- Docs: Updated SLMP Node-RED usage guidance for explicit message fields, JSON-only static updates, and explicit dtype suffixes.
+
 ### Fixed
 
 - Library: Made `BIT_IN_WORD` helper addresses require an explicit bit index such as `D100.0` through `D100.F`; `D100:BIT_IN_WORD` now fails in `parseAddress`, `readNamed`, and `writeNamed` instead of silently reading or writing bit 0.
 - Tests: Added coverage for rejecting `BIT_IN_WORD` addresses without an explicit bit index.
+- Tests: Updated high-level and node tests for explicit dtype requirements, no `msg.payload` fallback, JSON-only static updates, and write-cluster slot validation.
 
 ## [1.0.1] - 2026-06-25
 

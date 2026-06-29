@@ -8,13 +8,13 @@ const slmp = require("../lib/slmp");
 const { formatParsedAddress, normalizeAddress, normalizeAddressList, parseAddress, readNamed, readTyped, writeNamed, writeTyped } = slmp;
 
 test("parseAddress supports count and string forms", () => {
-  assert.deepEqual(parseAddress("D100,10"), {
+  assert.deepEqual(parseAddress("D100:U,10"), {
     base: "D100",
     dtype: "U",
     bitIndex: null,
     count: 10,
     hasCount: true,
-    explicitDtype: false,
+    explicitDtype: true,
   });
   assert.deepEqual(parseAddress("D100:STR,10"), {
     base: "D100",
@@ -40,13 +40,14 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   assert.equal(normalizeAddress("d50.d"), "D50.D");
   assert.equal(normalizeAddress("dstr200,8"), "D200:STR,8");
   assert.equal(normalizeAddress("d100:i"), "D100:S");
-  assert.equal(formatParsedAddress(parseAddress("D100,10")), "D100,10");
+  assert.equal(formatParsedAddress(parseAddress("D100:U,10")), "D100:U,10");
+  assert.throws(() => parseAddress("D100,10"), /requires an explicit dtype/i);
   assert.throws(() => normalizeAddress("d50.10"), /invalid bit-in-word/i);
   assert.throws(() => parseAddress("D50:BIT_IN_WORD"), /no bit index/i);
-  assert.throws(() => normalizeAddress("x1a"), /require explicit plcProfile/i);
-  assert.equal(normalizeAddress("x1a", { plcProfile: "melsec:iq-r" }), "X1A");
-  assert.equal(normalizeAddress("y217", { plcProfile: "melsec:iq-f" }), "Y217");
-  assert.throws(() => normalizeAddress("x1a", { plcProfile: "iq-r" }), /Unsupported plcProfile/);
+  assert.throws(() => normalizeAddress("x1a:BIT"), /require explicit plcProfile/i);
+  assert.equal(normalizeAddress("x1a:BIT", { plcProfile: "melsec:iq-r" }), "X1A:BIT");
+  assert.equal(normalizeAddress("y217:BIT", { plcProfile: "melsec:iq-f" }), "Y217:BIT");
+  assert.throws(() => normalizeAddress("x1a:BIT", { plcProfile: "iq-r" }), /Unsupported plcProfile/);
 });
 
 test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index", async () => {
@@ -64,8 +65,8 @@ test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index"
 });
 
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {
-  assert.deepEqual(normalizeAddressList("D100,10,D200:F,M1000"), ["D100,10", "D200:F", "M1000"]);
-  assert.deepEqual(normalizeAddressList("D100:STR,10 D200,2"), ["D100:STR,10", "D200,2"]);
+  assert.deepEqual(normalizeAddressList("D100:U,10,D200:F,M1000:BIT"), ["D100:U,10", "D200:F", "M1000:BIT"]);
+  assert.deepEqual(normalizeAddressList("D100:STR,10 D200:U,2"), ["D100:STR,10", "D200:U,2"]);
 });
 
 test("readNamed batches word and dword requests like the Python helper layer", async () => {
@@ -99,11 +100,11 @@ test("readNamed batches word and dword requests like the Python helper layer", a
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["D100", "D200:F", "D50.3", "M1000"]);
-  assert.equal(snapshot.D100, 42);
+  const snapshot = await readNamed(fakeClient, ["D100:U", "D200:F", "D50.3", "M1000:BIT"]);
+  assert.equal(snapshot["D100:U"], 42);
   assert.equal(snapshot["D200:F"].toFixed(3), "3.142");
   assert.equal(snapshot["D50.3"], true);
-  assert.equal(snapshot.M1000, true);
+  assert.equal(snapshot["M1000:BIT"], true);
   assert.ok(calls.some((call) => call.kind === "readRandom"));
   assert.ok(
     calls.some(
@@ -141,15 +142,15 @@ test("readNamed splits random reads at the iQ-R manual batch limit", async () =>
     },
   };
 
-  const addresses = Array.from({ length: 97 }, (_, index) => `D${index * 2}`);
+  const addresses = Array.from({ length: 97 }, (_, index) => `D${index * 2}:U`);
   const snapshot = await readNamed(fakeClient, addresses);
 
   assert.equal(calls.length, 2);
   assert.equal(calls[0].wordDevices.length, 96);
   assert.equal(calls[1].wordDevices.length, 1);
   assert.equal(calls[1].wordDevices[0], "D192");
-  assert.equal(snapshot.D0, 0);
-  assert.equal(snapshot.D192, 192);
+  assert.equal(snapshot["D0:U"], 0);
+  assert.equal(snapshot["D192:U"], 192);
 });
 
 test("writeNamed supports word, bit-in-word, direct bit, and float writes", async () => {
@@ -177,9 +178,9 @@ test("writeNamed supports word, bit-in-word, direct bit, and float writes", asyn
   };
 
   await writeNamed(fakeClient, {
-    D100: 42,
+    "D100:U": 42,
     "D50.3": true,
-    M1000: true,
+    "M1000:BIT": true,
     "D200:F": 3.5,
   });
 
@@ -205,7 +206,7 @@ test("writeNamed splits random word writes at the iQ-R manual weighted limit", a
     },
   };
 
-  const updates = Object.fromEntries(Array.from({ length: 81 }, (_, index) => [`D${index * 2}`, index]));
+  const updates = Object.fromEntries(Array.from({ length: 81 }, (_, index) => [`D${index * 2}:U`, index]));
   await writeNamed(fakeClient, updates);
 
   assert.equal(writes.length, 2);
@@ -236,14 +237,14 @@ test("readNamed coalesces contiguous direct bits and word ranges into block read
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["M1000", "M1001", "M1002", "D100", "D101", "D102"]);
+  const snapshot = await readNamed(fakeClient, ["M1000:BIT", "M1001:BIT", "M1002:BIT", "D100:U", "D101:U", "D102:U"]);
   assert.deepEqual(snapshot, {
-    M1000: true,
-    M1001: false,
-    M1002: true,
-    D100: 11,
-    D101: 12,
-    D102: 13,
+    "M1000:BIT": true,
+    "M1001:BIT": false,
+    "M1002:BIT": true,
+    "D100:U": 11,
+    "D101:U": 12,
+    "D102:U": 13,
   });
   assert.deepEqual(calls, [
     { device: "M1000", points: 3, bitUnit: true },
@@ -291,10 +292,10 @@ test("readNamed supports count arrays and string addresses", async () => {
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["M1000,3", "D100,3", "D200:F,2", "D300:STR,5", "DSTR400,4"]);
+  const snapshot = await readNamed(fakeClient, ["M1000:BIT,3", "D100:U,3", "D200:F,2", "D300:STR,5", "DSTR400,4"]);
   assert.deepEqual(snapshot, {
-    "M1000,3": [true, false, true],
-    "D100,3": [11, 12, 13],
+    "M1000:BIT,3": [true, false, true],
+    "D100:U,3": [11, 12, 13],
     "D200:F,2": [1.5, -2.25],
     "D300:STR,5": "HELLO",
     "DSTR400,4": "ABCD",
@@ -330,15 +331,15 @@ test("readNamed resolves LT and LST families through helper-backed 4-word blocks
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["LTN0", "LTC0", "LTS0", "LTN1", "LSTN4", "LSTC4", "LSTS4,2"]);
+  const snapshot = await readNamed(fakeClient, ["LTN0:D", "LTC0:BIT", "LTS0:BIT", "LTN1:D", "LSTN4:D", "LSTC4:BIT", "LSTS4:BIT,2"]);
   assert.deepEqual(snapshot, {
-    LTN0: 0x00010002,
-    LTC0: true,
-    LTS0: true,
-    LTN1: 4,
-    LSTN4: 6,
-    LSTC4: true,
-    "LSTS4,2": [false, true],
+    "LTN0:D": 0x00010002,
+    "LTC0:BIT": true,
+    "LTS0:BIT": true,
+    "LTN1:D": 4,
+    "LSTN4:D": 6,
+    "LSTC4:BIT": true,
+    "LSTS4:BIT,2": [false, true],
   });
   assert.deepEqual(calls, [
     { device: "LTN0", points: 8, bitUnit: false },
@@ -430,12 +431,12 @@ test("readNamed resolves long counter current and state bits through supported r
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["LCN0", "LCC0", "LCS0", "LCN1"]);
+  const snapshot = await readNamed(fakeClient, ["LCN0:D", "LCC0:BIT", "LCS0:BIT", "LCN1:D"]);
   assert.deepEqual(snapshot, {
-    LCN0: 0x00010002,
-    LCC0: true,
-    LCS0: true,
-    LCN1: 4,
+    "LCN0:D": 0x00010002,
+    "LCC0:BIT": true,
+    "LCS0:BIT": true,
+    "LCN1:D": 4,
   });
   assert.deepEqual(calls, [
     { kind: "readRandom", dwordDevices: ["LCN0", "LCN1"] },
@@ -473,10 +474,10 @@ test("readNamed forwards per-request target overrides to client calls", async ()
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["D100", "D200:F", "M1000"], { target });
-  assert.equal(snapshot.D100, 42);
+  const snapshot = await readNamed(fakeClient, ["D100:U", "D200:F", "M1000:BIT"], { target });
+  assert.equal(snapshot["D100:U"], 42);
   assert.equal(snapshot["D200:F"], 1.5);
-  assert.equal(snapshot.M1000, true);
+  assert.equal(snapshot["M1000:BIT"], true);
   assert.deepEqual(calls, [
     { kind: "readRandom", target },
     { kind: "readDevices", device: "M1000", points: 1, bitUnit: true, target },
@@ -510,9 +511,9 @@ test("writeNamed coalesces contiguous direct bits and same-word bit updates", as
   await writeNamed(fakeClient, {
     "D50.3": true,
     "D50.4": true,
-    M1000: true,
-    M1001: false,
-    M1002: true,
+    "M1000:BIT": true,
+    "M1001:BIT": false,
+    "M1002:BIT": true,
   });
 
   assert.deepEqual(reads, [{ device: "D50", points: 1, bitUnit: false }]);
@@ -541,8 +542,8 @@ test("writeNamed supports count arrays and string writes", async () => {
   };
 
   await writeNamed(fakeClient, {
-    "M1000,3": [true, false, true],
-    "D100,3": [11, 12, 13],
+    "M1000:BIT,3": [true, false, true],
+    "D100:U,3": [11, 12, 13],
     "D200:F,2": [1.5, -2.25],
     "D300:STR,5": "HELLO",
     "DSTR400,4": "ABCD",
@@ -594,14 +595,14 @@ test("writeNamed routes long current values and long state bits through random w
   };
 
   await writeNamed(fakeClient, {
-    "LTN0,2": [1, 2],
+    "LTN0:D,2": [1, 2],
     "LSTN4:L": -5,
-    LTC0: true,
-    LSTS4: true,
-    LCC10: true,
-    LCS10: false,
-    LZ0: 123456,
-    LZ1: 789,
+    "LTC0:BIT": true,
+    "LSTS4:BIT": true,
+    "LCC10:BIT": true,
+    "LCS10:BIT": false,
+    "LZ0:D": 123456,
+    "LZ1:D": 789,
   });
 
   assert.deepEqual(writes, [
@@ -693,9 +694,9 @@ test("writeNamed forwards per-request target overrides to client calls", async (
   await writeNamed(
     fakeClient,
     {
-      D100: 42,
+      "D100:U": 42,
       "D50.3": true,
-      M1000: true,
+      "M1000:BIT": true,
       "D200:F": 1.5,
     },
     { target }
@@ -853,7 +854,7 @@ test("slmp-read prefers msg.addresses and can return a single value", async () =
   await withMockedSlmp({
     readNamed: async (client, addresses) => {
       calls.push({ client, addresses });
-      return { M1000: true };
+      return { "M1000:BIT": true };
     },
   }, async () => {
     const { RED, create, setNode } = createMockRed();
@@ -873,18 +874,18 @@ test("slmp-read prefers msg.addresses and can return a single value", async () =
     const node = create("slmp-read", {
       id: "read-1",
       connection: "cfg-1",
-      addresses: "D100",
+      addresses: "D100:U",
       outputMode: "value",
     });
 
-    const msg = { addresses: ["M1000"] };
+    const msg = { addresses: ["M1000:BIT"] };
     const result = await invokeNode(node, msg);
 
     assert.equal(result.error, undefined);
     assert.equal(result.sent.length, 1);
     assert.equal(msg.payload, true);
     assert.deepEqual(msg.slmp, {
-      addresses: ["M1000"],
+      addresses: ["M1000:BIT"],
       connection: {
         host: "127.0.0.1",
         port: 5000,
@@ -894,7 +895,7 @@ test("slmp-read prefers msg.addresses and can return a single value", async () =
       },
       target: undefined,
     });
-    assert.deepEqual(calls, [{ client: fakeClient, addresses: ["M1000"] }]);
+    assert.deepEqual(calls, [{ client: fakeClient, addresses: ["M1000:BIT"] }]);
     assert.deepEqual(node.statusCalls[0], { fill: "blue", shape: "dot", text: "reading" });
     assert.deepEqual(node.statusCalls.at(-1), { fill: "green", shape: "dot", text: "1 item(s)" });
   });
@@ -903,9 +904,9 @@ test("slmp-read prefers msg.addresses and can return a single value", async () =
 test("slmp-read can return an array payload in address order", async () => {
   await withMockedSlmp({
     readNamed: async () => ({
-      "D100,3": [1, 2, 3],
+      "D100:U,3": [1, 2, 3],
       "D200:F": 1.5,
-      M1000: true,
+      "M1000:BIT": true,
     }),
   }, async () => {
     const { RED, create, setNode } = createMockRed();
@@ -919,7 +920,7 @@ test("slmp-read can return an array payload in address order", async () => {
     const node = create("slmp-read", {
       id: "read-array",
       connection: "cfg-array-read",
-      addresses: "D100,3\nD200:F\nM1000",
+      addresses: "D100:U,3\nD200:F\nM1000:BIT",
       outputMode: "array",
     });
 
@@ -937,7 +938,7 @@ test("slmp-read resolves configured addresses from a msg property", async () => 
   await withMockedSlmp({
     readNamed: async (_client, addresses) => {
       calls.push(addresses);
-      return { "D100,3": [1, 2, 3] };
+      return { "D100:U,3": [1, 2, 3] };
     },
   }, async () => {
     const { RED, create, setNode } = createMockRed();
@@ -956,12 +957,12 @@ test("slmp-read resolves configured addresses from a msg property", async () => 
       outputMode: "object",
     });
 
-    const msg = { source: { addresses: ["D100,3"] } };
+    const msg = { source: { addresses: ["D100:U,3"] } };
     const result = await invokeNode(node, msg);
 
     assert.equal(result.error, undefined);
-    assert.deepEqual(calls, [["D100,3"]]);
-    assert.deepEqual(msg.payload, { "D100,3": [1, 2, 3] });
+    assert.deepEqual(calls, [["D100:U,3"]]);
+    assert.deepEqual(msg.payload, { "D100:U,3": [1, 2, 3] });
   });
 });
 
@@ -971,7 +972,7 @@ test("slmp-read forwards msg.target to readNamed and records the effective route
   await withMockedSlmp({
     readNamed: async (_client, addresses, options) => {
       calls.push({ addresses, target: options.target });
-      return { D100: 42 };
+      return { "D100:U": 42 };
     },
   }, async () => {
     const { RED, create, setNode } = createMockRed();
@@ -992,7 +993,7 @@ test("slmp-read forwards msg.target to readNamed and records the effective route
     const node = create("slmp-read", {
       id: "read-route-msg",
       connection: "cfg-route-read",
-      addresses: "D100",
+      addresses: "D100:U",
     });
 
     const result = await invokeNode(node, {
@@ -1003,7 +1004,7 @@ test("slmp-read forwards msg.target to readNamed and records the effective route
     assert.equal(result.sent.length, 1);
     assert.deepEqual(calls, [
       {
-        addresses: ["D100"],
+        addresses: ["D100:U"],
         target: { network: 2, station: 3, moduleIO: 0x03ff, multidrop: 1 },
       },
     ]);
@@ -1018,7 +1019,7 @@ test("slmp-read forwards msg.target to readNamed and records the effective route
 
 test("slmp-read minimal metadata keeps only target and item count", async () => {
   await withMockedSlmp({
-    readNamed: async () => ({ D100: 42, D200: 7 }),
+    readNamed: async () => ({ "D100:U": 42, "D200:U": 7 }),
   }, async () => {
     const { RED, create, setNode } = createMockRed();
     require("../nodes/slmp-read")(RED);
@@ -1038,7 +1039,7 @@ test("slmp-read minimal metadata keeps only target and item count", async () => 
     const node = create("slmp-read", {
       id: "read-minimal",
       connection: "cfg-read-minimal",
-      addresses: "D100\nD200",
+      addresses: "D100:U\nD200:U",
       metadataMode: "minimal",
     });
 
@@ -1057,7 +1058,7 @@ test("slmp-read minimal metadata keeps only target and item count", async () => 
 
 test("slmp-read metadata off leaves msg.slmp unchanged", async () => {
   await withMockedSlmp({
-    readNamed: async () => ({ D100: 42 }),
+    readNamed: async () => ({ "D100:U": 42 }),
   }, async () => {
     const { RED, create, setNode } = createMockRed();
     require("../nodes/slmp-read")(RED);
@@ -1070,7 +1071,7 @@ test("slmp-read metadata off leaves msg.slmp unchanged", async () => {
     const node = create("slmp-read", {
       id: "read-off",
       connection: "cfg-read-off",
-      addresses: "D100",
+      addresses: "D100:U",
       metadataMode: "off",
     });
 
@@ -1128,7 +1129,7 @@ test("slmp-read can attach an error to msg.error instead of throwing", async () 
     const node = create("slmp-read", {
       id: "read-msg-error",
       connection: "cfg-read-msg-error",
-      addresses: "D100",
+      addresses: "D100:U",
       errorHandling: "msg",
     });
 
@@ -1159,7 +1160,7 @@ test("slmp-read can route errors to the second output", async () => {
     const node = create("slmp-read", {
       id: "read-output2",
       connection: "cfg-read-output2",
-      addresses: "D100",
+      addresses: "D100:U",
       errorHandling: "output2",
     });
 
@@ -1190,7 +1191,7 @@ test("slmp-read can opt in to skip unsupported device errors", async () => {
     const node = create("slmp-read", {
       id: "read-skip-unsupported",
       connection: "cfg-read-skip-unsupported",
-      addresses: "LTC10",
+      addresses: "LTC10:BIT",
       errorHandling: "output2",
     });
 
@@ -1224,7 +1225,7 @@ test("slmp-read supports connect/disconnect/reinitialize control messages", asyn
     const node = create("slmp-read", {
       id: "read-control",
       connection: "cfg-read-control",
-      addresses: "D100",
+      addresses: "D100:U",
     });
 
     const connectResult = await invokeNode(node, { connect: true });
@@ -1345,10 +1346,10 @@ test("slmp-write resolves configured updates from a msg property", async () => {
       updatesType: "msg",
     });
 
-    const result = await invokeNode(node, { source: { updates: { "D100,3": [1, 2, 3] } } });
+    const result = await invokeNode(node, { source: { updates: { "D100:U,3": [1, 2, 3] } } });
 
     assert.equal(result.error, undefined);
-    assert.deepEqual(calls, [{ "D100,3": [1, 2, 3] }]);
+    assert.deepEqual(calls, [{ "D100:U,3": [1, 2, 3] }]);
   });
 });
 
@@ -1378,7 +1379,7 @@ test("slmp-write resolves a configured route target from msg and forwards it to 
     const node = create("slmp-write", {
       id: "write-route-msg",
       connection: "cfg-route-write",
-      updates: "{\"D100\":42}",
+      updates: "{\"D100:U\":42}",
       routeTarget: "route",
       routeTargetType: "msg",
     });
@@ -1391,7 +1392,7 @@ test("slmp-write resolves a configured route target from msg and forwards it to 
     assert.equal(result.sent.length, 1);
     assert.deepEqual(calls, [
       {
-        updates: { D100: 42 },
+        updates: { "D100:U": 42 },
         target: { network: 2, station: 3, moduleIO: 0x03ff, multidrop: 1 },
       },
     ]);
@@ -1426,7 +1427,7 @@ test("slmp-write minimal metadata keeps only target and item count", async () =>
     const node = create("slmp-write", {
       id: "write-minimal",
       connection: "cfg-write-minimal",
-      updates: "{\"D100\":42,\"M1000\":true}",
+      updates: "{\"D100:U\":42,\"M1000:BIT\":true}",
       metadataMode: "minimal",
     });
 
@@ -1458,7 +1459,7 @@ test("slmp-write metadata off leaves msg.slmp unchanged", async () => {
     const node = create("slmp-write", {
       id: "write-off",
       connection: "cfg-write-off",
-      updates: "{\"D100\":42}",
+      updates: "{\"D100:U\":42}",
       metadataMode: "off",
     });
 
@@ -1470,7 +1471,7 @@ test("slmp-write metadata off leaves msg.slmp unchanged", async () => {
   });
 });
 
-test("slmp-write parses configured update lines when msg does not override them", async () => {
+test("slmp-write rejects configured update lines when msg does not override them", async () => {
   const calls = [];
 
   await withMockedSlmp({
@@ -1500,10 +1501,9 @@ test("slmp-write parses configured update lines when msg does not override them"
 
     const result = await invokeNode(node, {});
 
-    assert.equal(result.error, undefined);
-    assert.equal(result.sent.length, 1);
-    assert.deepEqual(calls, [{ D100: 42, M1000: true }]);
-    assert.deepEqual(result.sent[0].slmp.updates, { D100: 42, M1000: true });
+    assert.match(result.error.message, /Unable to parse updates JSON/);
+    assert.equal(result.sent.length, 0);
+    assert.deepEqual(calls, []);
   });
 });
 
@@ -1524,7 +1524,7 @@ test("slmp-write can route errors to the second output", async () => {
     const node = create("slmp-write", {
       id: "write-output2",
       connection: "cfg-write-output2",
-      updates: "D100=42",
+      updates: "{\"D100:U\":42}",
       errorHandling: "output2",
     });
 
@@ -1554,7 +1554,7 @@ test("slmp-write can opt in to skip unsupported device errors", async () => {
     const node = create("slmp-write", {
       id: "write-skip-unsupported",
       connection: "cfg-write-skip-unsupported",
-      updates: "LTC10=true",
+      updates: "{\"LTC10:BIT\":true}",
       errorHandling: "output2",
     });
 
@@ -1588,7 +1588,7 @@ test("slmp-write supports connect/disconnect/reinitialize control messages", asy
     const node = create("slmp-write", {
       id: "write-control",
       connection: "cfg-write-control",
-      updates: "D100=42",
+      updates: "{\"D100:U\":42}",
     });
 
     const connectResult = await invokeNode(node, { topic: "connect" });
