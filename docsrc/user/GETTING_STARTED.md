@@ -52,7 +52,7 @@ In object output mode, a successful read looks like this shape:
 
 ```json
 {
-  "D300": 123
+  "D300:U": 123
 }
 ```
 
@@ -66,19 +66,19 @@ To build the first read manually, add an `slmp-read` node and set:
 | --- | --- | --- |
 | Connection | Your `slmp-connection` node | Shared PLC connection. |
 | Source | Literal text | The address list is entered in the editor. |
-| Addresses | `D300` | First safe word register to read. |
+| Addresses | `D300:U` | First safe word register to read. |
 | Output | Object payload | Returns an object keyed by address. |
 | Metadata | Full `msg.slmp` | Includes connection and target metadata. |
 | Errors | Throw | Lets Node-RED route runtime errors normally. |
 
-Trigger the node with any message. A successful response sets `msg.payload.D300` to the current value.
+Trigger the node with any message. A successful response sets `msg.payload["D300:U"]` to the current value.
 
 ## Confirm success
 
 1. The flow deploys without editor validation errors.
 2. The `slmp-connection` node has PLC profile `melsec:iq-r`.
 3. The read inject node produces a debug message.
-4. `msg.payload` contains a `D300` key.
+4. `msg.payload` contains a `D300:U` key.
 5. The connection status does not stay red after repeated reads.
 
 ## If it does not work
@@ -87,7 +87,7 @@ Trigger the node with any message. A successful response sets `msg.payload.D300`
 | --- | --- |
 | The read returns nothing or errors immediately | PLC profile on `slmp-connection` must be set. It is required, and there is no runtime default. |
 | The first flow feels too busy | Import `slmp-basic-read-write.json` first, not `slmp-device-matrix.json`. |
-| Address validation fails on the first run | Start with `D300`. Do not test with `G` or `HG` on the first run. |
+| Address validation fails on the first run | Start with `D300:U`. Do not test with `G` or `HG` on the first run. |
 | TCP does not connect | Confirm the PLC is reachable at `192.168.250.100:1025` from the Node-RED host. |
 | UDP is your target | Move to the UDP example after TCP works, and set the UDP port to `1035`. |
 

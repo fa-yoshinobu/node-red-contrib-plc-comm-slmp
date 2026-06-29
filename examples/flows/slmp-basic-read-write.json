@@ -48,7 +48,7 @@
         "z":  "tab-slmp-basic",
         "name":  "Read scalar + float + bit",
         "connection":  "cfg-slmp-basic",
-        "addresses":  "D300\nD301\nD200:F\nD302.3",
+        "addresses":  "D300:U\nD301:U\nD200:F\nD302.3",
         "addressesType":  "str",
         "outputMode":  "object",
         "errorHandling":  "output2",
@@ -71,7 +71,7 @@
         "props":  [
                       {
                           "p":  "payload",
-                          "v":  "{\"D300\":123,\"D301\":456,\"D200:F\":1.25,\"D302.3\":true}",
+                          "v":  "{\"D300:U\":123,\"D301:U\":456,\"D200:F\":1.25,\"D302.3\":true}",
                           "vt":  "json"
                       }
                   ],

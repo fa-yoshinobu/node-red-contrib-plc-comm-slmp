@@ -75,9 +75,9 @@
 
 | Msg field | Description |
 | --- | --- |
-| `msg.updates` | Runtime update object, for example `{ "D300": 123, "M1000": true }`. |
+| `msg.updates` | Runtime update object, for example `{ "D300:U": 123, "M1000:BIT": true }`. |
 | `msg.address` | Single-address write path. |
-| `msg.dtype` | Optional data type for `msg.address` when the address has no suffix. |
+| `msg.dtype` | Data type for `msg.address` when the address has no suffix. |
 | `msg.value` | Single-address write value. Required when `msg.address` is used. |
 | `msg.target` | Per-request route override object. |
 | `msg.slmp.target` | Per-request route override when `msg.target` is not set. |
@@ -101,7 +101,7 @@
 
 | Form | Example | Meaning |
 | --- | --- | --- |
-| Plain word | `D100` | Unsigned 16-bit word. |
+| Unsigned word | `D100:U` | Unsigned 16-bit word. |
 | Signed word | `D100:S` | Signed 16-bit word. |
 | Signed word alias | `D100:I` | Alias that normalizes to `D100:S`. |
 | Unsigned dword | `D100:D` | Unsigned 32-bit value. |
@@ -110,9 +110,11 @@
 | String | `D100:STR,10` | UTF-8 string with a 10-byte maximum, packed two bytes per word. |
 | String alias | `DSTR100,10` | Compatibility alias for `D100:STR,10`. |
 | Bit in word | `D50.3` | One bit inside a word device. |
-| Direct bit | `M1000` | One bit device. |
-| Counted bit | `M1000,8` | Eight consecutive bit devices. |
-| Counted word | `D100,4` | Four consecutive word values. |
+| Direct bit | `M1000:BIT` | One bit device. |
+| Counted bit | `M1000:BIT,8` | Eight consecutive bit devices. |
+| Counted word | `D100:U,4` | Four consecutive word values. |
+
+Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
 ## Long device families
 

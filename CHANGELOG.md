@@ -16,7 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Tooling`: Developer/operator command-line tools and helper utilities.
 - `CI`: Release checks, workflow scripts, or automation-only changes.
 
-## [Unreleased]
+## [1.1.1] - 2026-06-29
+
+### Changed
+
+- Release: Bumped npm package metadata to `1.1.1`.
+- Node-RED editor: Updated read/write address validators and placeholders to require explicit dtype suffixes such as `:U` and `:BIT`.
+- Docs: Documented explicit SLMP address dtype requirements in existing user docs.
+- Samples: Updated example flows to use explicit dtype suffixes.
 
 ## [1.1.0] - 2026-06-29
 

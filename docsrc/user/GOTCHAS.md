@@ -48,10 +48,10 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| An address such as `D50.3,8` is rejected. | `.bit` notation is scalar-only and means one bit inside one word. | Use `D50.3` for one bit, or use a direct bit range such as `M1000,8` for consecutive bit devices. |
+| An address such as `D50.3,8` is rejected. | `.bit` notation is scalar-only and means one bit inside one word. | Use `D50.3` for one bit, or use a direct bit range such as `M1000:BIT,8` for consecutive bit devices. |
 
 ## Device-matrix flow is noisy as a first test
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| The first imported flow produces many skipped or failed entries. | `slmp-device-matrix.json` is a broad verification flow, not the smallest connection smoke test. | Import `slmp-basic-read-write.json` first and verify a simple `D300` read before using the matrix flow. |
+| The first imported flow produces many skipped or failed entries. | `slmp-device-matrix.json` is a broad verification flow, not the smallest connection smoke test. | Import `slmp-basic-read-write.json` first and verify a simple `D300:U` read before using the matrix flow. |

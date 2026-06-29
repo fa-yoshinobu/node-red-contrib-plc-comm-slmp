@@ -48,7 +48,7 @@
         "z":  "tab-slmp-array-string",
         "name":  "Read array + float array + string",
         "connection":  "cfg-slmp-array-string",
-        "addresses":  "D300,10\nD200:F,2\nD320:STR,10",
+        "addresses":  "D300:U,10\nD200:F,2\nD320:STR,10",
         "addressesType":  "str",
         "outputMode":  "array",
         "errorHandling":  "output2",
@@ -71,7 +71,7 @@
         "props":  [
                       {
                           "p":  "payload",
-                          "v":  "{\"D300,10\":[0,1,2,3,4,5,6,7,8,9],\"D200:F,2\":[1.25,-2.5],\"D320:STR,10\":\"HELLO12345\"}",
+                          "v":  "{\"D300:U,10\":[0,1,2,3,4,5,6,7,8,9],\"D200:F,2\":[1.25,-2.5],\"D320:STR,10\":\"HELLO12345\"}",
                           "vt":  "json"
                       }
                   ],

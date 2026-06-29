@@ -48,7 +48,7 @@
         "z":  "tab-slmp-udp",
         "name":  "Read UDP words + string",
         "connection":  "cfg-slmp-udp",
-        "addresses":  "D300,4\nD320:STR,10",
+        "addresses":  "D300:U,4\nD320:STR,10",
         "addressesType":  "str",
         "outputMode":  "array",
         "errorHandling":  "output2",
@@ -71,7 +71,7 @@
         "props":  [
                       {
                           "p":  "payload",
-                          "v":  "{\"D300,4\":[10,11,12,13],\"D320:STR,10\":\"HELLO12345\"}",
+                          "v":  "{\"D300:U,4\":[10,11,12,13],\"D320:STR,10\":\"HELLO12345\"}",
                           "vt":  "json"
                       }
                   ],

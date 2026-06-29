@@ -36,7 +36,7 @@
     "melsec:qnu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
     "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
   });
-  const SLMP_DTYPE_SUFFIXES = new Set(["S", "D", "L", "F", "STR", "STRING"]);
+  const SLMP_DTYPE_SUFFIXES = new Set(["BIT", "U", "S", "I", "D", "L", "F", "STR", "STRING"]);
   function slmpGetCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
     if (field.length > 0 && field.val()) {
@@ -111,9 +111,10 @@
     }
 
     const suffixMatch = /^(.*?):([A-Z]+)$/.exec(text);
+    let suffix = "";
     if (suffixMatch) {
       text = suffixMatch[1].trim();
-      const suffix = suffixMatch[2].toUpperCase();
+      suffix = suffixMatch[2].toUpperCase();
       if (!SLMP_DTYPE_SUFFIXES.has(suffix)) {
         return false;
       }
@@ -136,11 +137,17 @@
     if (!parsed) {
       return false;
     }
-    if (suffixMatch) {
-      const suffix = suffixMatch[2].toUpperCase();
-      if ((suffix === "STR" || suffix === "STRING") && parsed.unit !== "word") {
-        return false;
-      }
+    if (!suffixMatch) {
+      return false;
+    }
+    if (parsed.unit === "bit") {
+      return suffix === "BIT";
+    }
+    if (suffix === "BIT") {
+      return false;
+    }
+    if ((suffix === "STR" || suffix === "STRING") && parsed.unit !== "word") {
+      return false;
     }
     return true;
   }
@@ -379,7 +386,7 @@
   </div>
   <div class="form-row" id="node-input-addressesLiteralRow">
     <label for="node-input-addressesLiteral"><i class="fa fa-list"></i> Addresses</label>
-    <textarea id="node-input-addressesLiteral" style="height: 140px;" placeholder="D100&#10;D100:I&#10;D100,10&#10;D200:F,4&#10;D100:STR,10"></textarea>
+    <textarea id="node-input-addressesLiteral" style="height: 140px;" placeholder="D100:U&#10;D100:I&#10;D100:U,10&#10;D200:F,4&#10;M1000:BIT&#10;D100:STR,10"></textarea>
   </div>
   <div class="form-row">
     <label for="node-input-routeTargetSource"><i class="fa fa-sitemap"></i> Route</label>
@@ -419,7 +426,7 @@
 
 <script type="text/html" data-help-name="slmp-read">
   <p>Reads one or more SLMP addresses and writes the result to <code>msg.payload</code>.</p>
-  <p>Supported forms include <code>D100</code>, <code>D100:I</code>, <code>D100,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000</code>, <code>M1000,8</code>, <code>D100:STR,10</code>, and <code>DSTR100,10</code>.</p>
+  <p>Supported forms include <code>D100:U</code>, <code>D100:I</code>, <code>D100:U,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000:BIT</code>, <code>M1000:BIT,8</code>, <code>D100:STR,10</code>, and <code>DSTR100,10</code>.</p>
   <p><code>,count</code> returns arrays for numeric and direct-bit reads. String reads use UTF-8 bytes packed two per word.</p>
   <p>Output can be an object keyed by address, an array in address order, or a single scalar when exactly one address is requested.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
