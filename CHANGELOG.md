@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Library: Removed embedded SLMP end-code message text; end-code helpers now return stable code-derived keys while message lookup hooks return `undefined`.
+- Tests: Updated SLMP end-code helper coverage for code-derived keys and non-embedded messages.
+
 ## [2.0.0] - 2026-06-29
 
 ### Changed

@@ -541,10 +541,10 @@ test("configured remote password unlock reports password errors clearly", async 
       error instanceof SlmpError &&
       error.endCode === 0xc810 &&
       error.endCodeName === "slmp_end_code_c810" &&
-      /Remote password authentication has failed/.test(error.message) &&
-      /Set a correct password and retry/.test(error.endCodeMessage) &&
+      /Remote password unlock failed/.test(error.message) &&
+      error.endCodeMessage === undefined &&
       error.isRemotePasswordError &&
-      /end_code=0xC810/.test(error.rawMessage)
+      /end_code=0xC810/.test(error.cause?.rawMessage)
   );
   assert.equal(closed, true);
 });
@@ -568,8 +568,8 @@ test("request reports remote password lock errors clearly", async () => {
       error.endCode === 0xc201 &&
       error.command === Command.DEVICE_READ &&
       error.endCodeName === "slmp_end_code_c201" &&
-      /remote password status/.test(error.message) &&
-      /lock status/.test(error.endCodeMessage) &&
+      /SLMP error end_code=0xC201/.test(error.message) &&
+      error.endCodeMessage === undefined &&
       error.isRemotePasswordError &&
       /end_code=0xC201/.test(error.rawMessage)
   );
@@ -579,12 +579,9 @@ test("remote password end-code helper classifies password codes", () => {
   assert.equal(getEndCodeName(0xc201), "slmp_end_code_c201");
   assert.equal(getEndCodeName(0xc810), "slmp_end_code_c810");
   assert.equal(getEndCodeName(0xd913), "slmp_end_code_d913");
-  assert.equal(getEndCodeName(0xdead), "unknown_plc_end_code");
-  assert.equal(
-    getEndCodeMessage(0xc810),
-    "Remote password authentication has failed when required. Set a correct password and retry."
-  );
-  assert.equal(getEndCodeMessage(0xd913), "An error was detected in the network module.");
+  assert.equal(getEndCodeName(0xdead), "slmp_end_code_dead");
+  assert.equal(getEndCodeMessage(0xc810), undefined);
+  assert.equal(getEndCodeMessage(0xd913), undefined);
   assert.equal(getEndCodeMessage(0xdead), undefined);
   assert.equal(isRemotePasswordEndCode(0xc201), true);
   assert.equal(isRemotePasswordEndCode(0xc810), true);
@@ -592,7 +589,7 @@ test("remote password end-code helper classifies password codes", () => {
   assert.equal(isRemotePasswordEndCode(0xc051), false);
 });
 
-test("remote password authentication retry delay messages are code-specific", async () => {
+test("remote password authentication retry delay codes keep numeric diagnostics", async () => {
   const client = new SlmpClient({
     host: "127.0.0.1",
     frameType: "3e",
@@ -604,11 +601,11 @@ test("remote password authentication retry delay messages are code-specific", as
   client._hasOpenTransport = () => true;
 
   const cases = [
-    [0xc811, /retry after 1 minute/],
-    [0xc812, /retry after 5 minutes/],
-    [0xc813, /retry after 15 minutes/],
-    [0xc814, /retry after 60 minutes/],
-    [0xc815, /retry after 60 minutes/],
+    [0xc811, /end_code=0xC811/],
+    [0xc812, /end_code=0xC812/],
+    [0xc813, /end_code=0xC813/],
+    [0xc814, /end_code=0xC814/],
+    [0xc815, /end_code=0xC815/],
   ];
 
   for (const [endCode, messagePattern] of cases) {
