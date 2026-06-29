@@ -42,6 +42,8 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   assert.equal(normalizeAddress("d100:i"), "D100:S");
   assert.equal(formatParsedAddress(parseAddress("D100:U,10")), "D100:U,10");
   assert.throws(() => parseAddress("D100,10"), /requires an explicit dtype/i);
+  assert.throws(() => parseAddress("D100:BOGUS"), /unsupported dtype/i);
+  assert.throws(() => normalizeAddress("D100:BOGUS"), /unsupported dtype/i);
   assert.throws(() => normalizeAddress("d50.10"), /invalid bit-in-word/i);
   assert.throws(() => parseAddress("D50:BIT_IN_WORD"), /no bit index/i);
   assert.throws(() => normalizeAddress("x1a:BIT"), /require explicit plcProfile/i);
@@ -62,6 +64,22 @@ test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index"
 
   await assert.rejects(() => readNamed(fakeClient, ["D50:BIT_IN_WORD"]), /no bit index/i);
   await assert.rejects(() => writeNamed(fakeClient, { "D50:BIT_IN_WORD": true }), /no bit index/i);
+});
+
+test("readNamed and writeNamed reject unknown dtype suffixes", async () => {
+  const fakeClient = {
+    async readRandom() {
+      throw new Error("unexpected read");
+    },
+    async writeRandomWords() {
+      throw new Error("unexpected write");
+    },
+  };
+
+  await assert.rejects(() => readNamed(fakeClient, ["D100:BOGUS"]), /unsupported dtype/i);
+  await assert.rejects(() => writeNamed(fakeClient, { "D100:BOGUS": 7 }), /unsupported dtype/i);
+  await assert.rejects(() => readTyped(fakeClient, "D100", "BOGUS"), /unsupported dtype/i);
+  await assert.rejects(() => writeTyped(fakeClient, "D100", "BOGUS", 7), /unsupported dtype/i);
 });
 
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {
