@@ -791,6 +791,23 @@ test("readBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
+for (const profile of ["melsec:qcpu", "melsec:qnu", "melsec:qnudv"]) {
+  test(`readBlock rejects ${profile} profile before transport`, async () => {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
+    let calls = 0;
+    client.request = async () => {
+      calls += 1;
+      return { endCode: 0, data: Buffer.alloc(0) };
+    };
+
+    await assert.rejects(
+      () => client.readBlock({ wordBlocks: [["D100", 1]], bitBlocks: [["M100", 1]] }),
+      (error) => error instanceof ValueError && error.message.includes("Read Block (0x0406)") && error.message.includes(profile)
+    );
+    assert.equal(calls, 0);
+  });
+}
+
 test("readBlock rejects LCN and LZ block routes before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
@@ -824,6 +841,23 @@ test("writeBlock rejects LCS/LCC before transport", async () => {
   );
   assert.equal(calls, 0);
 });
+
+for (const profile of ["melsec:qcpu", "melsec:qnu", "melsec:qnudv"]) {
+  test(`writeBlock rejects ${profile} profile before transport`, async () => {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
+    let calls = 0;
+    client.request = async () => {
+      calls += 1;
+      return { endCode: 0, data: Buffer.alloc(0) };
+    };
+
+    await assert.rejects(
+      () => client.writeBlock({ wordBlocks: [["D100", [1]]], bitBlocks: [["M100", [1]]] }),
+      (error) => error instanceof ValueError && error.message.includes("Write Block (0x1406)") && error.message.includes(profile)
+    );
+    assert.equal(calls, 0);
+  });
+}
 
 test("writeBlock inlines each block's data after its own spec", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
