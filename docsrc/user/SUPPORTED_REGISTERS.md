@@ -13,6 +13,7 @@ This page lists the public device families and address forms accepted by the Nod
 | `L` | `L100:BIT` | Decimal | Latch relay. |
 | `F` | `F10:BIT` | Decimal | Annunciator. |
 | `V` | `V10:BIT` | Decimal | Edge relay where supported. Not valid for `melsec:iq-f`. |
+| `S` | `S10:BIT` | Decimal | Step relay; reads are supported and writes are rejected as read-only. |
 | `B` | `B20:BIT` | Hexadecimal | Link relay. |
 | `TS` | `TS10:BIT` | Decimal | Timer contact. |
 | `TC` | `TC10:BIT` | Decimal | Timer coil. |
@@ -70,6 +71,7 @@ This page lists the public device families and address forms accepted by the Nod
 ## Addressing notes
 
 - `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit families. Use `:D` or `:L`, for example `LTN0:D` or `LCN0:L`.
+- `S` is read-only; keep it out of `slmp-write` requests.
 - `G` and `HG` are not in the public node surface.
 - `DX` and `DY` are not valid for `melsec:iq-f`.
 - `X` and `Y` numbering is octal for `melsec:iq-f` and hexadecimal for all other profiles.

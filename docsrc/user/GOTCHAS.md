@@ -14,11 +14,17 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 | --- | --- | --- |
 | One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject SLMP command `0x1406` for mixed word and bit block payloads. | Use one `slmp-write` node for word updates and another `slmp-write` node for bit updates. |
 
+## S write is rejected
+
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| `S10:BIT` can be read but `slmp-write` rejects it. | Step relay `S` is treated as a read-only bit family. | Keep `S` out of write flows. |
+
 ## G/HG rejected
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `G` or `HG` addresses are rejected by `slmp-read` or `slmp-write`. | Module buffer access is not exposed through the high-level Node-RED node surface. | Keep `G` and `HG` out of high-level flows, or use a function node with the lower-level JavaScript API for raw module access. |
+| `G` or `HG` addresses are rejected by `slmp-read` or `slmp-write`. | Module buffer access is not exposed through the high-level Node-RED node surface. | Keep `G` and `HG` out of high-level flows, or use a function node with the lower-level JavaScript API for qualified extend-unit access. |
 
 ## DX/DY fails on melsec:iq-f
 
