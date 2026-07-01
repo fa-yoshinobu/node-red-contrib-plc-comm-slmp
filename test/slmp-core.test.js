@@ -27,6 +27,7 @@ test("parseDevice handles decimal and hex devices", () => {
   assert.deepEqual(parseDevice("X1F"), { code: "X", number: 31 });
   assert.deepEqual(parseDevice("XFF"), { code: "X", number: 0xff });
   assert.deepEqual(parseDevice("SWFF"), { code: "SW", number: 0xff });
+  assert.deepEqual(parseDevice("S10"), { code: "S", number: 10 });
   assert.equal(deviceToString({ code: "X", number: 31 }), "X1F");
   assert.throws(() => parseDevice("DFFFF"), /device code 'D'/);
 });
@@ -327,6 +328,29 @@ test("writeDevices rejects direct long-family state writes before transport", as
   await assert.rejects(
     () => client.writeDevices("LCC10", [true], { bitUnit: true }),
     (error) => error instanceof ValueError && /Direct bit write is not supported for LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("S device writes are rejected before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeDevices("S10", [true], { bitUnit: true }),
+    (error) => error instanceof ValueError && /S is read-only/.test(error.message)
+  );
+  await assert.rejects(
+    () => client.writeRandomBits({ bitValues: { S10: true } }),
+    (error) => error instanceof ValueError && /read-only devices such as S/.test(error.message)
+  );
+  await assert.rejects(
+    () => client.writeBlock({ bitBlocks: [["S10", [1]]] }),
+    (error) => error instanceof ValueError && /read-only devices such as S/.test(error.message)
   );
   assert.equal(calls, 0);
 });
@@ -860,6 +884,22 @@ test("request rejects monitor register payloads with LCS/LCC before transport", 
   assert.throws(
     () => client.request(Command.MONITOR_REGISTER, 0x0002, payload),
     (error) => error instanceof ValueError && /Entry Monitor Device \(0x0801\) does not support LCS\/LCC/.test(error.message)
+  );
+  assert.equal(calls, 0);
+});
+
+test("request rejects monitor register payloads with G/HG before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client._requestInternal = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+  const payload = Buffer.concat([Buffer.from([0x01, 0x00]), Buffer.from([0x0a, 0x00, 0x00, 0x00, 0xab, 0x00])]);
+
+  assert.throws(
+    () => client.request(Command.MONITOR_REGISTER, 0x0002, payload),
+    (error) => error instanceof ValueError && /Entry Monitor Device \(0x0801\) does not support standalone G\/HG/.test(error.message)
   );
   assert.equal(calls, 0);
 });
