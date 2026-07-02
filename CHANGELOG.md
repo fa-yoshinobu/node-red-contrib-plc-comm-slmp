@@ -23,8 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Added SLMP `S` step relay device-code support for reads and rejected writes to `S` as read-only.
 - Library: Rejected standalone `G/HG` access on direct, random, block, and monitor-register routes; callers should use U-qualified extended access.
 - Library: Rejected `G/HG` random bit writes and aligned long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
+- Library: Rejected Read Block (`0x0406`) and Write Block (`0x1406`) for `melsec:qcpu`, `melsec:qnu`, and `melsec:qnudv` before transport; callers should use direct or random device commands for those profiles.
 - Docs: Documented `S` read-only behavior and clarified `G/HG` guidance in the public Node-RED docs.
 - Tests: Added guard coverage for `S` read-only writes and monitor-register `G/HG` rejection.
+- Tests: Added guard coverage that Q-series profiles reject block read/write before transport.
 
 ## [1.1.1] - 2026-06-29
 
