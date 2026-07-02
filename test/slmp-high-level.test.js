@@ -100,6 +100,7 @@ test("readNamed batches word and dword requests like the Python helper layer", a
         word: {
           D100: 42,
           D50: 0x0008,
+          M992: 0x0100,
         },
         dword: {
           D200: 0x40490fdb,
@@ -108,9 +109,6 @@ test("readNamed batches word and dword requests like the Python helper layer", a
     },
     async readDevices(device, points, options) {
       calls.push({ kind: "readDevices", device: `${device.code}${device.number}`, points, options });
-      if (device.code === "M") {
-        return [true];
-      }
       if (device.code === "D" && device.number === 50) {
         return [0x0008];
       }
@@ -123,15 +121,13 @@ test("readNamed batches word and dword requests like the Python helper layer", a
   assert.equal(snapshot["D200:F"].toFixed(3), "3.142");
   assert.equal(snapshot["D50.3"], true);
   assert.equal(snapshot["M1000:BIT"], true);
-  assert.ok(calls.some((call) => call.kind === "readRandom"));
   assert.ok(
     calls.some(
-      (call) =>
-        call.kind === "readDevices" &&
-        call.device === "M1000" &&
-        call.points === 1 &&
-        call.options.bitUnit === true
+      (call) => call.kind === "readRandom" && call.wordDevices.includes("M992") && call.wordDevices.includes("D100")
     )
+  );
+  assert.ok(
+    !calls.some((call) => call.kind === "readDevices" && call.device === "M1000" && call.options.bitUnit === true)
   );
   assert.ok(
     calls.some(
@@ -245,7 +241,7 @@ test("readNamed coalesces contiguous direct bits and word ranges into block read
         points,
         bitUnit: Boolean(options.bitUnit),
       });
-      if (device.code === "M") {
+      if (device.code === "TS") {
         return [true, false, true];
       }
       if (device.code === "D") {
@@ -255,17 +251,17 @@ test("readNamed coalesces contiguous direct bits and word ranges into block read
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["M1000:BIT", "M1001:BIT", "M1002:BIT", "D100:U", "D101:U", "D102:U"]);
+  const snapshot = await readNamed(fakeClient, ["TS1000:BIT", "TS1001:BIT", "TS1002:BIT", "D100:U", "D101:U", "D102:U"]);
   assert.deepEqual(snapshot, {
-    "M1000:BIT": true,
-    "M1001:BIT": false,
-    "M1002:BIT": true,
+    "TS1000:BIT": true,
+    "TS1001:BIT": false,
+    "TS1002:BIT": true,
     "D100:U": 11,
     "D101:U": 12,
     "D102:U": 13,
   });
   assert.deepEqual(calls, [
-    { device: "M1000", points: 3, bitUnit: true },
+    { device: "TS1000", points: 3, bitUnit: true },
     { device: "D100", points: 3, bitUnit: false },
   ]);
 });
@@ -473,7 +469,7 @@ test("readNamed forwards per-request target overrides to client calls", async ()
         target: options.target,
       });
       return {
-        word: { D100: 42 },
+        word: { D100: 42, M992: 0x0100 },
         dword: { D200: 0x3fc00000 },
       };
     },
@@ -485,9 +481,6 @@ test("readNamed forwards per-request target overrides to client calls", async ()
         bitUnit: Boolean(options.bitUnit),
         target: options.target,
       });
-      if (device.code === "M") {
-        return [true];
-      }
       throw new Error("unexpected block read");
     },
   };
@@ -496,10 +489,7 @@ test("readNamed forwards per-request target overrides to client calls", async ()
   assert.equal(snapshot["D100:U"], 42);
   assert.equal(snapshot["D200:F"], 1.5);
   assert.equal(snapshot["M1000:BIT"], true);
-  assert.deepEqual(calls, [
-    { kind: "readRandom", target },
-    { kind: "readDevices", device: "M1000", points: 1, bitUnit: true, target },
-  ]);
+  assert.deepEqual(calls, [{ kind: "readRandom", target }]);
 });
 
 test("writeNamed coalesces contiguous direct bits and same-word bit updates", async () => {

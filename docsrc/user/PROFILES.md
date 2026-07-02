@@ -18,10 +18,10 @@ catalog. Keep the PLC profile as an explicit human/configuration choice.
 | `melsec:iq-l` | MELSEC iQ-L | 4E | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F | 4E | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R | 4E | Use for MELSEC MX-R targets. |
-| `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. |
+| `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected; use normal read/write flows instead of block access. |
 | `melsec:lcpu` | MELSEC LCPU | 3E | Q/L-series profile. |
-| `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. |
-| `melsec:qnudv` | MELSEC QnUDV | 3E | Q/L-series profile. |
+| `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected; use normal read/write flows instead of block access. |
+| `melsec:qnudv` | MELSEC QnUDV | 3E | Q/L-series profile. Read Block (`0x0406`) and Write Block (`0x1406`) are rejected; use normal read/write flows instead of block access. |
 
 ## How to configure the connection node
 
@@ -50,7 +50,7 @@ Keep the default route fields unless your network requires a different target:
 | `melsec:iq-l` | Frame 4E. `X` and `Y` addressing is hexadecimal. |
 | `melsec:mx-f` | Frame 4E. `G` and `HG` are not in the public high-level surface. |
 | `melsec:mx-r` | Frame 4E. `G` and `HG` are not in the public high-level surface. |
-| `melsec:qcpu` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. |
+| `melsec:qcpu` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. Block commands `0x0406` / `0x1406` are rejected. |
 | `melsec:lcpu` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. |
-| `melsec:qnu` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. |
-| `melsec:qnudv` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. |
+| `melsec:qnu` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. Block commands `0x0406` / `0x1406` are rejected. |
+| `melsec:qnudv` | Frame 3E. Long timer/counter and `LZ` families are not valid in the public profile. Block commands `0x0406` / `0x1406` are rejected. |
