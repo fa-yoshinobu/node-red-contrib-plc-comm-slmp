@@ -166,6 +166,6 @@ When Metadata is `off`, the node leaves `msg.slmp` unchanged.
 | `msg.error` | Adds the error object to `msg.error` and sends the message on the normal output. |
 | Second output | Sends the failed message with `msg.error` on output 2. |
 
-Strict profile guard failures use `SlmpProfileFeatureError`. The error object includes `profileId`, `featureKey`, `state`, `evidence`, and `disableHint`.
+Strict profile failures use `SlmpProfileFeatureError`. In normal flows, fix the selected PLC profile or use a supported operation. Disable Strict profile only for deliberate verification.
 
 Unsupported device-code errors can be converted into skipped messages by sending `msg.slmpSkipUnsupported = true` or `msg.slmp.skipUnsupported = true`.

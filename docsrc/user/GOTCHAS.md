@@ -12,13 +12,13 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject SLMP command `0x1406` for mixed word and bit block payloads. | Use one `slmp-write` node for word updates and another `slmp-write` node for bit updates. |
+| One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject mixed word and bit block writes. | Use one `slmp-write` node for word updates and another `slmp-write` node for bit updates. |
 
 ## Some profiles reject block commands
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | The selected profile marks the block route as unavailable and Strict profile rejects it before transport. | Use normal read/write flows or separate direct/random operations for those profiles. Only disable Strict profile when you intentionally want to send the command and inspect the PLC response. |
+| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | These profiles do not use block access for normal high-level flows. | Use normal read/write flows or separate direct/random operations for those profiles. Only disable Strict profile when you intentionally want to send the command and inspect the PLC response. |
 
 ## S write is rejected
 
