@@ -80,6 +80,7 @@ This page lists the public device families and address forms accepted by the Nod
 - String forms require a length, for example `D100:STR,10`.
 - Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`.
 - The editor validates address format and PLC-profile support. It does not validate your PLC model's configured upper address range.
+- Device-range JSON is available for diagnostics and application-layer decisions; the runtime nodes do not use it as a configured upper-bound send guard.
 
 ## Profile pointer
 
