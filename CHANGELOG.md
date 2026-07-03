@@ -23,17 +23,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Added non-breaking SLMP specification-audit updates for point-limit guards and PLC error diagnostics.
 - Library: Exposed structured PLC error information on decoded responses and `SlmpError.errorInfo` when a non-zero end-code response carries the 9-byte error information block.
 - Library: Enforced the documented iQ-F direct bit access limit of 3584 points before transport while keeping the existing 7168-point limit for non-iQ-F profiles.
+- Library: Embedded the `plc-comm-slmp-profiles` `v1.0.0` built-in Ethernet capability table and added strict profile guards for high-level `type_name`, `direct`, `random`, and `block` routes.
+- Library: Added `SlmpProfileFeatureError` for profile feature guards, including profile ID, feature key, state, evidence, and the `strictProfile=false` escape hatch.
+- Library: Replaced series-only random/direct point-limit guards with capability-table limits when a measured profile is selected; limits and write policy remain enforced even when strict profile is disabled.
 - Library: Added SLMP `S` step relay device-code support for reads and rejected writes to `S` as read-only.
+- Library: Enforced profile write policy for read-only families such as iQ-F `X` and iQ-R/iQ-L/MX `LCS`.
 - Library: Rejected standalone `G/HG` access on direct, random, block, and monitor-register routes; callers should use U-qualified extended access.
 - Library: Rejected `G/HG` random bit writes and aligned long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
-- Library: Rejected Read Block (`0x0406`) and Write Block (`0x1406`) for `melsec:qcpu`, `melsec:qnu`, and `melsec:qnudv` before transport; callers should use direct or random device commands for those profiles.
+- Library: Kept legacy Read Block (`0x0406`) and Write Block (`0x1406`) rejection for capability-undefined `melsec:qcpu` and `melsec:qnu`; `melsec:lcpu` and `melsec:qnudv` now use strict profile feature guards for the measured block limitation.
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
+- Node-RED editor: Added a Strict profile checkbox to `slmp-connection`, enabled by default.
 - Docs: Documented `S` read-only behavior and clarified `G/HG` guidance in the public Node-RED docs.
-- Docs: Documented the Q-series Read Block (`0x0406`) and Write Block (`0x1406`) profile guard in user profiles and gotchas.
+- Docs: Documented strict profile behavior, applied feature keys, and Node-RED out-of-scope capability keys.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Release: Excluded maintainer-only files, scripts, and tests from generated source archives via `.gitattributes`.
+- Tests: Added a canonical capability JSON fixture comparison and strict profile guard coverage.
 - Tests: Added guard coverage for `S` read-only writes and monitor-register `G/HG` rejection.
-- Tests: Added guard coverage that Q-series profiles reject block read/write before transport.
+- Tests: Added guard coverage that QCPU/QnU keep legacy block rejection while QnUDV uses the dedicated strict profile error.
 - Tests: Added named-read coverage for random-word-safe plain bit families versus direct-bit-only families.
 
 ## [1.1.1] - 2026-06-29

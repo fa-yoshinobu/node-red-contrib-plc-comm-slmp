@@ -727,6 +727,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     constructor(options) {
       constructorOptions.push(options);
       this.plcProfile = options.plcProfile || null;
+      this.strictProfile = options.strictProfile !== false;
       this.frameType = options.plcProfile ? "4e" : options.frameType;
       this.plcSeries = options.plcProfile ? "iqr" : options.plcSeries;
       this.defaultTarget = slmp.normalizeTarget(options.defaultTarget);
@@ -768,6 +769,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     assert.equal(constructorOptions[0].transport, "udp");
     assert.equal(constructorOptions[0].timeout, 4500);
     assert.equal(constructorOptions[0].plcProfile, "melsec:iq-r");
+    assert.equal(constructorOptions[0].strictProfile, true);
     assert.equal(constructorOptions[0].remotePassword, "secret1");
     assert.ok(node.getClient() instanceof FakeSlmpClient);
     assert.deepEqual(node.getProfile(), {
@@ -775,6 +777,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
       port: 5001,
       transport: "udp",
       plcProfile: "melsec:iq-r",
+      strictProfile: true,
       frameType: "4e",
       plcSeries: "iqr",
       target: {

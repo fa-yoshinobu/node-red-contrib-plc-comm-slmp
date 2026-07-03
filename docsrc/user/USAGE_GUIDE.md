@@ -18,6 +18,7 @@
 | Transport | `tcp` or `udp`. |
 | Timeout ms | Communication timeout in milliseconds. |
 | PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:qcpu`, `melsec:lcpu`, `melsec:qnu`, and `melsec:qnudv`. |
+| Strict profile | Enabled by default. Rejects high-level features known unavailable on the selected built-in Ethernet profile before sending. |
 | Remote password | Optional SLMP remote password credential. When set, the connection unlocks after opening and tries to lock before disconnecting. |
 | Monitor timer | SLMP monitoring timer value sent in requests. |
 | Network | Target network number, `0` to `255`. |
@@ -55,7 +56,7 @@
 | --- | --- |
 | `msg.payload` | Read result. Object mode is keyed by normalized address, array mode follows address order, and value mode returns a scalar for one address. |
 | `msg.slmp.addresses` | Full metadata mode only: normalized address list. |
-| `msg.slmp.connection` | Full metadata mode only: effective connection profile, frame type, target, and remote password status. |
+| `msg.slmp.connection` | Full metadata mode only: effective connection profile, strict profile setting, frame type, target, and remote password status. |
 | `msg.slmp.target` | Full and minimal metadata modes: effective route target. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of requested addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
@@ -92,7 +93,7 @@
 | --- | --- |
 | `msg.payload` | The incoming payload is preserved unless your flow changes it before the write. |
 | `msg.slmp.updates` | Full metadata mode only: normalized update object. |
-| `msg.slmp.connection` | Full metadata mode only: effective connection profile, frame type, target, and remote password status. |
+| `msg.slmp.connection` | Full metadata mode only: effective connection profile, strict profile setting, frame type, target, and remote password status. |
 | `msg.slmp.target` | Full and minimal metadata modes: effective route target. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of update addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
@@ -150,7 +151,7 @@ When Metadata is `full`, `msg.slmp` includes:
 | --- | --- |
 | `msg.slmp.addresses` | Normalized read addresses. Present on `slmp-read`. |
 | `msg.slmp.updates` | Normalized write updates. Present on `slmp-write`. |
-| `msg.slmp.connection` | Connection profile with host, port, transport, PLC profile, frame type, series, target, and remote password status. |
+| `msg.slmp.connection` | Connection profile with host, port, transport, PLC profile, strict profile setting, frame type, series, target, and remote password status. |
 | `msg.slmp.target` | Effective request target after route overrides. |
 
 When Metadata is `minimal`, `msg.slmp` includes only `target`, `itemCount`, and `metadataMode`.
@@ -164,5 +165,7 @@ When Metadata is `off`, the node leaves `msg.slmp` unchanged.
 | Throw | Calls Node-RED `done(error)` and lets the runtime route the error. |
 | `msg.error` | Adds the error object to `msg.error` and sends the message on the normal output. |
 | Second output | Sends the failed message with `msg.error` on output 2. |
+
+Strict profile guard failures use `SlmpProfileFeatureError`. The error object includes `profileId`, `featureKey`, `state`, `evidence`, and `disableHint`.
 
 Unsupported device-code errors can be converted into skipped messages by sending `msg.slmpSkipUnsupported = true` or `msg.slmp.skipUnsupported = true`.

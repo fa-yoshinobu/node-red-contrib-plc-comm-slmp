@@ -14,11 +14,11 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 | --- | --- | --- |
 | One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject SLMP command `0x1406` for mixed word and bit block payloads. | Use one `slmp-write` node for word updates and another `slmp-write` node for bit updates. |
 
-## Q-series profiles reject block commands
+## Some profiles reject block commands
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, or `melsec:qnudv`. | These Q-series profiles reject SLMP Read Block (`0x0406`) and Write Block (`0x1406`) before transport. | Use normal read/write flows or separate direct/random operations for those profiles. |
+| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | `melsec:qcpu` and `melsec:qnu` keep the legacy block-route rejection. `melsec:lcpu` and `melsec:qnudv` are measured unavailable and are rejected by Strict profile before transport. | Use normal read/write flows or separate direct/random operations for those profiles. Only disable Strict profile when you intentionally want to send the command and inspect the PLC response. |
 
 ## S write is rejected
 

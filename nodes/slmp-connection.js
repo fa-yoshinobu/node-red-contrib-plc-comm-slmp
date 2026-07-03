@@ -26,6 +26,7 @@ module.exports = function registerSlmpConnection(RED) {
     this.transport = config.transport || "tcp";
     this.timeout = Number(config.timeout || 3000);
     this.plcProfile = config.plcProfile ? String(config.plcProfile).trim() : "";
+    this.strictProfile = config.strictProfile === undefined ? true : config.strictProfile !== false && config.strictProfile !== "false";
     this.monitoringTimer = Number(config.monitoringTimer || 0x0010);
     this.remotePassword = this.credentials && this.credentials.remotePassword ? String(this.credentials.remotePassword) : "";
     this.target = {
@@ -45,6 +46,7 @@ module.exports = function registerSlmpConnection(RED) {
       transport: this.transport,
       timeout: this.timeout,
       plcProfile: this.plcProfile,
+      strictProfile: this.strictProfile,
       monitoringTimer: this.monitoringTimer,
       defaultTarget: this.target,
       remotePassword: this.remotePassword,
@@ -61,6 +63,7 @@ module.exports = function registerSlmpConnection(RED) {
       port: this.port,
       transport: this.transport,
       plcProfile: this.client.plcProfile,
+      strictProfile: this.client.strictProfile,
       frameType: this.client.frameType,
       plcSeries: this.client.plcSeries,
       target: this.client.defaultTarget,

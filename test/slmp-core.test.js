@@ -830,7 +830,7 @@ test("readBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
-for (const profile of ["melsec:qcpu", "melsec:qnu", "melsec:qnudv"]) {
+for (const profile of ["melsec:qcpu", "melsec:qnu"]) {
   test(`readBlock rejects ${profile} profile before transport`, async () => {
     const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
     let calls = 0;
@@ -881,7 +881,7 @@ test("writeBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
-for (const profile of ["melsec:qcpu", "melsec:qnu", "melsec:qnudv"]) {
+for (const profile of ["melsec:qcpu", "melsec:qnu"]) {
   test(`writeBlock rejects ${profile} profile before transport`, async () => {
     const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
     let calls = 0;

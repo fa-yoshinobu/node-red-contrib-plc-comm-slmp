@@ -36,6 +36,7 @@
         }
       },
       plcProfile: { value: "", required: true },
+      strictProfile: { value: true },
       monitoringTimer: {
         value: 16,
         required: true,
@@ -121,6 +122,10 @@
     <input type="password" id="node-config-input-remotePassword" autocomplete="off" placeholder="optional" />
   </div>
   <div class="form-row">
+    <label for="node-config-input-strictProfile"><i class="fa fa-shield"></i> Strict profile</label>
+    <input type="checkbox" id="node-config-input-strictProfile" style="display:inline-block; width:auto; vertical-align:top;" />
+  </div>
+  <div class="form-row">
     <label for="node-config-input-monitoringTimer"><i class="fa fa-hourglass-half"></i> Monitor timer</label>
     <input type="text" id="node-config-input-monitoringTimer" placeholder="16" />
   </div>
@@ -145,6 +150,7 @@
 <script type="text/html" data-help-name="slmp-connection">
   <p>Reusable SLMP connection profile for MELSEC PLC access over binary 3E or 4E frames.</p>
   <p>Select one explicit PLC type. The node derives the frame type, access profile, and string address rules from that type.</p>
+  <p>Strict profile rejects features known unavailable on the selected built-in Ethernet profile before sending.</p>
   <p>If the PLC route is protected by a remote password, set Remote password. The node sends remote-password unlock after connecting and tries remote-password lock before disconnecting.</p>
   <p><code>slmp-read</code> and <code>slmp-write</code> can send <code>connect</code>, <code>disconnect</code>, and <code>reinitialize</code> control messages through this shared connection.</p>
 </script>

@@ -10,6 +10,14 @@ Node-RED nodes for MELSEC SLMP (Binary 3E/4E) PLC communication.
 
 The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choose one exact canonical PLC profile from that table.
 
+## Strict profile capability guard
+
+The `slmp-connection` node has a Strict profile option, enabled by default. It uses the built-in capability table imported from `plc-comm-slmp-profiles` `v1.0.0` and rejects high-level requests before transport when the selected built-in Ethernet profile is known not to support that feature.
+
+Applied feature keys in this Node-RED package are `type_name`, `direct`, `random`, `block`, `monitor` payload validation and limits, `long_device_path`, and `lz_32bit_path`. The low-level raw request API is not feature-guarded.
+
+The capability keys `ext_module_access`, `ext_link_direct`, and `hg_cpu_buffer` are outside the public Node-RED high-level node surface in this package, so they are not guarded here.
+
 ## Supported device types
 
 The maintained device and range tables are in [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md). Use that page for supported device families, address syntax, and profile-specific notes.
