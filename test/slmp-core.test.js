@@ -18,6 +18,7 @@ const {
   isDeviceCodeSupportedForPlcProfile,
   packBitValues,
   parseDevice,
+  parseSlmpErrorInfo,
   resolveConnectionProfile,
   unpackBitValues,
 } = require("../lib/slmp");
@@ -129,6 +130,40 @@ test("encodeRequest and decodeResponse work for 4E frames", () => {
   assert.equal(decoded.serial, 0x1234);
   assert.equal(decoded.endCode, 0);
   assert.deepEqual([...decoded.data], [0x78, 0x56]);
+});
+
+test("decodeResponse and SlmpError expose structured PLC error information", () => {
+  const errorData = Buffer.from("00ffff030001040100", "hex");
+  const response = Buffer.concat([
+    Buffer.from([
+      0xd4, 0x00,
+      0x34, 0x12,
+      0x00, 0x00,
+      0x00,
+      0xff,
+      0xff, 0x03,
+      0x00,
+      0x0b, 0x00,
+      0x51, 0xc0,
+    ]),
+    errorData,
+  ]);
+
+  const decoded = decodeResponse(response, { frameType: "4e" });
+
+  assert.equal(decoded.endCode, 0xc051);
+  assert.deepEqual(decoded.errorInfo, {
+    network: 0x00,
+    station: 0xff,
+    moduleIO: 0x03ff,
+    multidrop: 0x00,
+    command: 0x0401,
+    subcommand: 0x0001,
+    raw: errorData,
+  });
+  const error = new SlmpError("raw", { endCode: decoded.endCode, data: decoded.data });
+  assert.deepEqual(error.errorInfo, decoded.errorInfo);
+  assert.deepEqual(parseSlmpErrorInfo(errorData), decoded.errorInfo);
 });
 
 test("3E client keeps requests serialized", async () => {
@@ -372,6 +407,10 @@ test("iQ-R manual point limits reject overruns before transport", async () => {
   await assert.rejects(() => client.writeDevices("D0", new Array(961).fill(0)), /1\.\.960/);
   await assert.rejects(() => client.readDevices("M0", 7169, { bitUnit: true }), /1\.\.7168/);
   await assert.rejects(() => client.writeDevices("M0", new Array(7169).fill(false), { bitUnit: true }), /1\.\.7168/);
+  const iqfClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f" });
+  iqfClient.request = client.request;
+  await assert.rejects(() => iqfClient.readDevices("M0", 3585, { bitUnit: true }), /1\.\.3584/);
+  await assert.rejects(() => iqfClient.writeDevices("M0", new Array(3585).fill(false), { bitUnit: true }), /1\.\.3584/);
   await assert.rejects(() => client.readRandom({ wordDevices }), /1\.\.96/);
   await assert.rejects(() => client.writeRandomWords({ wordValues }), /word\/dword access points/);
   await assert.rejects(() => client.writeRandomWords({ dwordValues }), /word\/dword access points/);
