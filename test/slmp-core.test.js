@@ -437,6 +437,20 @@ test("iQ-R manual point limits reject overruns before transport", async () => {
   assert.equal(calls, 0);
 });
 
+test("direct access does not use device-range upper bounds as a send guard", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    const data = calls === 1 ? Buffer.from([0x34, 0x12]) : Buffer.alloc(0);
+    return { endCode: 0, data };
+  };
+
+  assert.deepEqual(await client.readDevices("D999999", 1), [0x1234]);
+  await client.writeDevices("D999999", [0x5678]);
+  assert.equal(calls, 2);
+});
+
 test("remote and memory helpers build expected commands", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
