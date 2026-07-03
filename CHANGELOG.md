@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Library: Added non-breaking SLMP specification-audit updates for point-limit guards and PLC error diagnostics.
+- Library: Exposed structured PLC error information on decoded responses and `SlmpError.errorInfo` when a non-zero end-code response carries the 9-byte error information block.
+- Library: Enforced the documented iQ-F direct bit access limit of 3584 points before transport while keeping the existing 7168-point limit for non-iQ-F profiles.
 - Library: Added SLMP `S` step relay device-code support for reads and rejected writes to `S` as read-only.
 - Library: Rejected standalone `G/HG` access on direct, random, block, and monitor-register routes; callers should use U-qualified extended access.
 - Library: Rejected `G/HG` random bit writes and aligned long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
