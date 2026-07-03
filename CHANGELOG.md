@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Embedded the `plc-comm-slmp-profiles` `v1.0.0` built-in Ethernet capability table and added strict profile guards for high-level `type_name`, `direct`, `random`, and `block` routes.
 - Library: Added `SlmpProfileFeatureError` for profile feature guards, including profile ID, feature key, state, evidence, and the `strictProfile=false` escape hatch.
 - Library: Replaced series-only random/direct point-limit guards with capability-table limits when a measured profile is selected; limits and write policy remain enforced even when strict profile is disabled.
+- Library: Added canonical weighted random-word write limits for `melsec:iq-l` and `melsec:iq-f`, so mixed word/dword random writes are guarded before transport.
 - Library: Added SLMP `S` step relay device-code support for reads and profile-specific write policy enforcement.
 - Library: Enforced capability write policies independently of `strictProfile`; `S` is read-only on iQ-R/iQ-L/MX/Q/L profiles and read-write on iQ-F.
 - Library: Separated profile-unsupported device families from standalone `G/HG` public high-level rejection so route-only devices are not reported as profile-unsupported.
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Documented strict profile behavior, applied feature keys, and Node-RED out-of-scope capability keys.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Release: Excluded maintainer-only files, scripts, and tests from generated source archives via `.gitattributes`.
+- Tooling: Changed the canonical profile update script default ref from `main` to fixed tag `v1.0.0`; `SLMP_PROFILES_REF` can still override it.
 - Tests: Added a canonical capability JSON fixture comparison and strict profile guard coverage.
 - Tests: Added guard coverage for `S` read-only writes and monitor-register `G/HG` rejection.
 - Tests: Added guard coverage that QCPU/QnU/QnUDV use the dedicated strict profile error for blocked routes.

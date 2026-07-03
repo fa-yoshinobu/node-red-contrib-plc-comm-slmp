@@ -113,6 +113,31 @@ test("profile point limits are enforced independently of strictProfile", async (
     (error) => error instanceof ValueError && /1\.\.80/.test(error.message)
   );
 
+  const iql = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-l", strictProfile: false });
+  iql.request = async () => {
+    throw new Error("unexpected transport call");
+  };
+  await assert.rejects(
+    () =>
+      iql.writeRandomWords({
+        wordValues: Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`D${8100 + index}`, 0])),
+        dwordValues: Object.fromEntries(Array.from({ length: 40 }, (_, index) => [`D${8200 + index * 2}`, 0])),
+      }),
+    (error) => error instanceof ValueError && /limit=960/.test(error.message)
+  );
+
+  const iqf = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f", strictProfile: false });
+  iqf.request = async () => {
+    throw new Error("unexpected transport call");
+  };
+  await assert.rejects(
+    () =>
+      iqf.writeRandomWords({
+        dwordValues: Object.fromEntries(Array.from({ length: 138 }, (_, index) => [`D${9000 + index * 2}`, 0])),
+      }),
+    (error) => error instanceof ValueError && /limit=1920/.test(error.message)
+  );
+
   assert.equal(calls, 1);
 });
 
