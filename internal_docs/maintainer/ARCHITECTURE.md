@@ -1,11 +1,5 @@
 # Node-RED SLMP Architecture
 
-See also:
-
-- [Project README](../../README.md)
-- [Usage guide](../../docsrc/user/USAGE_GUIDE.md)
-- [Changelog](../../CHANGELOG.md)
-
 This package has three layers:
 
 1. `lib/slmp/core.js`
