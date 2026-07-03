@@ -50,10 +50,3 @@ commands instead of `0x0406`/`0x1406`.
 - There is no automatic mixed-write fallback in this package.
 - If the PLC rejects the request, the original PLC end code should surface to
   the caller.
-
-Manual references used for the fix:
-
-- English manual, PDF pages 76-78,
-  `Write Block (command: 1406)`.
-- Japanese manual, PDF pages 75-77,
-  `Write Block(コマンド: 1406)`.
