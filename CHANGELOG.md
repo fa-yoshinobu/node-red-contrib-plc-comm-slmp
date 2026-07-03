@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Replaced series-only random/direct point-limit guards with capability-table limits when a measured profile is selected; limits and write policy remain enforced even when strict profile is disabled.
 - Library: Added SLMP `S` step relay device-code support for reads and profile-specific write policy enforcement.
 - Library: Enforced capability write policies independently of `strictProfile`; `S` is read-only on iQ-R/iQ-L/MX/Q/L profiles and read-write on iQ-F.
+- Library: Separated profile-unsupported device families from standalone `G/HG` public high-level rejection so route-only devices are not reported as profile-unsupported.
 - Library: Rejected standalone `G/HG` access on direct, random, block, and monitor-register routes; callers should use U-qualified extended access.
 - Library: Rejected `G/HG` random bit writes and aligned long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Moved Q/L profile Read Block (`0x0406`) and Write Block (`0x1406`) rejection to the capability profile guard so `strictProfile=false` can intentionally send the request and let the PLC answer.

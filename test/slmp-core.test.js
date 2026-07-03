@@ -48,7 +48,7 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
   assert.throws(() => parseDevice("LCS10", { plcProfile: "melsec:lcpu" }), /not supported for plcProfile 'melsec:lcpu'/);
   assert.throws(() => parseDevice("RD10", { plcProfile: "melsec:qnudv" }), /not supported for plcProfile 'melsec:qnudv'/);
   assert.throws(() => parseDevice("LZ0", { plcProfile: "melsec:qnu" }), /not supported for plcProfile 'melsec:qnu'/);
-  assert.throws(() => parseDevice("G10", { plcProfile: "melsec:iq-r" }), /not supported for plcProfile 'melsec:iq-r'/);
+  assert.throws(() => parseDevice("G10", { plcProfile: "melsec:iq-r" }), /not supported in the Node-RED public high-level surface/);
   assert.throws(() => parseDevice("G10"), /not supported in the Node-RED public high-level surface/);
   assert.throws(() => parseDevice("HG10"), /not supported in the Node-RED public high-level surface/);
   assert.equal(isDeviceCodeSupportedForPlcProfile("LZ", "melsec:qnudv"), false);

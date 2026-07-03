@@ -26,15 +26,15 @@
     return right.length - left.length || left.localeCompare(right);
   });
   const SLMP_WRITE_UNSUPPORTED_DEVICE_CODES_BY_FAMILY = Object.freeze({
-    "melsec:iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD", "G", "HG"],
-    "melsec:iq-r": ["G", "HG"],
-    "melsec:iq-l": ["G", "HG"],
-    "melsec:mx-f": ["G", "HG"],
-    "melsec:mx-r": ["G", "HG"],
-    "melsec:qcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:lcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qnu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
+    "melsec:iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD"],
+    "melsec:iq-r": [],
+    "melsec:iq-l": [],
+    "melsec:mx-f": [],
+    "melsec:mx-r": [],
+    "melsec:qcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:lcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:qnu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"]
   });
   const SLMP_WRITE_DTYPE_SUFFIXES = new Set(["BIT", "U", "S", "I", "D", "L", "F", "STR", "STRING"]);
   function slmpGetWriteCurrentType(typeSelector, fallback) {
