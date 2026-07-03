@@ -20,6 +20,7 @@ const {
   parseDevice,
   parseSlmpErrorInfo,
   resolveConnectionProfile,
+  SlmpProfileFeatureError,
   unpackBitValues,
 } = require("../lib/slmp");
 
@@ -841,7 +842,11 @@ for (const profile of ["melsec:qcpu", "melsec:qnu"]) {
 
     await assert.rejects(
       () => client.readBlock({ wordBlocks: [["D100", 1]], bitBlocks: [["M100", 1]] }),
-      (error) => error instanceof ValueError && error.message.includes("Read Block (0x0406)") && error.message.includes(profile)
+      (error) =>
+        error instanceof SlmpProfileFeatureError &&
+        error.profileId === profile &&
+        error.featureKey === "block" &&
+        error.state === "blocked"
     );
     assert.equal(calls, 0);
   });
@@ -892,7 +897,11 @@ for (const profile of ["melsec:qcpu", "melsec:qnu"]) {
 
     await assert.rejects(
       () => client.writeBlock({ wordBlocks: [["D100", [1]]], bitBlocks: [["M100", [1]]] }),
-      (error) => error instanceof ValueError && error.message.includes("Write Block (0x1406)") && error.message.includes(profile)
+      (error) =>
+        error instanceof SlmpProfileFeatureError &&
+        error.profileId === profile &&
+        error.featureKey === "block" &&
+        error.state === "blocked"
     );
     assert.equal(calls, 0);
   });

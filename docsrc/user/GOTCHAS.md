@@ -18,13 +18,13 @@ Each entry starts with the symptom you will see in the editor, debug sidebar, or
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | `melsec:qcpu` and `melsec:qnu` keep the legacy block-route rejection. `melsec:lcpu` and `melsec:qnudv` are measured unavailable and are rejected by Strict profile before transport. | Use normal read/write flows or separate direct/random operations for those profiles. Only disable Strict profile when you intentionally want to send the command and inspect the PLC response. |
+| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | The selected profile marks the block route as unavailable and Strict profile rejects it before transport. | Use normal read/write flows or separate direct/random operations for those profiles. Only disable Strict profile when you intentionally want to send the command and inspect the PLC response. |
 
 ## S write is rejected
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `S10:BIT` can be read but `slmp-write` rejects it. | Step relay `S` is treated as a read-only bit family. | Keep `S` out of write flows. |
+| `S10:BIT` can be read but `slmp-write` rejects it. | The selected profile marks `S` as read-only. iQ-F profiles allow `S` writes. | Follow the selected profile's write policy. |
 
 ## G/HG rejected
 

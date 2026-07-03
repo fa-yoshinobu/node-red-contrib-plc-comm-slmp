@@ -32,7 +32,6 @@ test("blocked profile features fail before transport with a dedicated error", as
       error.profileId === "melsec:qnudv" &&
       error.featureKey === "block" &&
       error.state === "blocked" &&
-      /C059/.test(error.message) &&
       /strictProfile=false/.test(error.message)
   );
   assert.equal(calls, 0);
@@ -67,14 +66,14 @@ test("supported, config-dependent, and delegated features are not profile-guarde
   assert.equal(calls, 1);
 });
 
-test("unverified features use the same strict profile guard semantics", () => {
+test("blocked link-direct features use the same strict profile guard semantics", () => {
   assert.throws(
     () => ensureProfileFeatureAllowed("melsec:iq-f", "ext_link_direct", true),
     (error) =>
       error instanceof SlmpProfileFeatureError &&
       error.profileId === "melsec:iq-f" &&
       error.featureKey === "ext_link_direct" &&
-      error.state === "unverified"
+      error.state === "blocked"
   );
   assert.doesNotThrow(() => ensureProfileFeatureAllowed("melsec:iq-f", "ext_link_direct", false));
 });
@@ -118,7 +117,7 @@ test("profile point limits are enforced independently of strictProfile", async (
 });
 
 test("profile write_policy is enforced independently of strictProfile", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f", strictProfile: false });
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", strictProfile: false });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -126,8 +125,8 @@ test("profile write_policy is enforced independently of strictProfile", async ()
   };
 
   await assert.rejects(
-    () => client.writeDevices("X0", [true], { bitUnit: true }),
-    (error) => error instanceof ValueError && /X is read-only for plcProfile 'melsec:iq-f'/.test(error.message)
+    () => client.writeDevices("S0", [true], { bitUnit: true }),
+    (error) => error instanceof ValueError && /S is read-only for plcProfile 'melsec:iq-r'/.test(error.message)
   );
   assert.equal(calls, 0);
 });
