@@ -2,6 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
   Command,
@@ -23,6 +25,10 @@ const {
   SlmpProfileFeatureError,
   unpackBitValues,
 } = require("../lib/slmp");
+
+function loadDeviceRangeRulesFixture() {
+  return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "slmp_device_range_rules.json"), "utf8"));
+}
 
 test("parseDevice handles decimal and hex devices", () => {
   assert.deepEqual(parseDevice("D100"), { code: "D", number: 100 });
@@ -55,6 +61,25 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
   assert.equal(isDeviceCodeSupportedForPlcProfile("G", "melsec:qnu"), false);
   assert.equal(isDeviceCodeSupportedForPlcProfile("G", null), false);
   assert.equal(isDeviceCodeSupportedForPlcProfile("HG", null), false);
+});
+
+test("profile unsupported device codes follow canonical device range fixture", () => {
+  const payload = loadDeviceRangeRulesFixture();
+  for (const [profile, profilePayload] of Object.entries(payload.profiles)) {
+    for (const [item, rule] of Object.entries(profilePayload.rules)) {
+      const expected = rule.kind !== "unsupported";
+      for (const { device } of payload.rows[item].devices) {
+        assert.equal(
+          isDeviceCodeSupportedForPlcProfile(device, profile),
+          expected,
+          `${profile} ${device}`
+        );
+      }
+    }
+  }
+
+  assert.equal(isDeviceCodeSupportedForPlcProfile("DX", "melsec:iq-f"), false);
+  assert.equal(isDeviceCodeSupportedForPlcProfile("DY", "melsec:iq-f"), false);
 });
 
 test("resolveConnectionProfile derives fixed defaults from plcProfile", () => {
