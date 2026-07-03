@@ -368,8 +368,8 @@ test("writeDevices rejects direct long-family state writes before transport", as
   assert.equal(calls, 0);
 });
 
-test("S device writes are rejected before transport", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+test("S device write policy follows selected PLC profile", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   let calls = 0;
   client.request = async () => {
     calls += 1;
@@ -382,13 +382,23 @@ test("S device writes are rejected before transport", async () => {
   );
   await assert.rejects(
     () => client.writeRandomBits({ bitValues: { S10: true } }),
-    (error) => error instanceof ValueError && /read-only devices such as S/.test(error.message)
+    (error) => error instanceof ValueError && /read-only device S for plcProfile 'melsec:iq-r'/.test(error.message)
   );
   await assert.rejects(
     () => client.writeBlock({ bitBlocks: [["S10", [1]]] }),
-    (error) => error instanceof ValueError && /read-only devices such as S/.test(error.message)
+    (error) => error instanceof ValueError && /read-only device S for plcProfile 'melsec:iq-r'/.test(error.message)
   );
   assert.equal(calls, 0);
+
+  const iqfClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f" });
+  iqfClient.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+  await iqfClient.writeDevices("S10", [true], { bitUnit: true });
+  await iqfClient.writeRandomBits({ bitValues: { S10: true } });
+  await iqfClient.writeBlock({ bitBlocks: [["S10", [1]]] });
+  assert.equal(calls, 3);
 });
 
 test("iQ-R manual point limits reject overruns before transport", async () => {
