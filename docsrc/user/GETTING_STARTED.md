@@ -78,15 +78,19 @@ Trigger the node with any message. A successful response sets `msg.payload["D300
 
 1. The flow deploys without editor validation errors.
 2. The `slmp-connection` node has PLC profile `melsec:iq-r`.
-3. The read inject node produces a debug message.
-4. `msg.payload` contains a `D300:U` key.
-5. The connection status does not stay red after repeated reads.
+3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
+4. PLC-side RUN-time write permission is enabled before you run a write flow where the PLC exposes that setting.
+5. The read inject node produces a debug message.
+6. `msg.payload` contains a `D300:U` key.
+7. The connection status does not stay red after repeated reads.
 
 ## If it does not work
 
 | Symptom | Check |
 | --- | --- |
 | The read returns nothing or errors immediately | PLC profile on `slmp-connection` must be set. It is required, and there is no runtime default. |
+| Connection opens but all requests fail | Confirm Binary communication data code in the PLC setup guide. |
+| Reads work but writes fail | Confirm RUN-time write permission in the PLC setup guide and the selected profile write policy. |
 | The first flow feels too busy | Import `slmp-basic-read-write.json` first, not `slmp-device-matrix.json`. |
 | Address validation fails on the first run | Start with `D300:U`. Do not test with `G` or `HG` on the first run. |
 | TCP does not connect | Confirm the PLC is reachable at `192.168.250.100:1025` from the Node-RED host. |

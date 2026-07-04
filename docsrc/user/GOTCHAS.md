@@ -6,18 +6,21 @@ status. For PLC response codes, use the shared
 page. For profile limits and device availability, use the shared
 [SLMP Profile Parameters](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/parameters/)
 page.
+For PLC-side Ethernet settings, use the shared
+[MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
+Check Binary communication data code, port/open settings, and RUN-time write permission there before debugging flows.
 
 ## slmp-read returns nothing or every request errors
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `slmp-read` produces no useful payload, or simple reads return an SLMP end code. | The connection has no valid PLC profile, the selected profile does not match the PLC, or the PLC port data code is wrong. | Open the `slmp-connection` config node and select the exact canonical profile. Confirm the PLC Ethernet port is configured for binary SLMP. |
+| `slmp-read` produces no useful payload, or simple reads return an SLMP end code. | The connection has no valid PLC profile, the selected profile does not match the PLC, or the PLC port data code is wrong. | Open the `slmp-connection` config node and select the exact canonical profile. Confirm the PLC Ethernet port is configured for Binary SLMP. |
 
 ## Reads work but writes fail
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `slmp-read` works, but `slmp-write` is rejected. | PLC-side write permission during RUN, remote password state, or profile write policy blocks the write. | Check the PLC setup guide and the selected profile's write policy. `S` is read-only except on iQ-F profiles. |
+| `slmp-read` works, but `slmp-write` is rejected. | PLC-side write permission during RUN, remote password state, or profile write policy blocks the write. | Check RUN-time write permission in the PLC setup guide and the selected profile's write policy. `S` is read-only except on iQ-F profiles. |
 
 ## Large requests fail with point-limit end codes
 

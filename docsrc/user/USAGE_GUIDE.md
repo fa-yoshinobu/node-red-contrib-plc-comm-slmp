@@ -26,6 +26,16 @@
 | Module I/O | Target module I/O number, entered as hexadecimal such as `03FF`. |
 | Multidrop | Target multidrop station number, `0` to `255`. |
 
+## Remote password
+
+Node-RED is the only SLMP package here with a connection-field remote password lifecycle.
+When `Remote password` is set on `slmp-connection`, the node unlocks after opening
+and tries to lock before disconnecting.
+
+For `C200`-series password end codes, see the shared
+[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/troubleshooting-end-codes/)
+page.
+
 ## Routing / target station
 
 Most flows keep the route fields at their defaults, which target the directly
