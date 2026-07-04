@@ -95,8 +95,3 @@ Trigger the node with any message. A successful response sets `msg.payload["D300
 | Address validation fails on the first run | Start with `D300:U`. Do not test with `G` or `HG` on the first run. |
 | TCP does not connect | Confirm the PLC is reachable at `192.168.250.100:1025` from the Node-RED host. |
 | UDP is your target | Move to the UDP example after TCP works, and set the UDP port to `1035`. |
-
-## Next pages
-
-- [Usage guide](./USAGE_GUIDE.md)
-- [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/)
