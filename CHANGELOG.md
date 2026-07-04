@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Node-RED editor: Added a Strict profile checkbox to `slmp-connection`, enabled by default.
 - Docs: Documented profile-specific `S` write policy and clarified `G/HG` guidance in the public Node-RED docs.
 - Docs: Documented strict profile behavior, applied feature keys, and Node-RED out-of-scope capability keys.
+- Docs: Removed the duplicated SLMP supported-register user page and linked users to the shared SLMP Profile Reference.
+- Docs: Added a Usage Guide example showing how to read `msg.error.endCode` and structured `msg.error.errorInfo`.
+- Docs: Slimmed Gotchas to Node-RED-specific items and moved shared setup/end-code symptoms to the PLC Setup Guide.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Release: Excluded maintainer-only files, scripts, and tests from generated source archives via `.gitattributes`.
 - Tooling: Changed the canonical profile update script default ref from `main` to fixed tag `v1.0.0`; `SLMP_PROFILES_REF` can still override it.

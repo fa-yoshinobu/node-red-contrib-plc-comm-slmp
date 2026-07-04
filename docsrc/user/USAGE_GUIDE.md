@@ -33,7 +33,7 @@ When `Remote password` is set on `slmp-connection`, the node unlocks after openi
 and tries to lock before disconnecting.
 
 For `C200`-series password end codes, see the shared
-[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/troubleshooting-end-codes/)
+[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-end-codes/)
 page.
 
 ## Routing / target station
@@ -201,6 +201,18 @@ When Metadata is `off`, the node leaves `msg.slmp` unchanged.
 | Throw | Calls Node-RED `done(error)` and lets the runtime route the error. |
 | `msg.error` | Adds the error object to `msg.error` and sends the message on the normal output. |
 | Second output | Sends the failed message with `msg.error` on output 2. |
+
+For PLC response errors, read `msg.error.endCode`. When the PLC returned the structured error-information block, `msg.error.errorInfo` includes `command` and `subcommand`.
+
+```javascript
+if (msg.error && msg.error.endCode !== undefined) {
+    node.warn(`SLMP end_code=0x${msg.error.endCode.toString(16).padStart(4, "0").toUpperCase()}`);
+    if (msg.error.errorInfo) {
+        node.warn(`command=0x${msg.error.errorInfo.command.toString(16).padStart(4, "0").toUpperCase()}`);
+        node.warn(`subcommand=0x${msg.error.errorInfo.subcommand.toString(16).padStart(4, "0").toUpperCase()}`);
+    }
+}
+```
 
 Strict profile failures use `SlmpProfileFeatureError`. In normal flows, fix the selected PLC profile or use a supported operation. Disable Strict profile only for deliberate verification.
 

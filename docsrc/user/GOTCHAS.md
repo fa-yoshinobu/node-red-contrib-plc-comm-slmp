@@ -2,7 +2,7 @@
 
 Use this page as a short symptom index for the editor, debug sidebar, and node
 status. For PLC response codes, use the shared
-[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/troubleshooting-end-codes/)
+[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-end-codes/)
 page. For profile limits and device availability, use the shared
 [SLMP Profile Parameters](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/parameters/)
 page.
@@ -10,29 +10,17 @@ For PLC-side Ethernet settings, use the shared
 [MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
 Check Binary communication data code, port/open settings, and RUN-time write permission there before debugging flows.
 
-## slmp-read returns nothing or every request errors
+## slmp-read returns nothing
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `slmp-read` produces no useful payload, or simple reads return an SLMP end code. | The connection has no valid PLC profile, the selected profile does not match the PLC, or the PLC port data code is wrong. | Open the `slmp-connection` config node and select the exact canonical profile. Confirm the PLC Ethernet port is configured for Binary SLMP. |
-
-## Reads work but writes fail
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| `slmp-read` works, but `slmp-write` is rejected. | PLC-side write permission during RUN, remote password state, or profile write policy blocks the write. | Check RUN-time write permission in the PLC setup guide and the selected profile's write policy. `S` is read-only except on iQ-F profiles. |
+| `slmp-read` produces no useful payload. | The connection node, endpoint, deploy state, or message address is wrong. | Open the `slmp-connection` config node, confirm the endpoint, and check the node status/debug sidebar. Use the shared end-code page when the PLC returns an SLMP end code. |
 
 ## Large requests fail with point-limit end codes
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
 | A large read/write flow fails with `C051`, `C052`, `C053`, or `C054`. | The request exceeds the selected profile's per-request point limit. | Split the address list across multiple nodes/messages. Check the shared profile parameter table for the limit. |
-
-## Some profiles reject block commands
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| A flow or function-node call using block access fails for `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | These profiles do not use block commands for normal high-level access. | Use normal read/write flows. Disable Strict profile only when you intentionally want to send the command and inspect the PLC response. |
 
 ## Mixed word and bit write fails
 
@@ -52,18 +40,6 @@ Check Binary communication data code, port/open settings, and RUN-time write per
 | --- | --- | --- |
 | Long timer, long counter, or long index values look truncated or are rejected. | `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit current-value families. | Address them as `LTN0:D`, `LSTN0:D`, `LCN0:D`, or `LZ0:D`; use `:L` for signed 32-bit values. |
 | `LCS` or `LCC` does not behave like a word value. | Long counter state devices are bits. | Use `LCS0:BIT` or `LCC0:BIT`. |
-
-## G/HG rejected
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| `G` or `HG` addresses are rejected by `slmp-read` or `slmp-write`. | Module buffer memory is not exposed through the high-level Node-RED node surface as a standalone device route. | Keep `G` and `HG` out of high-level flows, or use a function node with the lower-level JavaScript API for qualified extended access. |
-
-## Non-canonical PLC profile rejected
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| A hand-edited flow or environment-provided PLC profile is rejected. | The node accepts only exact canonical PLC profiles. Short names and aliases are not normalized. | Use one of the canonical profiles shown in the `slmp-connection` dropdown, such as `melsec:iq-r`. |
 
 ## D50.3,count is rejected
 

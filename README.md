@@ -16,7 +16,7 @@ The `slmp-connection` node has a Strict profile option, enabled by default. With
 
 ## Supported device types
 
-The maintained device and range tables are in [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md). Use that page for supported device families, address syntax, and profile-specific notes.
+The maintained device and range tables are in the [SLMP Profile Reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/). Use that page for supported device families, address syntax, and profile-specific notes.
 
 ## Installation
 
@@ -49,7 +49,7 @@ Start with the basic flow before importing the device-matrix flow.
 | [Full documentation site](https://fa-yoshinobu.github.io/plc-comm-docs-site/) | Unified docs for all PLC communication libraries. |
 | [Getting started](docsrc/user/GETTING_STARTED.md) | Install the nodes, configure a connection, and run your first SLMP read. |
 | [Usage guide](docsrc/user/USAGE_GUIDE.md) | Use read/write nodes, routing fields, typed values, and flow patterns. |
-| [Supported registers](docsrc/user/SUPPORTED_REGISTERS.md) | Check device families, address syntax, and numbering rules. |
+| [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/) | Check profile parameters, device families, address syntax, and numbering rules. |
 | [PLC profiles](docsrc/user/PROFILES.md) | Choose the canonical MELSEC profile and frame behavior. |
 | [Example flows](examples/flows/README.md) | Import maintained Node-RED example flows. |
 

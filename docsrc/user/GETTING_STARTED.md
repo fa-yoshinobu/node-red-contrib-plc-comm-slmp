@@ -99,4 +99,4 @@ Trigger the node with any message. A successful response sets `msg.payload["D300
 ## Next pages
 
 - [Usage guide](./USAGE_GUIDE.md)
-- [Supported registers](./SUPPORTED_REGISTERS.md)
+- [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/)
