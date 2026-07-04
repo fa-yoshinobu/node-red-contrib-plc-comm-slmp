@@ -4,6 +4,8 @@
 
 This directory contains importable Node-RED JSON flow files for the public `slmp-connection`, `slmp-read`, and `slmp-write` nodes. Start with the basic TCP flow, then use the other flows for arrays, strings, error routing, UDP, route overrides, and broader device coverage.
 
+Use only test addresses that are safe for your PLC program before you run any write example.
+
 ## How to import
 
 1. Open the Node-RED editor.
@@ -15,6 +17,12 @@ This directory contains importable Node-RED JSON flow files for the public `slmp
 7. Set the TCP Port to `1025`, or set the UDP Port to `1035`.
 8. Select the correct PLC profile, such as `melsec:iq-r`.
 9. Deploy.
+
+## Polling reconnect
+
+The `slmp-connection` config node does not run a background reconnect timer by itself. It keeps one shared client and lets `slmp-read` / `slmp-write` send `connect`, `disconnect`, or `reinitialize` control messages through `msg.topic` or `msg.reinitialize`.
+
+For a 24-hour polling flow, use an Inject node for the read interval, route the read node's error output or a Catch node to a Delay node, then send `msg.topic = "reinitialize"` back to the same read node before the next read. Start with a 1 second delay and cap the retry delay around 30 seconds. Keep the polling path read-only unless the flow is deliberately testing writes.
 
 ## Flow index
 
