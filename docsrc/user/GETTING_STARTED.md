@@ -95,3 +95,8 @@ Trigger the node with any message. A successful response sets `msg.payload["D300
 | Address validation fails on the first run | Start with `D300:U`. Do not test with `G` or `HG` on the first run. |
 | TCP does not connect | Confirm the PLC is reachable at `192.168.250.100:1025` from the Node-RED host. |
 | UDP is your target | Move to the UDP example after TCP works, and set the UDP port to `1035`. |
+
+## Next steps
+
+- Open the runnable flows: [flow examples README](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/tree/main/examples/flows).
+- Continue with the [Usage guide](USAGE_GUIDE.md) and [Gotchas](GOTCHAS.md).
