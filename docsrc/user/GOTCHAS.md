@@ -1,60 +1,66 @@
 # Gotchas
 
-Each entry starts with the symptom you will see in the editor, debug sidebar, or node status. The fixes refer to the public `slmp-connection`, `slmp-read`, and `slmp-write` nodes.
+Use this page as a short symptom index for the editor, debug sidebar, and node
+status. For PLC response codes, use the shared
+[SLMP Troubleshooting & End Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/troubleshooting-end-codes/)
+page. For profile limits and device availability, use the shared
+[SLMP Profile Parameters](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/parameters/)
+page.
 
-## slmp-read returns nothing
+## slmp-read returns nothing or every request errors
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `slmp-read` produces no useful payload or errors immediately. | The selected `slmp-connection` has no PLC profile at runtime. The runtime requires one explicit canonical PLC profile. | Open the `slmp-connection` config node and select the correct PLC profile, such as `melsec:iq-r`. |
+| `slmp-read` produces no useful payload, or simple reads return an SLMP end code. | The connection has no valid PLC profile, the selected profile does not match the PLC, or the PLC port data code is wrong. | Open the `slmp-connection` config node and select the exact canonical profile. Confirm the PLC Ethernet port is configured for binary SLMP. |
 
-## Mixed word+bit write fails
+## Reads work but writes fail
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject mixed word and bit block writes. | Use one `slmp-write` node for word updates and another `slmp-write` node for bit updates. |
+| `slmp-read` works, but `slmp-write` is rejected. | PLC-side write permission during RUN, remote password state, or profile write policy blocks the write. | Check the PLC setup guide and the selected profile's write policy. `S` is read-only except on iQ-F profiles. |
+
+## Large requests fail with point-limit end codes
+
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| A large read/write flow fails with `C051`, `C052`, `C053`, or `C054`. | The request exceeds the selected profile's per-request point limit. | Split the address list across multiple nodes/messages. Check the shared profile parameter table for the limit. |
 
 ## Some profiles reject block commands
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| A flow or function-node call that uses block access fails when the connection profile is `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | These profiles do not use block access for normal high-level flows. | Use normal read/write flows or separate direct/random operations for those profiles. Only disable Strict profile when you intentionally want to send the command and inspect the PLC response. |
+| A flow or function-node call using block access fails for `melsec:qcpu`, `melsec:qnu`, `melsec:lcpu`, or `melsec:qnudv`. | These profiles do not use block commands for normal high-level access. | Use normal read/write flows. Disable Strict profile only when you intentionally want to send the command and inspect the PLC response. |
 
-## S write is rejected
+## Mixed word and bit write fails
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `S10:BIT` can be read but `slmp-write` rejects it. | The selected profile marks `S` as read-only. iQ-F profiles allow `S` writes. | Follow the selected profile's write policy. |
+| One `slmp-write` node that writes word addresses and bit addresses returns a PLC error. | Some PLCs reject mixed word and bit block writes. | Use one `slmp-write` node/message for word updates and another for bit updates. |
+
+## iQ-F X/Y or DX/DY addresses fail
+
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| `X`/`Y` points look shifted, or `DX`/`DY` fails on `melsec:iq-f`. | iQ-F uses octal text for `X`/`Y`, and the iQ-F profile does not support `DX`/`DY`. | Use `X` and `Y` with the iQ-F profile and review addresses when copying flows between profiles. |
+
+## Long timer/counter/index values look wrong
+
+| Symptom | Root cause | Fix |
+| --- | --- | --- |
+| Long timer, long counter, or long index values look truncated or are rejected. | `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit current-value families. | Address them as `LTN0:D`, `LSTN0:D`, `LCN0:D`, or `LZ0:D`; use `:L` for signed 32-bit values. |
+| `LCS` or `LCC` does not behave like a word value. | Long counter state devices are bits. | Use `LCS0:BIT` or `LCC0:BIT`. |
 
 ## G/HG rejected
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
-| `G` or `HG` addresses are rejected by `slmp-read` or `slmp-write`. | Module buffer access is not exposed through the high-level Node-RED node surface. | Keep `G` and `HG` out of high-level flows, or use a function node with the lower-level JavaScript API for qualified extend-unit access. |
-
-## DX/DY fails on melsec:iq-f
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| `DX` or `DY` fails when the connection PLC profile is `melsec:iq-f`. | The iQ-F profile does not support `DX` and `DY`. | Use `X` and `Y` for iQ-F, and remember that iQ-F `X`/`Y` text uses octal numbering. |
-
-## LTN/LSTN/LCN/LZ reads return wrong data
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| Long timer, long counter, or long index values look truncated or are rejected. | `LTN`, `LSTN`, `LCN`, and `LZ` are 32-bit current-value families, not normal 16-bit word values. | Address them as `LTN0:D`, `LSTN0:D`, `LCN0:D`, or `LZ0:D`; use `:L` for signed 32-bit values. |
+| `G` or `HG` addresses are rejected by `slmp-read` or `slmp-write`. | Module buffer memory is not exposed through the high-level Node-RED node surface as a standalone device route. | Keep `G` and `HG` out of high-level flows, or use a function node with the lower-level JavaScript API for qualified extended access. |
 
 ## Non-canonical PLC profile rejected
 
 | Symptom | Root cause | Fix |
 | --- | --- | --- |
 | A hand-edited flow or environment-provided PLC profile is rejected. | The node accepts only exact canonical PLC profiles. Short names and aliases are not normalized. | Use one of the canonical profiles shown in the `slmp-connection` dropdown, such as `melsec:iq-r`. |
-
-## X/Y works on one PLC profile but fails on another
-
-| Symptom | Root cause | Fix |
-| --- | --- | --- |
-| An `X` or `Y` address works after changing PLC profile but points at a different I/O point. | `melsec:iq-f` uses octal `X`/`Y` text, while the other supported profiles use hexadecimal text. | Review `X` and `Y` addresses whenever you copy a flow between PLC profiles. |
 
 ## D50.3,count is rejected
 

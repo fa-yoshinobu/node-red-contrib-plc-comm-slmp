@@ -26,6 +26,32 @@
 | Module I/O | Target module I/O number, entered as hexadecimal such as `03FF`. |
 | Multidrop | Target multidrop station number, `0` to `255`. |
 
+## Routing / target station
+
+Most flows keep the route fields at their defaults, which target the directly
+connected own station/control CPU. Change them only when your PLC network is
+configured for another station, multi-CPU module I/O, or multidrop access.
+
+Route fields control the SLMP destination header. They are not device family
+selectors; routed devices such as `Un\Gn` and `Jn\...` still need their own
+address syntax.
+
+Per-request routing can be supplied from a message:
+
+```json
+{
+  "target": {
+    "network": 1,
+    "station": 2,
+    "moduleIO": "03FF",
+    "multidrop": 0
+  }
+}
+```
+
+The same object can be placed in `msg.slmp.target`, or configured through the
+Route source on `slmp-read` and `slmp-write`.
+
 ## slmp-read node
 
 | Config field | Description |
