@@ -53,11 +53,6 @@ Start with the basic flow before importing the device-matrix flow.
 | [PLC profiles](docsrc/user/PROFILES.md) | Choose the canonical MELSEC profile and frame behavior. |
 | [Example flows](examples/flows/README.md) | Import maintained Node-RED example flows. |
 
-## Hardware verified
-
-Live-device verification is maintained in [Latest communication verification](docsrc/user/LATEST_COMMUNICATION_VERIFICATION.md).
-See that page for verified PLC models, transports, dates, limitations, and retained validation notes.
-
 ## License and registry
 
 | Item | Value |
