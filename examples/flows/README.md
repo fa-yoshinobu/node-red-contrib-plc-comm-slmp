@@ -24,11 +24,22 @@ The `slmp-connection` config node does not run a background reconnect timer by i
 
 For a 24-hour polling flow, use an Inject node for the read interval, route the read node's error output or a Catch node to a Delay node, then send `msg.topic = "reinitialize"` back to the same read node before the next read. Start with a 1 second delay and cap the retry delay around 30 seconds. Keep the polling path read-only unless the flow is deliberately testing writes.
 
+## Operational recipes
+
+`slmp-multi-plc-monitor.json` is the read-only multi-PLC monitor recipe. It polls two connection config nodes, emits long-form rows shaped as `timestamp,plc,tag,value`, and uses `connected`, `lost`, `reconnecting`, and `recovered` state transitions with a 1 second to 30 second backoff.
+
+For config-driven polling, keep the config in an Inject or Function node and feed `msg.addresses` into `slmp-read`. A compact JSON shape is:
+
+```json
+{"plcs":[{"name":"line-a","connection":"cfg-slmp-monitor-a","tags":[{"name":"d100","address":"D100:U"}]}],"interval":1,"initialBackoffMs":1000,"maxBackoffMs":30000}
+```
+
 ## Flow index
 
 | File | What it demonstrates | Recommended first-use order |
 | --- | --- | --- |
 | [`slmp-basic-read-write.json`](slmp-basic-read-write.json) | Basic TCP read and write with scalar words, float values, and bit-in-word access. | 1 |
+| [`slmp-multi-plc-monitor.json`](slmp-multi-plc-monitor.json) | Read-only multi-PLC monitor with long-form row output and reconnect backoff. | 1 after connection settings are known |
 | [`slmp-array-string.json`](slmp-array-string.json) | TCP array access with `,count`, float arrays, and `:STR` string access. | 2 |
 | [`slmp-control-error.json`](slmp-control-error.json) | Connection control messages, `msg`-provided addresses, and second-output error routing. | 3 |
 | [`slmp-routing.json`](slmp-routing.json) | Per-request route override with `msg.target`. | 4 |

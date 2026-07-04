@@ -183,6 +183,12 @@ Send any of these fields to `slmp-read` or `slmp-write`:
 | `msg.disconnect = true` | Same as `disconnect`. |
 | `msg.reinitialize = true` | Same as `reinitialize`. |
 
+## Operational recipes
+
+The `examples/flows/slmp-multi-plc-monitor.json` flow is a read-only multi-PLC monitor. It polls `D100:U`, emits long-form rows shaped as `timestamp,plc,tag,value`, and uses `connected`, `lost`, `reconnecting`, and `recovered` state transitions with a 1 second to 30 second backoff.
+
+For config-driven polling, keep a JSON config in an Inject or Function node and feed `msg.addresses` into `slmp-read`; no extra node type is required.
+
 ## Metadata output
 
 When Metadata is `full`, `msg.slmp` includes:
