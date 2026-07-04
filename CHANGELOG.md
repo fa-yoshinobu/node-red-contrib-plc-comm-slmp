@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Documented strict profile behavior, applied feature keys, and Node-RED out-of-scope capability keys.
 - Docs: Removed the duplicated SLMP supported-register user page and linked users to the shared SLMP Profile Reference.
 - Docs: Added a Usage Guide example showing how to read `msg.error.endCode` and structured `msg.error.errorInfo`.
+- Docs: Clarified that public read/write nodes do not expose `Un\G`, `Un\HG`, or `Jn\...` extended device address forms.
 - Docs: Slimmed Gotchas to Node-RED-specific items and moved shared setup/end-code symptoms to the PLC Setup Guide.
 - Docs: Cleaned up maintainer notes and normalized the root TODO.
 - Release: Excluded maintainer-only files, scripts, and tests from generated source archives via `.gitattributes`.

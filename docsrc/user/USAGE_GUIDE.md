@@ -62,6 +62,10 @@ Per-request routing can be supplied from a message:
 The same object can be placed in `msg.slmp.target`, or configured through the
 Route source on `slmp-read` and `slmp-write`.
 
+`slmp-read` and `slmp-write` use the public high-level address parser for normal
+device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
+device access as user-facing address forms.
+
 ## slmp-read node
 
 | Config field | Description |
