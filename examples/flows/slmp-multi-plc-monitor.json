@@ -1,0 +1,279 @@
+[
+  {
+    "id": "tab-slmp-multi-monitor",
+    "type": "tab",
+    "label": "SLMP Multi PLC Monitor",
+    "disabled": false,
+    "info": "Read-only two-PLC monitor. Successful reads produce long-form rows with timestamp, plc, tag, and value. Errors transition through lost/reconnecting and send msg.reinitialize after a 1s to 30s backoff."
+  },
+  {
+    "id": "comment-slmp-multi-monitor",
+    "type": "comment",
+    "z": "tab-slmp-multi-monitor",
+    "name": "Read-only multi-PLC monitor with reconnect backoff",
+    "info": "Configure the two SLMP connection nodes before deploy. This flow uses only slmp-read nodes; no PLC write node is in the polling path.",
+    "x": 310,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "inject-slmp-monitor",
+    "type": "inject",
+    "z": "tab-slmp-multi-monitor",
+    "name": "Poll every 1s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "1",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 120,
+    "y": 120,
+    "wires": [
+      [
+        "read-slmp-line-a",
+        "read-slmp-line-b"
+      ]
+    ]
+  },
+  {
+    "id": "read-slmp-line-a",
+    "type": "slmp-read",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-a D100",
+    "connection": "cfg-slmp-monitor-a",
+    "addresses": "D100:U",
+    "addressesType": "str",
+    "outputMode": "object",
+    "errorHandling": "output2",
+    "x": 350,
+    "y": 100,
+    "wires": [
+      [
+        "fn-slmp-line-a-ok"
+      ],
+      [
+        "fn-slmp-line-a-error"
+      ]
+    ]
+  },
+  {
+    "id": "read-slmp-line-b",
+    "type": "slmp-read",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-b D100",
+    "connection": "cfg-slmp-monitor-b",
+    "addresses": "D100:U",
+    "addressesType": "str",
+    "outputMode": "object",
+    "errorHandling": "output2",
+    "x": 350,
+    "y": 180,
+    "wires": [
+      [
+        "fn-slmp-line-b-ok"
+      ],
+      [
+        "fn-slmp-line-b-error"
+      ]
+    ]
+  },
+  {
+    "id": "fn-slmp-line-a-ok",
+    "type": "function",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-a rows + state",
+    "func": "const plc = 'line-a';\nconst state = flow.get('slmpMultiMonitorState') || {};\nconst previous = state[plc] && state[plc].state;\nstate[plc] = { state: previous === 'reconnecting' ? 'recovered' : 'connected', backoff: 1000 };\nflow.set('slmpMultiMonitorState', state);\nconst timestamp = new Date().toISOString();\nconst values = msg.payload || {};\nmsg.payload = Object.entries(values).map(([tag, value]) => ({ timestamp, plc, tag, value }));\nmsg.state = state[plc].state;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 600,
+    "y": 100,
+    "wires": [
+      [
+        "debug-slmp-monitor-rows"
+      ]
+    ]
+  },
+  {
+    "id": "fn-slmp-line-b-ok",
+    "type": "function",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-b rows + state",
+    "func": "const plc = 'line-b';\nconst state = flow.get('slmpMultiMonitorState') || {};\nconst previous = state[plc] && state[plc].state;\nstate[plc] = { state: previous === 'reconnecting' ? 'recovered' : 'connected', backoff: 1000 };\nflow.set('slmpMultiMonitorState', state);\nconst timestamp = new Date().toISOString();\nconst values = msg.payload || {};\nmsg.payload = Object.entries(values).map(([tag, value]) => ({ timestamp, plc, tag, value }));\nmsg.state = state[plc].state;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 600,
+    "y": 180,
+    "wires": [
+      [
+        "debug-slmp-monitor-rows"
+      ]
+    ]
+  },
+  {
+    "id": "fn-slmp-line-a-error",
+    "type": "function",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-a lost/reconnecting",
+    "func": "const plc = 'line-a';\nconst state = flow.get('slmpMultiMonitorState') || {};\nconst current = state[plc] || { backoff: 1000 };\nconst status = { plc, state: 'lost', retryMs: current.backoff, error: msg.error || msg.payload };\nmsg.delay = current.backoff;\nmsg.topic = 'reinitialize';\nmsg.reinitialize = true;\nmsg.state = 'reconnecting';\nmsg.payload = status;\nstate[plc] = { state: 'reconnecting', backoff: Math.min(current.backoff * 2, 30000) };\nflow.set('slmpMultiMonitorState', state);\nreturn [msg, { payload: status }];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 140,
+    "wires": [
+      [
+        "delay-slmp-line-a"
+      ],
+      [
+        "debug-slmp-monitor-state"
+      ]
+    ]
+  },
+  {
+    "id": "fn-slmp-line-b-error",
+    "type": "function",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-b lost/reconnecting",
+    "func": "const plc = 'line-b';\nconst state = flow.get('slmpMultiMonitorState') || {};\nconst current = state[plc] || { backoff: 1000 };\nconst status = { plc, state: 'lost', retryMs: current.backoff, error: msg.error || msg.payload };\nmsg.delay = current.backoff;\nmsg.topic = 'reinitialize';\nmsg.reinitialize = true;\nmsg.state = 'reconnecting';\nmsg.payload = status;\nstate[plc] = { state: 'reconnecting', backoff: Math.min(current.backoff * 2, 30000) };\nflow.set('slmpMultiMonitorState', state);\nreturn [msg, { payload: status }];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 620,
+    "y": 220,
+    "wires": [
+      [
+        "delay-slmp-line-b"
+      ],
+      [
+        "debug-slmp-monitor-state"
+      ]
+    ]
+  },
+  {
+    "id": "delay-slmp-line-a",
+    "type": "delay",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-a backoff",
+    "pauseType": "delayv",
+    "timeout": "1",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 860,
+    "y": 140,
+    "wires": [
+      [
+        "read-slmp-line-a"
+      ]
+    ]
+  },
+  {
+    "id": "delay-slmp-line-b",
+    "type": "delay",
+    "z": "tab-slmp-multi-monitor",
+    "name": "line-b backoff",
+    "pauseType": "delayv",
+    "timeout": "1",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 860,
+    "y": 220,
+    "wires": [
+      [
+        "read-slmp-line-b"
+      ]
+    ]
+  },
+  {
+    "id": "debug-slmp-monitor-rows",
+    "type": "debug",
+    "z": "tab-slmp-multi-monitor",
+    "name": "CSV rows",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 860,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "debug-slmp-monitor-state",
+    "type": "debug",
+    "z": "tab-slmp-multi-monitor",
+    "name": "state",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 850,
+    "y": 300,
+    "wires": []
+  },
+  {
+    "id": "cfg-slmp-monitor-a",
+    "type": "slmp-connection",
+    "name": "line-a iQ-R UDP",
+    "host": "192.168.250.101",
+    "port": "1035",
+    "transport": "udp",
+    "timeout": "3000",
+    "plcProfile": "melsec:iq-r",
+    "monitoringTimer": "16",
+    "network": "0",
+    "station": "255",
+    "moduleIO": "03FF",
+    "multidrop": "0"
+  },
+  {
+    "id": "cfg-slmp-monitor-b",
+    "type": "slmp-connection",
+    "name": "line-b iQ-F TCP",
+    "host": "192.168.250.100",
+    "port": "1025",
+    "transport": "tcp",
+    "timeout": "3000",
+    "plcProfile": "melsec:iq-f",
+    "monitoringTimer": "16",
+    "network": "0",
+    "station": "255",
+    "moduleIO": "03FF",
+    "multidrop": "0"
+  }
+]

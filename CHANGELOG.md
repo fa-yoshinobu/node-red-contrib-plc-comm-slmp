@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Samples: Added a read-only `slmp-multi-plc-monitor.json` operational flow with long-form row output and reconnect backoff guidance.
 - Library: Added non-breaking SLMP specification-audit updates for point-limit guards and PLC error diagnostics.
 - Library: Exposed structured PLC error information on decoded responses and `SlmpError.errorInfo` when a non-zero end-code response carries the 9-byte error information block.
 - Library: Enforced the documented iQ-F direct bit access limit of 3584 points before transport while keeping the existing 7168-point limit for non-iQ-F profiles.
