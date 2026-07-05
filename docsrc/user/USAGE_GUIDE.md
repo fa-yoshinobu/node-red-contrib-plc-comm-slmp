@@ -17,14 +17,22 @@
 | Port | TCP or UDP port. Use `1025` for TCP examples and `1035` for UDP examples. |
 | Transport | `tcp` or `udp`. |
 | Timeout ms | Communication timeout in milliseconds. |
-| PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:qcpu`, `melsec:lcpu`, `melsec:qnu`, and `melsec:qnudv`. |
-| Strict profile | Enabled by default. Rejects high-level features known unavailable on the selected built-in Ethernet profile before sending. |
+| PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-r:rj71en71`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:lcpu`, `melsec:lcpu:lj71e71-100`, `melsec:qcpu:qj71e71-100`, `melsec:qnu`, `melsec:qnu:qj71e71-100`, `melsec:qnudv`, and `melsec:qnudv:qj71e71-100`. |
+| Strict profile | Enabled by default. Rejects high-level features known unavailable on the selected PLC profile before sending. |
 | Remote password | Optional SLMP remote password credential. When set, the connection unlocks after opening and tries to lock before disconnecting. |
 | Monitor timer | SLMP monitoring timer value sent in requests. |
 | Network | Target network number, `0` to `255`. |
 | Station | Target station number, `0` to `255`. |
 | Module I/O | Target module I/O number, entered as hexadecimal such as `03FF`. |
 | Multidrop | Target multidrop station number, `0` to `255`. |
+
+Requests that share one `slmp-connection` are sent in FIFO order. The next
+request waits until the previous request has received a response, timed out, or
+failed. This is intentional for SLMP compatibility because PLCs have
+model-dependent limits for commands sent before earlier responses arrive.
+
+For parallel communication, use separate `slmp-connection` config nodes. Each
+config node owns its own client connection and therefore its own request queue.
 
 ## Remote password
 

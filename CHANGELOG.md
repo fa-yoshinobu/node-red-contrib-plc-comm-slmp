@@ -37,11 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Rejected `G/HG` random bit writes and aligned long counter state metadata so `LCS/LCC` remain long-helper entries while using their direct bit-read route internally.
 - Library: Moved Q/L profile Read Block (`0x0406`) and Write Block (`0x1406`) rejection to the capability profile guard so `strictProfile=false` can intentionally send the request and let the PLC answer.
 - Library: Batched named plain-bit reads through random word-read only for `SM/X/Y/M/L/F/V/B/SB`; `TS/TC/STS/STC/CS/CC/DX/DY` stay on direct bit reads.
+- Library: Serialized all requests on a single `SlmpClient` connection, including 4E and send-only requests. Concurrent 3E calls now wait instead of failing with a second-pending-request error, and 4E calls keep their results while sending one request at a time.
 - Node-RED editor: Added a Strict profile checkbox to `slmp-connection`, enabled by default.
 - Docs: Documented profile-specific `S` write policy and clarified `G/HG` guidance in the public Node-RED docs.
 - Docs: Documented strict profile behavior, applied feature keys, and Node-RED out-of-scope capability keys.
 - Docs: Removed the duplicated SLMP supported-register user page and linked users to the shared SLMP Profile Reference.
 - Docs: Added a Usage Guide example showing how to read `msg.error.endCode` and structured `msg.error.errorInfo`.
+- Docs: Documented single-connection request serialization and the separate-connection pattern for parallel communication.
 - Docs: Clarified that public read/write nodes do not expose `Un\G`, `Un\HG`, or `Jn\...` extended device address forms.
 - Docs: Removed the manual page-navigation block from Getting Started and rely on site navigation instead.
 - Docs: Moved shared SLMP gotcha items to the common troubleshooting page and kept Gotchas focused on Node-RED-specific behavior.

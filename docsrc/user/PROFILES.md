@@ -17,13 +17,20 @@ catalog. Keep the PLC profile as an explicit human/configuration choice.
 | --- | --- | --- | --- |
 | `melsec:iq-f` | MELSEC iQ-F | 3E | `X` and `Y` addresses use octal numbering. `DX` and `DY` are not valid. |
 | `melsec:iq-r` | MELSEC iQ-R | 4E | Default profile used by the examples. |
+| `melsec:iq-r:rj71en71` | MELSEC iQ-R via RJ71EN71 | 4E | Ethernet-unit profile using iQ-R compatibility. |
 | `melsec:iq-l` | MELSEC iQ-L | 4E | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F | 4E | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R | 4E | Use for MELSEC MX-R targets. |
-| `melsec:qcpu` | MELSEC QCPU | 3E | Q/L-series profile. Use normal read/write flows for typical device access. |
 | `melsec:lcpu` | MELSEC LCPU | 3E | Q/L-series profile. Use normal read/write flows for typical device access. |
+| `melsec:lcpu:lj71e71-100` | MELSEC LCPU via LJ71E71-100 | 4E | Ethernet unit profile using Q/L compatibility. |
+| `melsec:qcpu:qj71e71-100` | MELSEC QCPU via QJ71E71-100 | 4E | Ethernet unit profile for QCPU connections. |
 | `melsec:qnu` | MELSEC QnU | 3E | Q/L-series profile. Use normal read/write flows for typical device access. |
+| `melsec:qnu:qj71e71-100` | MELSEC QnU via QJ71E71-100 | 4E | Ethernet unit profile using Q/L compatibility. |
 | `melsec:qnudv` | MELSEC QnUDV | 3E | Q/L-series profile. Use normal read/write flows for typical device access. |
+| `melsec:qnudv:qj71e71-100` | MELSEC QnUDV via QJ71E71-100 | 4E | Ethernet unit profile using Q/L compatibility. |
+
+`melsec:qcpu` is base-only and is not selectable in the editor. Use
+`melsec:qcpu:qj71e71-100` for QCPU Ethernet unit connections.
 
 ## How to configure the connection node
 

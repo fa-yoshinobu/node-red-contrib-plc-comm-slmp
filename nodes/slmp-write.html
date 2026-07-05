@@ -28,13 +28,18 @@
   const SLMP_WRITE_UNSUPPORTED_DEVICE_CODES_BY_FAMILY = Object.freeze({
     "melsec:iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD"],
     "melsec:iq-r": [],
+    "melsec:iq-r:rj71en71": [],
     "melsec:iq-l": [],
     "melsec:mx-f": [],
     "melsec:mx-r": [],
     "melsec:qcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:qcpu:qj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
     "melsec:lcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:lcpu:lj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
     "melsec:qnu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
-    "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"]
+    "melsec:qnu:qj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"],
+    "melsec:qnudv:qj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD"]
   });
   const SLMP_WRITE_DTYPE_SUFFIXES = new Set(["BIT", "U", "S", "I", "D", "L", "F", "STR", "STRING"]);
   function slmpGetWriteCurrentType(typeSelector, fallback) {

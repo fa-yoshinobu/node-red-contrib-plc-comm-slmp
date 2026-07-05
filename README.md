@@ -14,6 +14,12 @@ The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choo
 
 The `slmp-connection` node has a Strict profile option, enabled by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending. Disable Strict profile only for deliberate verification where you want the PLC to answer directly.
 
+## Request serialization
+
+Requests sent through the same `slmp-connection` are serialized on that client connection. A queued request is not sent until the previous request has completed, timed out, or failed. This applies to 3E/4E and TCP/UDP requests, including send-only requests.
+
+If a flow needs real parallel PLC communication, create separate `slmp-connection` config nodes so each path uses its own PLC connection.
+
 ## Supported device types
 
 The maintained device and range tables are in the [SLMP Profile Reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/). Use that page for supported device families, address syntax, and profile-specific notes.

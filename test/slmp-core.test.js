@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const net = require("node:net");
 const path = require("node:path");
 
 const {
@@ -17,6 +18,7 @@ const {
   deviceToString,
   encodeDeviceSpec,
   encodeRequest,
+  extractFrameFromBuffer,
   isDeviceCodeSupportedForPlcProfile,
   packBitValues,
   parseDevice,
@@ -54,6 +56,10 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
   assert.throws(() => parseDevice("LCS10", { plcProfile: "melsec:lcpu" }), /not supported for plcProfile 'melsec:lcpu'/);
   assert.throws(() => parseDevice("RD10", { plcProfile: "melsec:qnudv" }), /not supported for plcProfile 'melsec:qnudv'/);
   assert.throws(() => parseDevice("LZ0", { plcProfile: "melsec:qnu" }), /not supported for plcProfile 'melsec:qnu'/);
+  assert.throws(
+    () => parseDevice("LTN0", { plcProfile: "melsec:qcpu:qj71e71-100" }),
+    /not supported for plcProfile 'melsec:qcpu:qj71e71-100'/
+  );
   assert.throws(() => parseDevice("G10", { plcProfile: "melsec:iq-r" }), /not supported in the Node-RED public high-level surface/);
   assert.throws(() => parseDevice("G10"), /not supported in the Node-RED public high-level surface/);
   assert.throws(() => parseDevice("HG10"), /not supported in the Node-RED public high-level surface/);
@@ -91,6 +97,24 @@ test("resolveConnectionProfile derives fixed defaults from plcProfile", () => {
     addressProfile: "melsec:iq-l",
     rangeProfile: "melsec:iq-l",
   });
+  assert.deepEqual(resolveConnectionProfile({ plcProfile: "melsec:qcpu:qj71e71-100" }), {
+    plcProfile: "melsec:qcpu:qj71e71-100",
+    plcSeries: "ql",
+    frameType: "4e",
+    addressProfile: "melsec:qcpu",
+    rangeProfile: "melsec:qcpu:qj71e71-100",
+  });
+  assert.deepEqual(resolveConnectionProfile({ plcProfile: "melsec:iq-r:rj71en71" }), {
+    plcProfile: "melsec:iq-r:rj71en71",
+    plcSeries: "iqr",
+    frameType: "4e",
+    addressProfile: "melsec:iq-r",
+    rangeProfile: "melsec:iq-r:rj71en71",
+  });
+  assert.throws(
+    () => resolveConnectionProfile({ plcProfile: "melsec:qcpu" }),
+    /melsec:qcpu is a base profile; use melsec:qcpu:qj71e71-100/
+  );
   assert.throws(
     () => resolveConnectionProfile({ plcProfile: "melsec:iq-r", plcSeries: "ql" }),
     /already determines frameType, plcSeries/
@@ -192,55 +216,236 @@ test("decodeResponse and SlmpError expose structured PLC error information", () 
   assert.deepEqual(parseSlmpErrorInfo(errorData), decoded.errorInfo);
 });
 
-test("3E client keeps requests serialized", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+test("4E TCP client waits for the first response before sending the second request frame", async () => {
+  const frames = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    frames.push(Buffer.from(frame));
+    if (frames.length > 1) {
+      socket.write(responseForRequest(frame, "4e", [0x22, 0x22]));
+    }
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+
+  try {
+    const first = client.rawCommand(0x0401, { payload: Buffer.from([0x01]) });
+    const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
+
+    await waitFor(() => frames.length === 1);
+    await delay(30);
+    assert.equal(frames.length, 1);
+
+    server.sockets[0].write(responseForRequest(frames[0], "4e", [0x11, 0x11]));
+    const [firstResponse, secondResponse] = await Promise.all([first, second]);
+
+    assert.equal(frames.length, 2);
+    assert.deepEqual([...requestPayload(frames[0], "4e")], [0x01]);
+    assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
+    assert.deepEqual([...firstResponse.data], [0x11, 0x11]);
+    assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("4E TCP client preserves FIFO send order for concurrently issued requests", async () => {
+  const order = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    order.push(requestPayload(frame, "4e")[0]);
+    socket.write(responseForRequest(frame, "4e", [requestPayload(frame, "4e")[0]]));
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+
+  try {
+    const responses = await Promise.all([
+      client.rawCommand(0x0401, { payload: Buffer.from([0x01]) }),
+      client.rawCommand(0x0401, { payload: Buffer.from([0x02]) }),
+      client.rawCommand(0x0401, { payload: Buffer.from([0x03]) }),
+    ]);
+
+    assert.deepEqual(order, [0x01, 0x02, 0x03]);
+    assert.deepEqual(responses.map((response) => response.data[0]), [0x01, 0x02, 0x03]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("4E TCP request gate releases after timeout and sends the next queued request", async () => {
+  const frames = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    frames.push(Buffer.from(frame));
+    if (frames.length === 2) {
+      socket.write(responseForRequest(frame, "4e", [0x22, 0x22]));
+    }
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 25, _allowManualProfile: true });
+
+  try {
+    const first = client.rawCommand(0x0401, { payload: Buffer.from([0x01]) });
+    const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
+
+    await assert.rejects(() => first, /TCP communication timeout/);
+    const secondResponse = await second;
+
+    assert.equal(frames.length, 2);
+    assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
+    assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("4E TCP request gate releases after transport close and reconnects for the next queued request", async () => {
+  const frames = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    frames.push(Buffer.from(frame));
+    if (frames.length === 1) {
+      socket.destroy();
+      return;
+    }
+    socket.write(responseForRequest(frame, "4e", [0x33, 0x33]));
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+
+  try {
+    const first = client.rawCommand(0x0401, { payload: Buffer.from([0x01]) });
+    const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
+
+    await assert.rejects(() => first, /TCP connection closed|TCP transport failure|read ECONNRESET/);
+    const secondResponse = await second;
+
+    assert.equal(frames.length, 2);
+    assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
+    assert.deepEqual([...secondResponse.data], [0x33, 0x33]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("4E TCP request gate releases after a PLC end-code error", async () => {
+  const frames = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    frames.push(Buffer.from(frame));
+    if (frames.length === 1) {
+      socket.write(responseForRequest(frame, "4e", [], 0xc051));
+      return;
+    }
+    socket.write(responseForRequest(frame, "4e", [0x44, 0x44]));
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+
+  try {
+    const first = client.rawCommand(0x0401, { payload: Buffer.from([0x01]) });
+    const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
+
+    await assert.rejects(() => first, (error) => error instanceof SlmpError && error.endCode === 0xc051);
+    const secondResponse = await second;
+
+    assert.equal(frames.length, 2);
+    assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
+    assert.deepEqual([...secondResponse.data], [0x44, 0x44]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("expectResponse false requests keep FIFO send order in the shared request queue", async () => {
+  const order = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    order.push(requestPayload(frame, "4e")[0]);
+    if (order.length === 1 || order.length === 3) {
+      socket.write(responseForRequest(frame, "4e", [requestPayload(frame, "4e")[0]]));
+    }
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+
+  try {
+    await Promise.all([
+      client.rawCommand(0x0401, { payload: Buffer.from([0x01]) }),
+      client.rawCommand(0x1401, { payload: Buffer.from([0x02]), expectResponse: false }),
+      client.rawCommand(0x0401, { payload: Buffer.from([0x03]) }),
+    ]);
+
+    assert.deepEqual(order, [0x01, 0x02, 0x03]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("3E TCP concurrently issued requests wait and both complete instead of failing on a second pending request", async () => {
+  const order = [];
+  const server = await startMockTcpServer("3e", ({ frame, socket }) => {
+    order.push(requestPayload(frame, "3e")[0]);
+    socket.write(responseForRequest(frame, "3e", [requestPayload(frame, "3e")[0]]));
+  });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "3e", timeout: 200, _allowManualProfile: true });
+
+  try {
+    const responses = await Promise.all([
+      client.rawCommand(0x0401, { payload: Buffer.from([0x01]) }),
+      client.rawCommand(0x0401, { payload: Buffer.from([0x02]) }),
+    ]);
+
+    assert.deepEqual(order, [0x01, 0x02]);
+    assert.deepEqual(responses.map((response) => response.data[0]), [0x01, 0x02]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+
+test("request serialization gate is independent of transport type", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", transport: "udp", frameType: "4e", _allowManualProfile: true });
   let active = 0;
   let maxActive = 0;
 
   client._requestInternal = async () => {
     active += 1;
     maxActive = Math.max(maxActive, active);
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    await delay(5);
     active -= 1;
-    return { ok: true };
+    return { endCode: 0, data: Buffer.alloc(0) };
   };
 
-  await Promise.all([client.request(0x0401), client.request(0x0401), client.request(0x0401)]);
+  await Promise.all([
+    client.rawCommand(0x0401, { payload: Buffer.from([0x01]) }),
+    client.rawCommand(0x0401, { payload: Buffer.from([0x02]) }),
+    client.rawCommand(0x0401, { payload: Buffer.from([0x03]) }),
+  ]);
+
   assert.equal(maxActive, 1);
 });
 
-test("4E client keeps requests serialized by default for single-connection compatibility", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", _allowManualProfile: true });
-  let active = 0;
-  let maxActive = 0;
+test("remote password unlock sequence does not deadlock behind the request serialization gate", async () => {
+  const commands = [];
+  const server = await startMockTcpServer("4e", ({ frame, socket }) => {
+    commands.push(frame.readUInt16LE(15));
+    socket.write(responseForRequest(frame, "4e", []));
+  });
+  const client = new SlmpClient({
+    host: "127.0.0.1",
+    port: server.port,
+    transport: "tcp",
+    frameType: "4e",
+    plcSeries: "iqr",
+    remotePassword: "secret1",
+    timeout: 200,
+    _allowManualProfile: true,
+  });
 
-  client._requestInternal = async () => {
-    active += 1;
-    maxActive = Math.max(maxActive, active);
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    active -= 1;
-    return { ok: true };
-  };
+  try {
+    await withTimeout(client.rawCommand(0x0401, { payload: Buffer.from([0x01]) }), 300);
 
-  await Promise.all([client.request(0x0401), client.request(0x0401), client.request(0x0401)]);
-  assert.equal(maxActive, 1);
-});
-
-test("4E client can opt into concurrent requests", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", allowConcurrentRequests: true, _allowManualProfile: true });
-  let active = 0;
-  let maxActive = 0;
-
-  client._requestInternal = async () => {
-    active += 1;
-    maxActive = Math.max(maxActive, active);
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    active -= 1;
-    return { ok: true };
-  };
-
-  await Promise.all([client.request(0x0401), client.request(0x0401), client.request(0x0401)]);
-  assert.equal(maxActive, 3);
+    assert.deepEqual(commands.slice(0, 2), [Command.REMOTE_PASSWORD_UNLOCK, 0x0401]);
+  } finally {
+    await client.close();
+    await server.close();
+  }
 });
 
 test("4E TCP response matching uses serial instead of FIFO order", async () => {
@@ -589,7 +794,6 @@ test("concurrent remote password requests wait for the same unlock", async () =>
     frameType: "4e",
     plcSeries: "iqr",
     remotePassword: "secret1",
-    allowConcurrentRequests: true,
     _allowManualProfile: true,
   });
   const commands = [];
@@ -880,7 +1084,7 @@ test("readBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
-for (const profile of ["melsec:qcpu", "melsec:qnu"]) {
+for (const profile of ["melsec:lcpu", "melsec:qnu"]) {
   test(`readBlock rejects ${profile} profile before transport`, async () => {
     const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
     let calls = 0;
@@ -935,7 +1139,7 @@ test("writeBlock rejects LCS/LCC before transport", async () => {
   assert.equal(calls, 0);
 });
 
-for (const profile of ["melsec:qcpu", "melsec:qnu"]) {
+for (const profile of ["melsec:lcpu", "melsec:qnu"]) {
   test(`writeBlock rejects ${profile} profile before transport`, async () => {
     const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
     let calls = 0;
@@ -1035,7 +1239,81 @@ test("request rejects monitor register payloads with G/HG before transport", asy
   assert.equal(calls, 0);
 });
 
-function make4EResponse(serial, data) {
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitFor(predicate, timeoutMs = 200) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await delay(5);
+  }
+  assert.equal(predicate(), true);
+}
+
+function withTimeout(promise, timeoutMs) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`timed out after ${timeoutMs} ms`)), timeoutMs);
+    }),
+  ]);
+}
+
+function startMockTcpServer(frameType, onFrame) {
+  const sockets = [];
+  const server = net.createServer((socket) => {
+    sockets.push(socket);
+    let buffer = Buffer.alloc(0);
+    socket.on("data", (chunk) => {
+      buffer = Buffer.concat([buffer, Buffer.from(chunk)]);
+      while (true) {
+        const extracted = extractFrameFromBuffer(buffer, { frameType });
+        if (!extracted) {
+          return;
+        }
+        buffer = Buffer.from(extracted.rest);
+        onFrame({ frame: Buffer.from(extracted.frame), socket });
+      }
+    });
+  });
+
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve({
+        port: server.address().port,
+        sockets,
+        close: () =>
+          new Promise((closeResolve) => {
+            for (const socket of sockets) {
+              socket.destroy();
+            }
+            server.close(() => closeResolve());
+          }),
+      });
+    });
+  });
+}
+
+function responseForRequest(frame, frameType, data, endCode = 0) {
+  if (frameType === "4e") {
+    return make4EResponse(frame.readUInt16LE(2), data, endCode);
+  }
+  return make3EResponse(data, endCode);
+}
+
+function requestPayload(frame, frameType) {
+  const source = Buffer.from(frame);
+  const dataOffset = frameType === "4e" ? 19 : 15;
+  return source.subarray(dataOffset);
+}
+
+function make4EResponse(serial, data, endCode = 0) {
   const payload = Buffer.from(data);
   const buffer = Buffer.alloc(15 + payload.length);
   buffer.writeUInt16LE(0x00d4, 0);
@@ -1046,12 +1324,12 @@ function make4EResponse(serial, data) {
   buffer.writeUInt16LE(0x03ff, 8);
   buffer.writeUInt8(0x00, 10);
   buffer.writeUInt16LE(2 + payload.length, 11);
-  buffer.writeUInt16LE(0x0000, 13);
+  buffer.writeUInt16LE(endCode, 13);
   payload.copy(buffer, 15);
   return buffer;
 }
 
-function make3EResponse(data) {
+function make3EResponse(data, endCode = 0) {
   const payload = Buffer.from(data);
   const buffer = Buffer.alloc(11 + payload.length);
   buffer.writeUInt16LE(0x00d0, 0);
@@ -1060,7 +1338,7 @@ function make3EResponse(data) {
   buffer.writeUInt16LE(0x03ff, 4);
   buffer.writeUInt8(0x00, 6);
   buffer.writeUInt16LE(2 + payload.length, 7);
-  buffer.writeUInt16LE(0x0000, 9);
+  buffer.writeUInt16LE(endCode, 9);
   payload.copy(buffer, 11);
   return buffer;
 }

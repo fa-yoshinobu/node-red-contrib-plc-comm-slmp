@@ -13,8 +13,8 @@ This package has three layers:
 
 ## Request policy
 
-Requests are serialized by default on a single client connection, including 4E.
-This matches the behavior observed on the current validation PLC more reliably than assuming multiple in-flight requests on one socket.
+Requests are serialized on a single client connection, including 4E and send-only requests.
+This follows the SLMP/MC protocol cautions for model-dependent same-connection in-flight command limits; see `REQUEST_SERIALIZATION_2026-07-05.md`.
 
 ## High-level behavior
 
