@@ -2,6 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
   BUILTIN_CAPABILITY_PROFILES,
@@ -9,12 +11,28 @@ const {
   SlmpClient,
   SlmpProfileFeatureError,
   ValueError,
+  displayName,
   ensureProfileFeatureAllowed,
 } = require("../lib/slmp");
 const fixture = require("./fixtures/slmp_builtin_ethernet_profiles.json");
 
 test("built-in capability profile table matches the canonical fixture", () => {
   assert.deepEqual(BUILTIN_CAPABILITY_PROFILES, fixture);
+  for (const [profileId, profile] of Object.entries(fixture.profiles)) {
+    assert.equal(displayName(profileId), profile.display_name);
+  }
+});
+
+test("Node-RED editor shows display_name labels and keeps canonical PLC profile values", () => {
+  const html = fs.readFileSync(path.join(__dirname, "..", "nodes", "slmp-connection.html"), "utf8");
+  for (const [profileId, profile] of Object.entries(fixture.profiles)) {
+    if (profile.role === "base") {
+      assert.doesNotMatch(html, new RegExp(`<option value="${profileId}">`));
+      continue;
+    }
+    const escapedLabel = profile.display_name.replace(/[()/.]/g, "\\$&");
+    assert.match(html, new RegExp(`<option value="${profileId}">${escapedLabel}</option>`));
+  }
 });
 
 test("blocked profile features fail before transport with a dedicated error", async () => {
