@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Library: Synced the embedded SLMP capability fixture to `plc-comm-slmp-profiles` `v1.2.1`, including `display_name` labels and Ethernet unit profiles for RJ71EN71, LJ71E71-100, and QJ71E71-100 variants.
+- Library: Added `displayName(plcProfile)` as the public UI-label helper while keeping stored PLC profile values canonical.
+- Node-RED editor: Updated the `slmp-connection` PLC profile selector to show canonical `display_name` labels, preserve canonical option values, and omit the base-only QCPU profile from new selections.
+- Docs: Documented the profile display-name helper and canonical-ID storage guidance.
+- Tests: Added canonical fixture parity and editor-option coverage for profile `display_name` values.
 - Samples: Added a read-only `slmp-multi-plc-monitor.json` operational flow with long-form row output and reconnect backoff guidance.
 - Library: Added non-breaking SLMP specification-audit updates for point-limit guards and PLC error diagnostics.
 - Library: Exposed structured PLC error information on decoded responses and `SlmpError.errorInfo` when a non-zero end-code response carries the 9-byte error information block.
