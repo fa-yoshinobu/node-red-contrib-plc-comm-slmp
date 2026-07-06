@@ -18,18 +18,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-07-06
+
+### BREAKING
+- Library: Removed short `ModuleIONo` aliases in favor of the canonical module I/O vocabulary.
+
+| Removed name | Use instead |
+| --- | --- |
+| `CONTROL_CPU`, `CONNECTED_CPU`, `DEFAULT` | `OWN_STATION` |
+| `ACTIVE_CPU` | `CONTROL_SYSTEM_CPU` |
+| `STANDBY_CPU` | `STANDBY_SYSTEM_CPU` |
+| `TYPE_A_CPU` | `SYSTEM_A_CPU` |
+| `TYPE_B_CPU` | `SYSTEM_B_CPU` |
+| `CPU_1` to `CPU_4` | `MULTIPLE_CPU_1` to `MULTIPLE_CPU_4` |
+
 ### Changed
-- Release: Bumped package metadata to `1.3.0`.
-- CI: Added a tag-driven release workflow that re-runs checks and attaches the npm package tarball to the GitHub release.
-- Library: Added `ModuleIONo` named constants for multi-CPU target routing while keeping omitted routes on the default own station.
-- Library: Removed short module I/O aliases as a breaking terminology cleanup; use `CONTROL_CPU` -> `OWN_STATION` for the previous connected-CPU behavior or `CONTROL_SYSTEM_CPU` for the redundant control-system route, `CONNECTED_CPU` / `DEFAULT` -> `OWN_STATION`, `ACTIVE_CPU` -> `CONTROL_SYSTEM_CPU`, `STANDBY_CPU` -> `STANDBY_SYSTEM_CPU`, `TYPE_A_CPU` -> `SYSTEM_A_CPU`, `TYPE_B_CPU` -> `SYSTEM_B_CPU`, and `CPU_1`-`CPU_4` -> `MULTIPLE_CPU_1`-`MULTIPLE_CPU_4`.
-- Library: Updated frame-level test responses to include structured error data on non-zero end-code mock responses.
-- Docs: Documented `ModuleIONo` in the API reference and routing guide.
-- Tests: Added request-header and structured mock error-data coverage for named module I/O constants and non-zero end-code responses.
-- Library: Synced the SLMP capability JSON to `plc-comm-slmp-profiles` `v1.2.2`, including inferred Q/L 008x extended random/monitor limit keys and iQ-F `not-adopted` monitor limit placeholders.
-- Library: Added low-level `readRandomExt`, `writeRandomWordsExt`, and `writeRandomBitsExt` APIs for 008x extended random routes, including U-qualified `G/HG` parsing where the route allows it.
+- Release: Bumped npm package metadata to `2.0.0`.
+- Library: Added `ModuleIONo` named constants, structured mock error-data coverage, and low-level 008x extended random APIs.
+- Library: Synced the SLMP capability JSON to `plc-comm-slmp-profiles` `v1.2.2`.
+- Docs: Added the plc-comm family package matrix link to the README.
 - Tooling: Changed the canonical profile update script default ref to `v1.2.2`.
-- Tests: Added Legacy and iQ-R extended-random payload parity checks against the .NET vectors plus profile ext-limit guard coverage.
 
 ## [1.2.0] - 2026-07-05
 
