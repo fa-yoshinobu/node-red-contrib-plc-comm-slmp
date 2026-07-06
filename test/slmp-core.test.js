@@ -17,6 +17,7 @@ const {
   decodeResponse,
   deviceToString,
   encodeDeviceSpec,
+  encodeExtendedDeviceSpec,
   encodeRequest,
   extractFrameFromBuffer,
   isDeviceCodeSupportedForPlcProfile,
@@ -144,6 +145,41 @@ test("SlmpClient defaults missing port to 1025 but rejects blank port", () => {
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "ql" })], [100, 0, 0, 0xa8]);
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "iqr" })], [100, 0, 0, 0, 0xa8, 0x00]);
+});
+
+test("encodeExtendedDeviceSpec follows manual and qualified layouts", () => {
+  assert.equal(
+    encodeExtendedDeviceSpec("D100", {
+      series: "iqr",
+      extension: {
+        extensionSpecification: 0x0102,
+        extensionSpecificationModification: 0x03,
+        deviceModificationIndex: 0x04,
+        deviceModificationFlags: 0x05,
+        directMemorySpecification: 0x06,
+      },
+    }).toString("hex"),
+    "040564000000a8000300020106"
+  );
+  assert.equal(
+    encodeExtendedDeviceSpec(String.raw`U01\G10`, {
+      series: "iqr",
+      extension: {
+        extensionSpecification: 0x9999,
+        extensionSpecificationModification: 0x07,
+        deviceModificationIndex: 0x08,
+        deviceModificationFlags: 0x09,
+      },
+    }).toString("hex"),
+    "08090a000000ab0007000100f8"
+  );
+  assert.equal(
+    encodeExtendedDeviceSpec(String.raw`J2\SW10`, {
+      series: "iqr",
+      extension: { extensionSpecification: 0xffff },
+    }).toString("hex"),
+    "0000100000b500000200f9"
+  );
 });
 
 test("packBitValues and unpackBitValues round-trip", () => {
@@ -566,6 +602,143 @@ test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async (
       0x0a, 0x00, 0x00, 0x00, 0x51, 0x00, 0x00, 0x00,
     ]
   );
+});
+
+test("extended random APIs use iQR payloads matching dotnet vectors", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client.request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    if (calls.length === 1) {
+      return { endCode: 0, data: Buffer.from([0x34, 0x12, 0xef, 0xcd, 0xab, 0x89]) };
+    }
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  const read = await client.readRandomExt({
+    wordDevices: [["D100", {
+      extensionSpecification: 0x0102,
+      extensionSpecificationModification: 0x03,
+      deviceModificationIndex: 0x04,
+      deviceModificationFlags: 0x05,
+      directMemorySpecification: 0x06,
+    }]],
+    dwordDevices: [[String.raw`U01\G10`, {
+      extensionSpecification: 0x9999,
+      extensionSpecificationModification: 0x07,
+      deviceModificationIndex: 0x08,
+      deviceModificationFlags: 0x09,
+    }]],
+  });
+  assert.deepEqual(read, {
+    word: { D100: 0x1234 },
+    dword: { G10: 0x89abcdef },
+  });
+
+  await client.writeRandomWordsExt({
+    wordValues: [["D10", 0x1234, { extensionSpecification: 0x0001 }]],
+    dwordValues: [["W20", 0x89abcdef, { extensionSpecification: 0x0002 }]],
+  });
+  await client.writeRandomBitsExt({
+    bitValues: [
+      ["M7", true, { extensionSpecification: 0x0003 }],
+      ["M8", false, { extensionSpecification: 0x0004 }],
+    ],
+  });
+
+  assert.equal(calls[0].command, Command.DEVICE_READ_RANDOM);
+  assert.equal(calls[0].subcommand, 0x0082);
+  assert.equal(calls[0].data.toString("hex"), "0101040564000000a800030002010608090a000000ab0007000100f8");
+
+  assert.equal(calls[1].command, Command.DEVICE_WRITE_RANDOM);
+  assert.equal(calls[1].subcommand, 0x0082);
+  assert.equal(calls[1].data.toString("hex"), "010100000a000000a80000000100003412000020000000b4000000020000efcdab89");
+
+  assert.equal(calls[2].command, Command.DEVICE_WRITE_RANDOM);
+  assert.equal(calls[2].subcommand, 0x0083);
+  assert.equal(calls[2].data.toString("hex"), "02000007000000900000000300000100000008000000900000000400000000");
+});
+
+test("extended random APIs use QL payloads matching dotnet vectors", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qcpu:qj71e71-100" });
+  const calls = [];
+  client.request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    if (calls.length === 1) {
+      return { endCode: 0, data: Buffer.from([0x34, 0x12, 0xef, 0xcd, 0xab, 0x89]) };
+    }
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  const read = await client.readRandomExt({
+    wordDevices: [["D100", { extensionSpecification: 0x0001 }]],
+    dwordDevices: [["D200", { extensionSpecification: 0x0002 }]],
+  });
+  assert.deepEqual(read, {
+    word: { D100: 0x1234 },
+    dword: { D200: 0x89abcdef },
+  });
+
+  await client.writeRandomWordsExt({
+    wordValues: [["D10", 0x1234, { extensionSpecification: 0x0001 }]],
+    dwordValues: [["W20", 0x89abcdef, { extensionSpecification: 0x0002 }]],
+  });
+  await client.writeRandomBitsExt({
+    bitValues: [
+      ["M7", true, { extensionSpecification: 0x0003 }],
+      ["M8", false, { extensionSpecification: 0x0004 }],
+    ],
+  });
+
+  assert.equal(calls[0].command, Command.DEVICE_READ_RANDOM);
+  assert.equal(calls[0].subcommand, 0x0080);
+  assert.equal(calls[0].data.toString("hex"), "01010000640000a800000100000000c80000a80000020000");
+
+  assert.equal(calls[1].command, Command.DEVICE_WRITE_RANDOM);
+  assert.equal(calls[1].subcommand, 0x0080);
+  assert.equal(calls[1].data.toString("hex"), "010100000a0000a8000001000034120000200000b40000020000efcdab89");
+
+  assert.equal(calls[2].command, Command.DEVICE_WRITE_RANDOM);
+  assert.equal(calls[2].subcommand, 0x0081);
+  assert.equal(calls[2].data.toString("hex"), "02000007000090000003000001000008000090000004000000");
+});
+
+test("extended random APIs use profile ext limit keys before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f" });
+  let calls = 0;
+  client.request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readRandomExt({
+      wordDevices: Array.from({ length: 97 }, (_, index) => [`D${index}`, {}]),
+    }),
+    /1\.\.96/
+  );
+  await assert.rejects(
+    () => client.writeRandomWordsExt({
+      wordValues: Array.from({ length: 81 }, (_, index) => [`D${8000 + index}`, 0, {}]),
+    }),
+    /1\.\.80/
+  );
+  await assert.rejects(
+    () => client.writeRandomBitsExt({
+      bitValues: Array.from({ length: 95 }, (_, index) => [`M${4000 + index}`, false, {}]),
+    }),
+    /1\.\.94/
+  );
+
+  const qcpu = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qcpu:qj71e71-100" });
+  qcpu.request = client.request;
+  await assert.rejects(
+    () => qcpu.readRandomExt({
+      wordDevices: Array.from({ length: 186 }, (_, index) => [`D${index}`, {}]),
+    }),
+    /1\.\.185/
+  );
+  assert.equal(calls, 0);
 });
 
 test("readDevices rejects direct long timer state reads before transport", async () => {

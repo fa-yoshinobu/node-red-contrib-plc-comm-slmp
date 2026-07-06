@@ -19,7 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Release: Bumped package metadata to `1.3.0`.
 - CI: Added a tag-driven release workflow that re-runs checks and attaches the npm package tarball to the GitHub release.
+- Library: Synced the SLMP capability JSON to `plc-comm-slmp-profiles` `v1.2.2`, including inferred Q/L 008x extended random/monitor limit keys and iQ-F `not-adopted` monitor limit placeholders.
+- Library: Added low-level `readRandomExt`, `writeRandomWordsExt`, and `writeRandomBitsExt` APIs for 008x extended random routes, including U-qualified `G/HG` parsing where the route allows it.
+- Tooling: Changed the canonical profile update script default ref to `v1.2.2`.
+- Tests: Added Legacy and iQ-R extended-random payload parity checks against the .NET vectors plus profile ext-limit guard coverage.
 
 ## [1.2.0] - 2026-07-05
 
