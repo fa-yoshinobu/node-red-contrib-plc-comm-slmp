@@ -221,8 +221,7 @@ test("encodeRequest and decodeResponse work for 4E frames", () => {
 });
 
 test("ModuleIONo exposes named target module I/O constants", () => {
-  assert.equal(ModuleIONo.CONTROL_CPU, 0x03d0);
-  assert.equal(ModuleIONo.CONTROL_SYSTEM_CPU, ModuleIONo.CONTROL_CPU);
+  assert.equal(ModuleIONo.CONTROL_SYSTEM_CPU, 0x03d0);
   assert.equal(ModuleIONo.STANDBY_SYSTEM_CPU, 0x03d1);
   assert.equal(ModuleIONo.SYSTEM_A_CPU, 0x03d2);
   assert.equal(ModuleIONo.SYSTEM_B_CPU, 0x03d3);
@@ -232,11 +231,9 @@ test("ModuleIONo exposes named target module I/O constants", () => {
   assert.equal(ModuleIONo.MULTIPLE_CPU_4, 0x03e3);
   assert.equal(ModuleIONo.REMOTE_HEAD_1, ModuleIONo.MULTIPLE_CPU_1);
   assert.equal(ModuleIONo.REMOTE_HEAD_2, ModuleIONo.MULTIPLE_CPU_2);
-  assert.equal(ModuleIONo.CONTROL_SYSTEM_REMOTE_HEAD, ModuleIONo.CONTROL_CPU);
+  assert.equal(ModuleIONo.CONTROL_SYSTEM_REMOTE_HEAD, ModuleIONo.CONTROL_SYSTEM_CPU);
   assert.equal(ModuleIONo.STANDBY_SYSTEM_REMOTE_HEAD, ModuleIONo.STANDBY_SYSTEM_CPU);
-  assert.equal(ModuleIONo.CONNECTED_CPU, 0x03ff);
-  assert.equal(ModuleIONo.DEFAULT, ModuleIONo.CONNECTED_CPU);
-  assert.equal(ModuleIONo.OWN_STATION, ModuleIONo.CONNECTED_CPU);
+  assert.equal(ModuleIONo.OWN_STATION, 0x03ff);
 });
 
 test("decodeResponse and SlmpError expose structured PLC error information", () => {

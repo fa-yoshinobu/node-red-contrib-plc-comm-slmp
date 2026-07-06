@@ -72,7 +72,7 @@ Route source on `slmp-read` and `slmp-write`.
 
 JavaScript code that calls the low-level client can use `ModuleIONo` constants
 for `moduleIO`, for example `ModuleIONo.MULTIPLE_CPU_2`. A missing route still uses the
-connected/default CPU value `0x03FF`.
+own-station value `0x03FF`.
 
 `slmp-read` and `slmp-write` use the public high-level address parser for normal
 device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
