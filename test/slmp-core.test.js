@@ -8,6 +8,7 @@ const path = require("node:path");
 
 const {
   Command,
+  ModuleIONo,
   getEndCodeMessage,
   getEndCodeName,
   isRemotePasswordEndCode,
@@ -192,13 +193,14 @@ test("encodeRequest and decodeResponse work for 4E frames", () => {
   const request = encodeRequest({
     frameType: "4e",
     serial: 0x1234,
-    target: { network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 },
+    target: { network: 0, station: 0xff, moduleIO: ModuleIONo.MULTIPLE_CPU_2, multidrop: 0 },
     monitoringTimer: 0x0010,
     command: 0x0401,
     subcommand: 0x0002,
     data: Buffer.from([0xaa, 0xbb]),
   });
   assert.equal(request.subarray(0, 2).toString("hex"), "5400");
+  assert.equal(request.readUInt16LE(8), ModuleIONo.MULTIPLE_CPU_2);
 
   const response = Buffer.from([
     0xd4, 0x00,
@@ -216,6 +218,22 @@ test("encodeRequest and decodeResponse work for 4E frames", () => {
   assert.equal(decoded.serial, 0x1234);
   assert.equal(decoded.endCode, 0);
   assert.deepEqual([...decoded.data], [0x78, 0x56]);
+});
+
+test("ModuleIONo exposes named target module I/O constants", () => {
+  assert.equal(ModuleIONo.CONTROL_SYSTEM_CPU, 0x03d0);
+  assert.equal(ModuleIONo.STANDBY_SYSTEM_CPU, 0x03d1);
+  assert.equal(ModuleIONo.SYSTEM_A_CPU, 0x03d2);
+  assert.equal(ModuleIONo.SYSTEM_B_CPU, 0x03d3);
+  assert.equal(ModuleIONo.MULTIPLE_CPU_1, 0x03e0);
+  assert.equal(ModuleIONo.MULTIPLE_CPU_2, 0x03e1);
+  assert.equal(ModuleIONo.MULTIPLE_CPU_3, 0x03e2);
+  assert.equal(ModuleIONo.MULTIPLE_CPU_4, 0x03e3);
+  assert.equal(ModuleIONo.REMOTE_HEAD_1, ModuleIONo.MULTIPLE_CPU_1);
+  assert.equal(ModuleIONo.REMOTE_HEAD_2, ModuleIONo.MULTIPLE_CPU_2);
+  assert.equal(ModuleIONo.CONTROL_SYSTEM_REMOTE_HEAD, ModuleIONo.CONTROL_SYSTEM_CPU);
+  assert.equal(ModuleIONo.STANDBY_SYSTEM_REMOTE_HEAD, ModuleIONo.STANDBY_SYSTEM_CPU);
+  assert.equal(ModuleIONo.OWN_STATION, 0x03ff);
 });
 
 test("decodeResponse and SlmpError expose structured PLC error information", () => {
@@ -377,7 +395,14 @@ test("4E TCP request gate releases after a PLC end-code error", async () => {
     const first = client.rawCommand(0x0401, { payload: Buffer.from([0x01]) });
     const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
 
-    await assert.rejects(() => first, (error) => error instanceof SlmpError && error.endCode === 0xc051);
+    await assert.rejects(
+      () => first,
+      (error) =>
+        error instanceof SlmpError &&
+        error.endCode === 0xc051 &&
+        error.errorInfo?.command === 0x0401 &&
+        error.errorInfo?.subcommand === 0x0000
+    );
     const secondResponse = await second;
 
     assert.equal(frames.length, 2);
@@ -1474,10 +1499,21 @@ function startMockTcpServer(frameType, onFrame) {
 }
 
 function responseForRequest(frame, frameType, data, endCode = 0) {
+  const responseData = endCode === 0 ? data : errorDataForRequest(frame, frameType, data);
   if (frameType === "4e") {
-    return make4EResponse(frame.readUInt16LE(2), data, endCode);
+    return make4EResponse(frame.readUInt16LE(2), responseData, endCode);
   }
-  return make3EResponse(data, endCode);
+  return make3EResponse(responseData, endCode);
+}
+
+function errorDataForRequest(frame, frameType, data) {
+  const source = Buffer.from(frame);
+  const targetOffset = frameType === "4e" ? 6 : 2;
+  const commandOffset = frameType === "4e" ? 15 : 11;
+  const errorInfo = Buffer.alloc(9);
+  source.copy(errorInfo, 0, targetOffset, targetOffset + 5);
+  source.copy(errorInfo, 5, commandOffset, commandOffset + 4);
+  return Buffer.concat([errorInfo, Buffer.from(data)]);
 }
 
 function requestPayload(frame, frameType) {

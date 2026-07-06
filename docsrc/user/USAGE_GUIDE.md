@@ -47,7 +47,7 @@ page.
 ## Routing / target station
 
 Most flows keep the route fields at their defaults, which target the directly
-connected own station/control CPU. Change them only when your PLC network is
+connected own station. Change them only when your PLC network is
 configured for another station, multi-CPU module I/O, or multidrop access.
 
 Route fields control the SLMP destination header. They are not device family
@@ -69,6 +69,10 @@ Per-request routing can be supplied from a message:
 
 The same object can be placed in `msg.slmp.target`, or configured through the
 Route source on `slmp-read` and `slmp-write`.
+
+JavaScript code that calls the low-level client can use `ModuleIONo` constants
+for `moduleIO`, for example `ModuleIONo.MULTIPLE_CPU_2`. A missing route still uses the
+own-station value `0x03FF`.
 
 `slmp-read` and `slmp-write` use the public high-level address parser for normal
 device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
