@@ -52,3 +52,19 @@ low-level client surface.
 | Typed values | `readTyped`, `writeTyped` |
 | Named mixed snapshots | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
+
+## Target Module I/O Constants
+
+`ModuleIONo` provides named request-header module I/O numbers for multi-CPU
+and routed CPU targets. Use these values in the route object's `moduleIO`
+field; omitted route targets still use the connected/default CPU route
+`0x03FF`.
+
+| Constant | Value |
+| --- | --- |
+| `ModuleIONo.CONTROL_CPU` / `ModuleIONo.ACTIVE_CPU` | `0x03D0` |
+| `ModuleIONo.STANDBY_CPU` | `0x03D1` |
+| `ModuleIONo.TYPE_A_CPU` | `0x03D2` |
+| `ModuleIONo.TYPE_B_CPU` | `0x03D3` |
+| `ModuleIONo.CPU_1` .. `ModuleIONo.CPU_4` | `0x03E0` .. `0x03E3` |
+| `ModuleIONo.CONNECTED_CPU` / `ModuleIONo.DEFAULT` / `ModuleIONo.OWN_STATION` | `0x03FF` |

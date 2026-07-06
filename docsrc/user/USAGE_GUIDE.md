@@ -70,6 +70,10 @@ Per-request routing can be supplied from a message:
 The same object can be placed in `msg.slmp.target`, or configured through the
 Route source on `slmp-read` and `slmp-write`.
 
+JavaScript code that calls the low-level client can use `ModuleIONo` constants
+for `moduleIO`, for example `ModuleIONo.CPU_2`. A missing route still uses the
+connected/default CPU value `0x03FF`.
+
 `slmp-read` and `slmp-write` use the public high-level address parser for normal
 device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
 device access as user-facing address forms.
