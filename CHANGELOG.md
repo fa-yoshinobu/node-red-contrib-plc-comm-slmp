@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release: Bumped package metadata to `1.3.0`.
 - CI: Added a tag-driven release workflow that re-runs checks and attaches the npm package tarball to the GitHub release.
 - Library: Added `ModuleIONo` named constants for multi-CPU target routing while keeping omitted routes on the default connected CPU.
+- Library: Removed short module I/O aliases as a breaking terminology cleanup; use `ACTIVE_CPU` -> `CONTROL_SYSTEM_CPU`, `STANDBY_CPU` -> `STANDBY_SYSTEM_CPU`, `TYPE_A_CPU` -> `SYSTEM_A_CPU`, `TYPE_B_CPU` -> `SYSTEM_B_CPU`, and `CPU_1`-`CPU_4` -> `MULTIPLE_CPU_1`-`MULTIPLE_CPU_4`.
 - Library: Updated frame-level test responses to include structured error data on non-zero end-code mock responses.
 - Docs: Documented `ModuleIONo` in the API reference and routing guide.
 - Tests: Added request-header and structured mock error-data coverage for named module I/O constants and non-zero end-code responses.

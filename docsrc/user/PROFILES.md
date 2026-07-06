@@ -57,5 +57,5 @@ Keep the default route fields unless your network requires a different target:
 | --- | --- | --- |
 | Network | `0` | Target network number. |
 | Station | `255` | Target station number. |
-| Module I/O | `03FF` | Own station or control CPU module I/O number. |
+| Module I/O | `03FF` | Own station module I/O number. |
 | Multidrop | `0` | Multidrop station number. |
