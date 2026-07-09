@@ -25,14 +25,9 @@ test("built-in capability profile table matches the canonical fixture", () => {
 
 test("Node-RED editor shows display_name labels and keeps canonical PLC profile values", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "nodes", "slmp-connection.html"), "utf8");
-  for (const [profileId, profile] of Object.entries(fixture.profiles)) {
-    if (profile.role === "base") {
-      assert.doesNotMatch(html, new RegExp(`<option value="${profileId}">`));
-      continue;
-    }
-    const escapedLabel = profile.display_name.replace(/[()/.]/g, "\\$&");
-    assert.match(html, new RegExp(`<option value="${profileId}">${escapedLabel}</option>`));
-  }
+  assert.match(html, /getJSON\("plc-comm\/slmp\/profiles"/);
+  assert.match(html, /\.val\(profile\.name\)/);
+  assert.match(html, /\.text\(profile\.displayName\)/);
 });
 
 test("blocked profile features fail before transport with a dedicated error", async () => {
