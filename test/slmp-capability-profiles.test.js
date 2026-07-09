@@ -14,7 +14,7 @@ const {
   displayName,
   ensureProfileFeatureAllowed,
 } = require("../lib/slmp");
-const fixture = require("./fixtures/slmp_builtin_ethernet_profiles.json");
+const fixture = require("./fixtures/slmp_ethernet_profiles.json");
 
 test("built-in capability profile table matches the canonical fixture", () => {
   assert.deepEqual(BUILTIN_CAPABILITY_PROFILES, fixture);
