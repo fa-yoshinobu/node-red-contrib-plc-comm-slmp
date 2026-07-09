@@ -325,7 +325,7 @@ test("4E TCP client preserves FIFO send order for concurrently issued requests",
   }
 });
 
-test("4E TCP request gate releases after timeout and sends the next queued request", async () => {
+test("4E TCP timeout rejects all pending requests and destroys the socket", async () => {
   const frames = [];
   const server = await startMockTcpServer("4e", ({ frame, socket }) => {
     frames.push(Buffer.from(frame));
@@ -340,11 +340,9 @@ test("4E TCP request gate releases after timeout and sends the next queued reque
     const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
 
     await assert.rejects(() => first, /TCP communication timeout/);
-    const secondResponse = await second;
+    await assert.rejects(() => second, /TCP communication timeout|TCP connection closed/);
 
-    assert.equal(frames.length, 2);
-    assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
-    assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+    assert.equal(frames.length, 1);
   } finally {
     await client.close();
     await server.close();
@@ -569,15 +567,12 @@ test("TCP sendAndReceive resolves a split response injected by a mock socket", a
   assert.deepEqual([...decoded.data], [0x44, 0x55]);
 });
 
-test("3E TCP frame extraction queues combined response chunks in order", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+test("3E TCP frame extraction discards responses without a waiter", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", timeout: 5, _allowManualProfile: true });
 
   client._handleTcpData(Buffer.concat([make3EResponse([0x11, 0x11]), make3EResponse([0x22, 0x22])]));
 
-  const first = decodeResponse(await client._awaitTcpFrame(0), { frameType: "3e" });
-  const second = decodeResponse(await client._awaitTcpFrame(1), { frameType: "3e" });
-  assert.deepEqual([...first.data], [0x11, 0x11]);
-  assert.deepEqual([...second.data], [0x22, 0x22]);
+  await assert.rejects(() => client._awaitTcpFrame(0), /TCP communication timeout/);
 });
 
 test("TCP frame wait reports the existing timeout message", async () => {
@@ -595,15 +590,12 @@ test("TCP failure rejects pending waits with the provided error", async () => {
   await assert.rejects(() => pending, /synthetic TCP close/);
 });
 
-test("4E TCP response matching queues unmatched serials for later waits", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", _allowManualProfile: true });
+test("4E TCP response matching discards unmatched serials", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", timeout: 5, _allowManualProfile: true });
 
   client._handleTcpData(make4EResponse(0x1002, [0x22, 0x22]));
 
-  const queued = await client._awaitTcpFrame(0x1002);
-  const decoded = decodeResponse(queued, { frameType: "4e" });
-  assert.equal(decoded.serial, 0x1002);
-  assert.deepEqual([...decoded.data], [0x22, 0x22]);
+  await assert.rejects(() => client._awaitTcpFrame(0x1002), /TCP communication timeout/);
 });
 
 test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async () => {

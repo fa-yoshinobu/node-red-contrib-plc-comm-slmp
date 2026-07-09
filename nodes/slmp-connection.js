@@ -1,6 +1,6 @@
 "use strict";
 
-const { SlmpClient } = require("../lib/slmp");
+const { SlmpClient, availablePlcProfiles, displayName } = require("../lib/slmp");
 
 const DEFAULT_PORT = 1025;
 
@@ -17,6 +17,12 @@ function parseRequiredInteger(value, name, min, max, fallback) {
 }
 
 module.exports = function registerSlmpConnection(RED) {
+  if (RED.httpAdmin && typeof RED.httpAdmin.get === "function") {
+    RED.httpAdmin.get("/plc-comm/slmp/profiles", (_request, response) => {
+      response.json(availablePlcProfiles().map((name) => ({ name, displayName: displayName(name) })));
+    });
+  }
+
   function SlmpConnectionNode(config) {
     RED.nodes.createNode(this, config);
 

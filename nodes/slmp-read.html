@@ -25,22 +25,7 @@
   const SLMP_DEVICE_CODES = Object.keys(SLMP_DEVICE_INFO).sort(function (left, right) {
     return right.length - left.length || left.localeCompare(right);
   });
-  const SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY = Object.freeze({
-    "melsec:iq-f": ["V", "LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "DX", "DY", "ZR", "RD", "G", "HG"],
-    "melsec:iq-r": ["G", "HG"],
-    "melsec:iq-r:rj71en71": ["G", "HG"],
-    "melsec:iq-l": ["G", "HG"],
-    "melsec:mx-f": ["G", "HG"],
-    "melsec:mx-r": ["G", "HG"],
-    "melsec:qcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qcpu:qj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:lcpu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:lcpu:lj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qnu": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qnu:qj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qnudv": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"],
-    "melsec:qnudv:qj71e71-100": ["LTS", "LTC", "LTN", "LSTS", "LSTC", "LSTN", "LCS", "LCC", "LCN", "LZ", "RD", "G", "HG"]
-  });
+  // Profile-specific device policy is enforced by the runtime client.
   const SLMP_DTYPE_SUFFIXES = new Set(["BIT", "U", "S", "I", "D", "L", "F", "STR", "STRING"]);
   function slmpGetCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
@@ -195,9 +180,7 @@
     if (code === "G" || code === "HG") {
       return false;
     }
-    const normalizedProfile = String(plcProfile || "").trim();
-    const unsupported = SLMP_UNSUPPORTED_DEVICE_CODES_BY_FAMILY[normalizedProfile];
-    return !(unsupported && unsupported.indexOf(code) !== -1);
+    return true;
   }
 
   function slmpValidateDeviceNumber(code, numberText, defaultRadix, plcProfile) {
