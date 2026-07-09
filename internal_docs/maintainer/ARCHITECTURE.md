@@ -14,7 +14,7 @@ This package has three layers:
 ## Request policy
 
 Requests are serialized on a single client connection, including 4E and send-only requests.
-This follows the SLMP/MC protocol cautions for model-dependent same-connection in-flight command limits; see `REQUEST_SERIALIZATION_2026-07-05.md`.
+This follows the SLMP/MC protocol cautions for model-dependent same-connection in-flight command limits.
 
 ## High-level behavior
 
