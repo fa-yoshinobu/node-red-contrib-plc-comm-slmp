@@ -17,9 +17,11 @@ function parseRequiredInteger(value, name, min, max, fallback) {
 }
 
 module.exports = function registerSlmpConnection(RED) {
-  RED.httpAdmin.get("/plc-comm/slmp/profiles", (_request, response) => {
-    response.json(availablePlcProfiles().map((name) => ({ name, displayName: displayName(name) })));
-  });
+  if (RED.httpAdmin && typeof RED.httpAdmin.get === "function") {
+    RED.httpAdmin.get("/plc-comm/slmp/profiles", (_request, response) => {
+      response.json(availablePlcProfiles().map((name) => ({ name, displayName: displayName(name) })));
+    });
+  }
 
   function SlmpConnectionNode(config) {
     RED.nodes.createNode(this, config);
