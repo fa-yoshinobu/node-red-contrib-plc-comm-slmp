@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-07-10
+
+### Changed
+- Release: Bumped npm package and lockfile metadata to `2.0.1`.
+
+### Added
+- Library: Added `availablePlcProfiles()` for connection-selectable canonical profile enumeration.
+- Node-RED editor: Added a runtime profile metadata endpoint for the connection editor dropdown.
+
+### Changed
+- Node-RED editor: Removed hand-maintained profile-specific unsupported-device policy from read/write editor validation; runtime policy is now authoritative.
+- Docs: Documented the connection profile list and base-profile exclusion.
+
 ## [2.0.0] - 2026-07-06
 
 ### BREAKING

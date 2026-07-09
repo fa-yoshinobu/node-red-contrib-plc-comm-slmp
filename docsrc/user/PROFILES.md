@@ -5,7 +5,8 @@
 The `slmp-connection` node requires one canonical PLC profile. The node uses that value to choose the SLMP frame, PLC series behavior, and address-numbering rules.
 Use `displayName(plcProfile)` from `lib/slmp/capability-profiles` when you need
 the same UI label outside the editor. Store the canonical profile string, not
-the display name.
+the display name. `availablePlcProfiles()` returns only profiles accepted by
+the standard connection client and excludes the base-only `melsec:qcpu`.
 
 For cross-profile capability and device-range details, see the [SLMP Profile Reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/).
 

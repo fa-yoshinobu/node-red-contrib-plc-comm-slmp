@@ -53,6 +53,13 @@ low-level client surface.
 | Named mixed snapshots | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
 
+## Profile Selection
+
+`availablePlcProfiles()` returns the canonical profiles accepted by the
+standard connection client. `displayName(profile)` returns the UI label. The
+base-only `melsec:qcpu` profile is intentionally excluded from the available
+connection list.
+
 ## Target Module I/O Constants
 
 `ModuleIONo` provides named request-header module I/O numbers for multi-CPU
