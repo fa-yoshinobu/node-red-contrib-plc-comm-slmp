@@ -26,25 +26,9 @@ test("built-in capability profile table matches the canonical fixture", () => {
 
 test("profile descriptors match canonical profile metadata", () => {
   const descriptors = profileDescriptors();
-  assert.equal(descriptors.length, 14);
   assert.deepEqual(
     descriptors.map((descriptor) => descriptor.canonicalName),
-    [
-      "melsec:iq-f",
-      "melsec:iq-r",
-      "melsec:iq-r:rj71en71",
-      "melsec:iq-l",
-      "melsec:mx-f",
-      "melsec:mx-r",
-      "melsec:qcpu",
-      "melsec:qcpu:qj71e71-100",
-      "melsec:lcpu",
-      "melsec:lcpu:lj71e71-100",
-      "melsec:qnu",
-      "melsec:qnu:qj71e71-100",
-      "melsec:qnudv",
-      "melsec:qnudv:qj71e71-100",
-    ],
+    Object.keys(fixture.profiles),
   );
   for (const descriptor of descriptors) {
     const profile = fixture.profiles[descriptor.canonicalName];
