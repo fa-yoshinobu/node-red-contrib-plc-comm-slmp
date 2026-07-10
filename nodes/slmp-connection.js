@@ -1,6 +1,6 @@
 "use strict";
 
-const { SlmpClient, availablePlcProfiles, displayName } = require("../lib/slmp");
+const { SlmpClient, profileDescriptors } = require("../lib/slmp");
 
 const DEFAULT_PORT = 1025;
 
@@ -26,7 +26,7 @@ module.exports = function registerSlmpConnection(RED) {
       "/plc-comm/slmp/profiles",
       needsPermission,
       (_request, response) => {
-        response.json(availablePlcProfiles().map((name) => ({ name, displayName: displayName(name) })));
+        response.json(profileDescriptors());
       },
     );
   }
