@@ -18,9 +18,17 @@ function parseRequiredInteger(value, name, min, max, fallback) {
 
 module.exports = function registerSlmpConnection(RED) {
   if (RED.httpAdmin && typeof RED.httpAdmin.get === "function") {
-    RED.httpAdmin.get("/plc-comm/slmp/profiles", (_request, response) => {
-      response.json(availablePlcProfiles().map((name) => ({ name, displayName: displayName(name) })));
-    });
+    const needsPermission =
+      RED.auth && typeof RED.auth.needsPermission === "function"
+        ? RED.auth.needsPermission("flows.read")
+        : (_request, _response, next) => next();
+    RED.httpAdmin.get(
+      "/plc-comm/slmp/profiles",
+      needsPermission,
+      (_request, response) => {
+        response.json(availablePlcProfiles().map((name) => ({ name, displayName: displayName(name) })));
+      },
+    );
   }
 
   function SlmpConnectionNode(config) {

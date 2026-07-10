@@ -1,6 +1,6 @@
 [![CI](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml/badge.svg)](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40fa_yoshinobu%2Fnode-red-contrib-plc-comm-slmp?logo=npm&color=CB3837)](https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/LICENSE)
 
 # Node-RED MELSEC SLMP Nodes
 
@@ -12,7 +12,7 @@ This library is part of the plc-comm family. See the [package matrix](https://fa
 
 ## Supported PLC profiles
 
-The maintained profile table is in [PLC profiles](docsrc/user/PROFILES.md). Choose one exact canonical PLC profile from that table.
+The maintained profile table is in [PLC profiles](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/PROFILES/). Choose one exact canonical PLC profile from that table.
 
 ## Strict profile
 
@@ -57,17 +57,17 @@ Start with the basic flow before importing the device-matrix flow.
 | Page | Use it for |
 | --- | --- |
 | [Full documentation site](https://fa-yoshinobu.github.io/plc-comm-docs-site/) | Unified docs for all PLC communication libraries. |
-| [Getting started](docsrc/user/GETTING_STARTED.md) | Install the nodes, configure a connection, and run your first SLMP read. |
-| [Usage guide](docsrc/user/USAGE_GUIDE.md) | Use read/write nodes, routing fields, typed values, and flow patterns. |
+| [Getting started](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/GETTING_STARTED/) | Install the nodes, configure a connection, and run your first SLMP read. |
+| [Usage guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/USAGE_GUIDE/) | Use read/write nodes, routing fields, typed values, and flow patterns. |
 | [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/) | Check profile parameters, device families, address syntax, and numbering rules. |
-| [PLC profiles](docsrc/user/PROFILES.md) | Choose the canonical MELSEC profile and frame behavior. |
-| [Example flows](examples/flows/README.md) | Import maintained Node-RED example flows. |
+| [PLC profiles](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/PROFILES/) | Choose the canonical MELSEC profile and frame behavior. |
+| [Example flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md) | Import maintained Node-RED example flows. |
 
 ## License and registry
 
 | Item | Value |
 | --- | --- |
-| License | [MIT](LICENSE) |
+| License | [MIT](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/LICENSE) |
 | Registry | [npm](https://www.npmjs.com/package/@fa_yoshinobu/node-red-contrib-plc-comm-slmp) |
 | Package | `@fa_yoshinobu/node-red-contrib-plc-comm-slmp` |
 
