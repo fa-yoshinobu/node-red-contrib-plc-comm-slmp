@@ -55,10 +55,10 @@ low-level client surface.
 
 ## Profile Selection
 
-`availablePlcProfiles()` returns the canonical profiles accepted by the
-standard connection client. `displayName(profile)` returns the UI label. The
-base-only `melsec:qcpu` profile is intentionally excluded from the available
-connection list.
+`profileDescriptors()` returns canonical name, display name, connection
+availability, and base-profile metadata for every profile. The base-only
+`melsec:qcpu` entry is included with `connectable: false`; the editor filters
+that entry from connection selections.
 
 ## Target Module I/O Constants
 

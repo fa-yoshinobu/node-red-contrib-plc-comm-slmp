@@ -13,6 +13,7 @@ const {
   ValueError,
   displayName,
   ensureProfileFeatureAllowed,
+  profileDescriptors,
 } = require("../lib/slmp");
 const fixture = require("./fixtures/slmp_ethernet_profiles.json");
 
@@ -23,10 +24,41 @@ test("built-in capability profile table matches the canonical fixture", () => {
   }
 });
 
+test("profile descriptors match canonical profile metadata", () => {
+  const descriptors = profileDescriptors();
+  assert.equal(descriptors.length, 14);
+  assert.deepEqual(
+    descriptors.map((descriptor) => descriptor.canonicalName),
+    [
+      "melsec:iq-f",
+      "melsec:iq-r",
+      "melsec:iq-r:rj71en71",
+      "melsec:iq-l",
+      "melsec:mx-f",
+      "melsec:mx-r",
+      "melsec:qcpu",
+      "melsec:qcpu:qj71e71-100",
+      "melsec:lcpu",
+      "melsec:lcpu:lj71e71-100",
+      "melsec:qnu",
+      "melsec:qnu:qj71e71-100",
+      "melsec:qnudv",
+      "melsec:qnudv:qj71e71-100",
+    ],
+  );
+  for (const descriptor of descriptors) {
+    const profile = fixture.profiles[descriptor.canonicalName];
+    assert.equal(descriptor.displayName, profile.display_name);
+    assert.equal(descriptor.connectable, profile.role !== "base");
+    assert.equal(descriptor.baseProfile, profile.base_profile || null);
+  }
+});
+
 test("Node-RED editor shows display_name labels and keeps canonical PLC profile values", () => {
   const html = fs.readFileSync(path.join(__dirname, "..", "nodes", "slmp-connection.html"), "utf8");
   assert.match(html, /getJSON\("plc-comm\/slmp\/profiles"/);
-  assert.match(html, /\.val\(profile\.name\)/);
+  assert.match(html, /\.filter\(function \(profile\) \{ return profile\.connectable; \}\)/);
+  assert.match(html, /\.val\(profile\.canonicalName\)/);
   assert.match(html, /\.text\(profile\.displayName\)/);
 });
 
