@@ -666,6 +666,63 @@ test("writeTyped routes long current and state devices through random writes", a
   ]);
 });
 
+test("writes validate boolean and numeric values before any client call", async () => {
+  let calls = 0;
+  const fakeClient = {
+    async readDevices() {
+      calls += 1;
+      return [0];
+    },
+    async writeDevices() {
+      calls += 1;
+    },
+    async writeRandomWords() {
+      calls += 1;
+    },
+    async writeRandomBits() {
+      calls += 1;
+    },
+  };
+
+  for (const value of ["not-a-number", Number.NaN, Number.POSITIVE_INFINITY, 1.5, -1, 0x10000]) {
+    await assert.rejects(() => writeTyped(fakeClient, "D100", "U", value), /numeric|finite|integer|range/i);
+  }
+  for (const value of ["yes", "", 2, -1, Number.NaN, null]) {
+    await assert.rejects(() => writeTyped(fakeClient, "M1000", "BIT", value), /expects boolean/i);
+  }
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "D100:U": 1, "D101:U": "bad" }),
+    /expects a numeric value/i
+  );
+  assert.equal(calls, 0);
+});
+
+test("writes accept only documented boolean tokens and integer widths", async () => {
+  const writes = [];
+  const fakeClient = {
+    async writeDevices(device, values, options) {
+      writes.push({ device: `${device.code}${device.number}`, values, bitUnit: options.bitUnit });
+    },
+  };
+
+  for (const [value, expected] of [
+    [true, true],
+    [false, false],
+    [1, true],
+    [0, false],
+    ["ON", true],
+    ["off", false],
+    ["TRUE", true],
+    ["false", false],
+  ]) {
+    await writeTyped(fakeClient, "M1000", "BIT", value);
+    assert.equal(writes.at(-1).values[0], expected);
+  }
+  await writeTyped(fakeClient, "D100", "U", "65535");
+  await writeTyped(fakeClient, "D101", "S", "-32768");
+  assert.deepEqual(writes.slice(-2).map((entry) => entry.values), [[65535], [32768]]);
+});
+
 test("writeNamed forwards per-request target overrides to client calls", async () => {
   const writes = [];
   const target = { network: 2, station: 3, moduleIO: "03FF", multidrop: 1 };
@@ -842,9 +899,11 @@ test("slmp-connection defaults missing port but rejects blank port", async () =>
       id: "conn-missing-port",
       host: "192.168.0.10",
       plcProfile: "melsec:iq-r",
+      monitoringTimer: 0,
     });
 
     assert.equal(constructorOptions[0].port, 1025);
+    assert.equal(constructorOptions[0].monitoringTimer, 0);
     assert.throws(
       () =>
         create("slmp-connection", {
@@ -1025,6 +1084,36 @@ test("slmp-read forwards msg.target to readNamed and records the effective route
       moduleIO: 0x03ff,
       multidrop: 1,
     });
+  });
+});
+
+test("slmp-read rejects a partial msg.target value before readNamed", async () => {
+  let readCalls = 0;
+
+  await withMockedSlmp({
+    readNamed: async () => {
+      readCalls += 1;
+      return { "D100:U": 42 };
+    },
+  }, async () => {
+    const { RED, create, setNode } = createMockRed();
+    require("../nodes/slmp-read")(RED);
+
+    setNode("cfg-invalid-route-read", {
+      getClient: () => ({}),
+      getProfile: () => ({ target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
+    });
+
+    const node = create("slmp-read", {
+      id: "read-invalid-route-msg",
+      connection: "cfg-invalid-route-read",
+      addresses: "D100:U",
+    });
+    const result = await invokeNode(node, { target: { network: "1junk" } });
+
+    assert.match(result.error.message, /target\.network.*integer/i);
+    assert.equal(readCalls, 0);
+    assert.equal(result.sent.length, 0);
   });
 });
 

@@ -41,7 +41,7 @@ module.exports = function registerSlmpConnection(RED) {
     this.timeout = Number(config.timeout || 3000);
     this.plcProfile = config.plcProfile ? String(config.plcProfile).trim() : "";
     this.strictProfile = config.strictProfile === undefined ? true : config.strictProfile !== false && config.strictProfile !== "false";
-    this.monitoringTimer = Number(config.monitoringTimer || 0x0010);
+    this.monitoringTimer = parseRequiredInteger(config.monitoringTimer, "monitoringTimer", 0, 0xffff, 0x0010);
     this.remotePassword = this.credentials && this.credentials.remotePassword ? String(this.credentials.remotePassword) : "";
     this.target = {
       network: config.network,

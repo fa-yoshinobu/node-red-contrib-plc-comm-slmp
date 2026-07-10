@@ -22,6 +22,7 @@ const {
   encodeRequest,
   extractFrameFromBuffer,
   isDeviceCodeSupportedForPlcProfile,
+  normalizeTarget,
   packBitValues,
   parseDevice,
   parseSlmpErrorInfo,
@@ -141,6 +142,26 @@ test("SlmpClient defaults missing port to 1025 but rejects blank port", () => {
     () => new SlmpClient({ host: "127.0.0.1", port: "", plcProfile: "melsec:iq-r" }),
     /port out of range/
   );
+});
+
+test("normalizeTarget rejects partial, fractional, and non-finite route values", () => {
+  assert.deepEqual(normalizeTarget({ network: "1", station: "2", moduleIO: "03FF", multidrop: "3" }), {
+    network: 1,
+    station: 2,
+    moduleIO: 0x03ff,
+    multidrop: 3,
+  });
+  for (const target of [
+    { network: "1junk" },
+    { station: "2.9" },
+    { moduleIO: "03FFzz" },
+    { multidrop: "3x" },
+    { network: 1.5 },
+    { station: Number.NaN },
+    { moduleIO: Number.POSITIVE_INFINITY },
+  ]) {
+    assert.throws(() => normalizeTarget(target), /integer/i);
+  }
 });
 
 test("encodeDeviceSpec follows QL and iQR layouts", () => {

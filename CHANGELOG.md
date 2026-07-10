@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-07-10
+
+### Changed
+- Release: Bumped npm package and lockfile metadata to `3.0.1`.
+- Tooling: Pinned canonical SLMP profile imports to immutable profile commit `e7e8f071ff1819a6b088b6a793e6f08029c54e38`.
+
+### Fixed
+- Library: Rejected unknown boolean tokens and non-finite, fractional, signed-width, or out-of-range integer writes before transport instead of coercing them.
+- Library: Required complete integer route values for message target overrides instead of accepting partial strings.
+- Node-RED editor: Preserved an explicit monitoring timer value of zero in the connection node.
+- Docs: Removed hand-maintained page navigation from `GETTING_STARTED.md`.
+- Tests: Added regression coverage for write coercion, message route parsing, and zero monitoring timers.
+
 ## [3.0.0] - 2026-07-10
 
 ### Changed
