@@ -9,11 +9,10 @@ const path = require("node:path");
 const {
   Command,
   ModuleIONo,
-  getEndCodeMessage,
   getEndCodeName,
   isRemotePasswordEndCode,
   SlmpError,
-  SlmpClient,
+  SlmpClient: StrictSlmpClient,
   ValueError,
   decodeResponse,
   deviceToString,
@@ -31,28 +30,51 @@ const {
   unpackBitValues,
 } = require("../lib/slmp");
 
+const TEST_TARGET = Object.freeze({ network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 });
+
+function SlmpClient(options) {
+  const client = new StrictSlmpClient({ port: 1025, transport: "tcp", target: TEST_TARGET, ...options });
+  const rawCommand = client.rawCommand.bind(client);
+  const readDevices = client.readDevices.bind(client);
+  const writeDevices = client.writeDevices.bind(client);
+  client.rawCommand = (command, requestOptions = {}) => rawCommand(command, { subcommand: 0, payload: Buffer.alloc(0), ...requestOptions });
+  client.readDevices = (device, points, requestOptions = {}) => readDevices(device, points, { bitUnit: false, ...requestOptions });
+  client.writeDevices = (device, values, requestOptions = {}) => writeDevices(device, values, { bitUnit: false, ...requestOptions });
+  return client;
+}
+
 function loadDeviceRangeRulesFixture() {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "slmp_device_range_rules.json"), "utf8"));
 }
 
 test("parseDevice handles decimal and hex devices", () => {
-  assert.deepEqual(parseDevice("D100"), { code: "D", number: 100 });
-  assert.deepEqual(parseDevice("X1F"), { code: "X", number: 31 });
-  assert.deepEqual(parseDevice("XFF"), { code: "X", number: 0xff });
-  assert.deepEqual(parseDevice("SWFF"), { code: "SW", number: 0xff });
-  assert.deepEqual(parseDevice("S10"), { code: "S", number: 10 });
-  assert.equal(deviceToString({ code: "X", number: 31 }), "X1F");
-  assert.throws(() => parseDevice("DFFFF"), /device code 'D'/);
+  const options = { plcProfile: "melsec:iq-r" };
+  assert.deepEqual(parseDevice("D100", options), { code: "D", number: 100, plcProfile: "melsec:iq-r" });
+  assert.deepEqual(parseDevice("X1F", options), { code: "X", number: 31, plcProfile: "melsec:iq-r" });
+  assert.deepEqual(parseDevice("XFF", options), { code: "X", number: 0xff, plcProfile: "melsec:iq-r" });
+  assert.deepEqual(parseDevice("SWFF", options), { code: "SW", number: 0xff, plcProfile: "melsec:iq-r" });
+  assert.deepEqual(parseDevice("S10", options), { code: "S", number: 10, plcProfile: "melsec:iq-r" });
+  assert.equal(deviceToString({ code: "X", number: 31, plcProfile: "melsec:iq-r" }, options), "X1F");
+  assert.throws(() => parseDevice("D100"), /require options\.plcProfile/);
+  assert.throws(() => parseDevice("DFFFF", options), /device code 'D'/);
 });
 
 test("parseDevice uses octal X/Y numbering for iq-f when plcProfile is explicit", () => {
-  assert.deepEqual(parseDevice("X217", { plcProfile: "melsec:iq-f" }), { code: "X", number: 0x8f });
-  assert.equal(deviceToString({ code: "Y", number: 0x90 }, { plcProfile: "melsec:iq-f" }), "Y220");
+  assert.deepEqual(parseDevice("X217", { plcProfile: "melsec:iq-f" }), { code: "X", number: 0x8f, plcProfile: "melsec:iq-f" });
+  assert.equal(deviceToString({ code: "Y", number: 0x90, plcProfile: "melsec:iq-f" }, { plcProfile: "melsec:iq-f" }), "Y220");
+  assert.throws(
+    () => deviceToString({ code: "Y", number: 0x90, plcProfile: "melsec:iq-r" }, { plcProfile: "melsec:iq-f" }),
+    /does not match/
+  );
+  assert.throws(
+    () => deviceToString({ code: "Y", number: 0x90 }, { plcProfile: "melsec:iq-f" }),
+    /must include plcProfile/
+  );
 });
 
 test("parseDevice rejects device codes that are unsupported by the explicit PLC profile", () => {
-  assert.deepEqual(parseDevice("LZ0", { plcProfile: "melsec:iq-f" }), { code: "LZ", number: 0 });
-  assert.deepEqual(parseDevice("LTS10", { plcProfile: "melsec:iq-r" }), { code: "LTS", number: 10 });
+  assert.deepEqual(parseDevice("LZ0", { plcProfile: "melsec:iq-f" }), { code: "LZ", number: 0, plcProfile: "melsec:iq-f" });
+  assert.deepEqual(parseDevice("LTS10", { plcProfile: "melsec:iq-r" }), { code: "LTS", number: 10, plcProfile: "melsec:iq-r" });
   assert.throws(() => parseDevice("V10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
   assert.throws(() => parseDevice("DX10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
   assert.throws(() => parseDevice("DY10", { plcProfile: "melsec:iq-f" }), /not supported for plcProfile 'melsec:iq-f'/);
@@ -64,8 +86,8 @@ test("parseDevice rejects device codes that are unsupported by the explicit PLC 
     /not supported for plcProfile 'melsec:qcpu:qj71e71-100'/
   );
   assert.throws(() => parseDevice("G10", { plcProfile: "melsec:iq-r" }), /not supported in the Node-RED public high-level surface/);
-  assert.throws(() => parseDevice("G10"), /not supported in the Node-RED public high-level surface/);
-  assert.throws(() => parseDevice("HG10"), /not supported in the Node-RED public high-level surface/);
+  assert.throws(() => parseDevice("G10"), /require options\.plcProfile/);
+  assert.throws(() => parseDevice("HG10"), /require options\.plcProfile/);
   assert.equal(isDeviceCodeSupportedForPlcProfile("LZ", "melsec:qnudv"), false);
   assert.equal(isDeviceCodeSupportedForPlcProfile("G", "melsec:qnu"), false);
   assert.equal(isDeviceCodeSupportedForPlcProfile("G", null), false);
@@ -135,13 +157,29 @@ test("resolveConnectionProfile rejects missing plcProfile on the standard route"
   );
 });
 
-test("SlmpClient defaults missing port to 1025 but rejects blank port", () => {
-  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
-  assert.equal(client.port, 1025);
+test("SlmpClient requires explicit port, transport, complete target, and raw-operation discriminators", async () => {
+  const base = { host: "127.0.0.1", plcProfile: "melsec:iq-r", transport: "tcp", target: TEST_TARGET };
+  assert.throws(() => new StrictSlmpClient(base), /port/);
   assert.throws(
-    () => new SlmpClient({ host: "127.0.0.1", port: "", plcProfile: "melsec:iq-r" }),
-    /port out of range/
+    () => new StrictSlmpClient({ ...base, port: "" }),
+    /port/
   );
+  assert.throws(() => new StrictSlmpClient({ ...base, port: 1025, transport: undefined }), /transport/);
+  assert.throws(() => new StrictSlmpClient({ ...base, port: 1025, target: { network: 0 } }), /required/);
+  const strict = new StrictSlmpClient({ ...base, port: 1025 });
+  await assert.rejects(() => strict.rawCommand(0x0401, { payload: Buffer.alloc(0) }), /subcommand/);
+  await assert.rejects(() => strict.rawCommand(0x0401, { subcommand: 0 }), /payload/);
+  await assert.rejects(() => strict.readDevices("D0", 1), /bitUnit/);
+  await assert.rejects(() => strict.writeDevices("D0", [1]), /bitUnit/);
+  await assert.rejects(
+    () => strict.rawCommand(0x0401, { subcommand: 0, payload: Buffer.alloc(0), serial: 7 }),
+    /does not accept serial/
+  );
+  await assert.rejects(
+    () => strict.rawCommand(0x0401, { subcommand: 0, payload: Buffer.alloc(0), series: "ql" }),
+    /does not accept series/
+  );
+  await assert.rejects(() => strict.readDevices("D0", 1, { bitUnit: false, series: "ql" }), /does not accept series/);
 });
 
 test("normalizeTarget rejects partial, fractional, and non-finite route values", () => {
@@ -152,16 +190,18 @@ test("normalizeTarget rejects partial, fractional, and non-finite route values",
     multidrop: 3,
   });
   for (const target of [
-    { network: "1junk" },
-    { station: "2.9" },
-    { moduleIO: "03FFzz" },
-    { multidrop: "3x" },
-    { network: 1.5 },
-    { station: Number.NaN },
-    { moduleIO: Number.POSITIVE_INFINITY },
+    { ...TEST_TARGET, network: "1junk" },
+    { ...TEST_TARGET, station: "2.9" },
+    { ...TEST_TARGET, moduleIO: "03FFzz" },
+    { ...TEST_TARGET, multidrop: "3x" },
+    { ...TEST_TARGET, network: 1.5 },
+    { ...TEST_TARGET, station: Number.NaN },
+    { ...TEST_TARGET, moduleIO: Number.POSITIVE_INFINITY },
   ]) {
     assert.throws(() => normalizeTarget(target), /integer/i);
   }
+  assert.throws(() => normalizeTarget({ network: 0 }), /required/i);
+  assert.throws(() => normalizeTarget({ ...TEST_TARGET, module_io: 0x03ff }), /both moduleIO and module_io/i);
 });
 
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
@@ -596,6 +636,56 @@ test("3E TCP frame extraction discards responses without a waiter", async () => 
   await assert.rejects(() => client._awaitTcpFrame(0), /TCP communication timeout/);
 });
 
+test("TCP transport enables keepalive with a 30-second idle", async () => {
+  const server = await startMockTcpServer("4e", () => {});
+  const originalSetKeepAlive = net.Socket.prototype.setKeepAlive;
+  const observed = [];
+  net.Socket.prototype.setKeepAlive = function setKeepAlive(enable, initialDelay) {
+    observed.push({ enable, initialDelay });
+    return originalSetKeepAlive.call(this, enable, initialDelay);
+  };
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: server.port,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  try {
+    await client.connect();
+    assert.ok(observed.some((item) => item.enable === true && item.initialDelay === 30000));
+  } finally {
+    net.Socket.prototype.setKeepAlive = originalSetKeepAlive;
+    await client.close();
+    await server.close();
+  }
+});
+
+test("3E UDP timeout closes its socket generation and rejects a delayed response from that generation", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", transport: "udp", frameType: "3e", timeout: 5, _allowManualProfile: true });
+  let oldClosed = false;
+  const oldSocket = {
+    send(_frame, callback) { callback(); },
+    close() { oldClosed = true; },
+  };
+  client._transport._udpSocket = oldSocket;
+
+  await assert.rejects(() => client._transport.sendUdp(Buffer.from([1]), 0), /UDP communication timeout/);
+  assert.equal(oldClosed, true);
+  assert.equal(client._transport._udpSocket, null);
+
+  const newSocket = {
+    send(_frame, callback) { callback(); },
+    close() {},
+  };
+  client._transport._udpSocket = newSocket;
+  const next = client._transport.sendUdp(Buffer.from([2]), 0);
+  client._transport.handleUdpMessage(make3EResponse([0x11]), oldSocket);
+  client._transport.handleUdpMessage(make3EResponse([0x22]), newSocket);
+  const frame = await next;
+  assert.deepEqual([...decodeResponse(frame, { frameType: "3e" }).data], [0x22]);
+});
+
 test("TCP frame wait reports the existing timeout message", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", timeout: 5, _allowManualProfile: true });
 
@@ -622,7 +712,7 @@ test("4E TCP response matching discards unmatched serials", async () => {
 test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   const calls = [];
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -645,7 +735,7 @@ test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async (
 test("extended random APIs use iQR payloads matching dotnet vectors", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   const calls = [];
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
     if (calls.length === 1) {
       return { endCode: 0, data: Buffer.from([0x34, 0x12, 0xef, 0xcd, 0xab, 0x89]) };
@@ -700,7 +790,7 @@ test("extended random APIs use iQR payloads matching dotnet vectors", async () =
 test("extended random APIs use QL payloads matching dotnet vectors", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qcpu:qj71e71-100" });
   const calls = [];
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
     if (calls.length === 1) {
       return { endCode: 0, data: Buffer.from([0x34, 0x12, 0xef, 0xcd, 0xab, 0x89]) };
@@ -744,7 +834,7 @@ test("extended random APIs use QL payloads matching dotnet vectors", async () =>
 test("extended random APIs use profile ext limit keys before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f" });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -769,7 +859,7 @@ test("extended random APIs use profile ext limit keys before transport", async (
   );
 
   const qcpu = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qcpu:qj71e71-100" });
-  qcpu.request = client.request;
+  qcpu._request = client._request;
   await assert.rejects(
     () => qcpu.readRandomExt({
       wordDevices: Array.from({ length: 186 }, (_, index) => [`D${index}`, {}]),
@@ -782,7 +872,7 @@ test("extended random APIs use profile ext limit keys before transport", async (
 test("readDevices rejects direct long timer state reads before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -797,7 +887,7 @@ test("readDevices rejects direct long timer state reads before transport", async
 test("writeDevices rejects direct long-family state writes before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -812,7 +902,7 @@ test("writeDevices rejects direct long-family state writes before transport", as
 test("S device write policy follows selected PLC profile", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -832,7 +922,7 @@ test("S device write policy follows selected PLC profile", async () => {
   assert.equal(calls, 0);
 
   const iqfClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f" });
-  iqfClient.request = async () => {
+  iqfClient._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -845,7 +935,7 @@ test("S device write policy follows selected PLC profile", async () => {
 test("iQ-R manual point limits reject overruns before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -860,7 +950,7 @@ test("iQ-R manual point limits reject overruns before transport", async () => {
   await assert.rejects(() => client.readDevices("M0", 7169, { bitUnit: true }), /1\.\.7168/);
   await assert.rejects(() => client.writeDevices("M0", new Array(7169).fill(false), { bitUnit: true }), /1\.\.7168/);
   const iqfClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f" });
-  iqfClient.request = client.request;
+  iqfClient._request = client._request;
   await assert.rejects(() => iqfClient.readDevices("M0", 3585, { bitUnit: true }), /1\.\.3584/);
   await assert.rejects(() => iqfClient.writeDevices("M0", new Array(3585).fill(false), { bitUnit: true }), /1\.\.3584/);
   await assert.rejects(() => client.readRandom({ wordDevices }), /1\.\.96/);
@@ -878,10 +968,59 @@ test("iQ-R manual point limits reject overruns before transport", async () => {
   assert.equal(calls, 0);
 });
 
+test("write APIs reject duplicate and overlapping destinations before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeRandomWords({ wordValues: [["D100", 1], ["D100", 2]] }),
+    /duplicate word destinations/
+  );
+  await assert.rejects(
+    () => client.writeRandomWords({ wordValues: [["D100", 1]], dwordValues: [["D99", 2]] }),
+    /overlapping word\/dword destinations/
+  );
+  await assert.rejects(
+    () => client.writeRandomWords({ dwordValues: [["D100", 1], ["D101", 2]] }),
+    /overlapping dword destinations/
+  );
+  await assert.rejects(
+    () => client.writeRandomBits({ bitValues: [["M100", true], ["M100", false]] }),
+    /duplicate bit destinations/
+  );
+  await assert.rejects(
+    () => client.writeBlock({ wordBlocks: [["D100", [1, 2]], ["D101", [3]]] }),
+    /overlapping destinations/
+  );
+  assert.equal(calls, 0);
+
+  const extClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
+  extClient._request = client._request;
+  const extension = { extensionSpecification: 1 };
+  await assert.rejects(
+    () => extClient.writeRandomWordsExt({
+      wordValues: [["D100", 1, extension]],
+      dwordValues: [["D99", 2, extension]],
+    }),
+    /overlapping word\/dword destinations/
+  );
+  await assert.rejects(
+    () => extClient.writeRandomBitsExt({
+      bitValues: [["M100", true, extension], ["M100", false, extension]],
+    }),
+    /duplicate bit destinations/
+  );
+  assert.equal(calls, 0);
+});
+
 test("direct access does not use device-range upper bounds as a send guard", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     const data = calls === 1 ? Buffer.from([0x34, 0x12]) : Buffer.alloc(0);
     return { endCode: 0, data };
@@ -895,12 +1034,12 @@ test("direct access does not use device-range upper bounds as a send guard", asy
 test("remote and memory helpers build expected commands", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
-  client.request = async (command, subcommand, data, options = {}) => {
+  client._request = async (command, subcommand, data, options = {}) => {
     calls.push({ command, subcommand, data: Buffer.from(data), expectResponse: options.expectResponse });
     return { endCode: 0, data: Buffer.from([0x64, 0x00, 0xc8, 0x00]) };
   };
 
-  await client.remoteRun();
+  await client.remoteRun({ force: false, clearMode: 0 });
   await client.remoteStop();
   await client.remoteReset();
   const values = await client.memoryReadWords(0x100, 2);
@@ -927,11 +1066,29 @@ test("remoteStop rejects non-manual force option", async () => {
   );
 });
 
-test("remoteReset rejects non-zero subcommands before transport", async () => {
+test("remote RUN and PAUSE require explicit operation intent", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(() => client.remoteRun(), /options are required/);
+  await assert.rejects(() => client.remoteRun({ clearMode: 0 }), /force is required/);
+  await assert.rejects(() => client.remoteRun({ force: false }), /clearMode is required/);
+  await assert.rejects(() => client.remoteRun({ force: 0, clearMode: 0 }), /force is required/);
+  await assert.rejects(() => client.remotePause(), /options are required/);
+  await assert.rejects(() => client.remotePause({}), /force is required/);
+  await assert.rejects(() => client.remotePause({ force: 0 }), /force is required/);
+  assert.equal(calls, 0);
+});
+
+test("remoteReset rejects public subcommand and response-wait overrides before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   await assert.rejects(
     () => client.remoteReset({ subcommand: 0x0001 }),
-    (error) => error instanceof ValueError && /remote reset subcommand must be 0x0000/.test(error.message)
+    (error) => error instanceof ValueError && /does not accept subcommand/.test(error.message)
   );
 });
 
@@ -1029,7 +1186,7 @@ test("concurrent remote password requests wait for the same unlock", async () =>
     return response;
   };
 
-  await Promise.all([client.remoteStop(), client.remotePause()]);
+  await Promise.all([client.remoteStop(), client.remotePause({ force: false })]);
 
   assert.equal(commands.filter((command) => command === Command.REMOTE_PASSWORD_UNLOCK).length, 1);
   assert.equal(commands[0], Command.REMOTE_PASSWORD_UNLOCK);
@@ -1070,7 +1227,7 @@ test("configured remote password unlock reports password errors clearly", async 
       error.endCode === 0xc810 &&
       error.endCodeName === "slmp_end_code_c810" &&
       /Remote password unlock failed/.test(error.message) &&
-      error.endCodeMessage === undefined &&
+      !("endCodeMessage" in error) &&
       error.isRemotePasswordError &&
       /end_code=0xC810/.test(error.cause?.rawMessage)
   );
@@ -1097,7 +1254,7 @@ test("request reports remote password lock errors clearly", async () => {
       error.command === Command.DEVICE_READ &&
       error.endCodeName === "slmp_end_code_c201" &&
       /SLMP error end_code=0xC201/.test(error.message) &&
-      error.endCodeMessage === undefined &&
+      !("endCodeMessage" in error) &&
       error.isRemotePasswordError &&
       /end_code=0xC201/.test(error.rawMessage)
   );
@@ -1108,9 +1265,6 @@ test("remote password end-code helper classifies password codes", () => {
   assert.equal(getEndCodeName(0xc810), "slmp_end_code_c810");
   assert.equal(getEndCodeName(0xd913), "slmp_end_code_d913");
   assert.equal(getEndCodeName(0xdead), "slmp_end_code_dead");
-  assert.equal(getEndCodeMessage(0xc810), undefined);
-  assert.equal(getEndCodeMessage(0xd913), undefined);
-  assert.equal(getEndCodeMessage(0xdead), undefined);
   assert.equal(isRemotePasswordEndCode(0xc201), true);
   assert.equal(isRemotePasswordEndCode(0xc810), true);
   assert.equal(isRemotePasswordEndCode(0xc814), true);
@@ -1153,7 +1307,7 @@ test("remote password authentication retry delay codes keep numeric diagnostics"
 test("extend unit helpers build expected commands", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
     return { endCode: 0, data: Buffer.from([0x6f, 0x00, 0xde, 0x00]) };
   };
@@ -1174,7 +1328,7 @@ test("extend unit helpers build expected commands", async () => {
 test("label helpers build payloads and parse responses", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
     if (command === Command.LABEL_ARRAY_READ) {
       return { endCode: 0, data: Buffer.from([0x01, 0x00, 0x09, 0x01, 0x02, 0x00, 0xaa, 0xbb]) };
@@ -1208,7 +1362,7 @@ test("label helpers build payloads and parse responses", async () => {
 test("readDevices rejects non-4-word long timer current reads before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1223,7 +1377,7 @@ test("readDevices rejects non-4-word long timer current reads before transport",
 test("readDevices rejects direct LCN word reads before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1238,7 +1392,7 @@ test("readDevices rejects direct LCN word reads before transport", async () => {
 test("writeDevices rejects direct word writes to 32-bit long-family devices before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1253,7 +1407,7 @@ test("writeDevices rejects direct word writes to 32-bit long-family devices befo
 test("readRandom rejects LCS/LCC before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1268,7 +1422,7 @@ test("readRandom rejects LCS/LCC before transport", async () => {
 test("readRandom rejects long current word entries before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1283,7 +1437,7 @@ test("readRandom rejects long current word entries before transport", async () =
 test("readBlock rejects LCS/LCC before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1299,7 +1453,7 @@ for (const profile of ["melsec:lcpu", "melsec:qnu"]) {
   test(`readBlock rejects ${profile} profile before transport`, async () => {
     const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
     let calls = 0;
-    client.request = async () => {
+    client._request = async () => {
       calls += 1;
       return { endCode: 0, data: Buffer.alloc(0) };
     };
@@ -1319,7 +1473,7 @@ for (const profile of ["melsec:lcpu", "melsec:qnu"]) {
 test("readBlock rejects LCN and LZ block routes before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1338,7 +1492,7 @@ test("readBlock rejects LCN and LZ block routes before transport", async () => {
 test("writeBlock rejects LCS/LCC before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1354,7 +1508,7 @@ for (const profile of ["melsec:lcpu", "melsec:qnu"]) {
   test(`writeBlock rejects ${profile} profile before transport`, async () => {
     const client = new SlmpClient({ host: "127.0.0.1", plcProfile: profile });
     let calls = 0;
-    client.request = async () => {
+    client._request = async () => {
       calls += 1;
       return { endCode: 0, data: Buffer.alloc(0) };
     };
@@ -1374,7 +1528,7 @@ for (const profile of ["melsec:lcpu", "melsec:qnu"]) {
 test("writeBlock inlines each block's data after its own spec", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let captured;
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     captured = { command, subcommand, data: Buffer.from(data) };
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1382,7 +1536,6 @@ test("writeBlock inlines each block's data after its own spec", async () => {
   await client.writeBlock({
     wordBlocks: [["D300", [0x1111, 0x2222]]],
     bitBlocks: [["M200", [0x00ff]]],
-    series: "iqr",
   });
 
   assert.equal(captured.command, Command.DEVICE_WRITE_BLOCK);
@@ -1402,7 +1555,7 @@ test("writeBlock inlines each block's data after its own spec", async () => {
 test("writeBlock rejects long current and LZ block routes before transport", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };
@@ -1428,7 +1581,7 @@ test("request rejects monitor register payloads with LCS/LCC before transport", 
   const payload = Buffer.concat([Buffer.from([0x01, 0x00]), encodeDeviceSpec("LCS10", { series: "iqr" })]);
 
   assert.throws(
-    () => client.request(Command.MONITOR_REGISTER, 0x0002, payload),
+    () => client._request(Command.MONITOR_REGISTER, 0x0002, payload),
     (error) => error instanceof ValueError && /Entry Monitor Device \(0x0801\) does not support LCS\/LCC/.test(error.message)
   );
   assert.equal(calls, 0);
@@ -1444,7 +1597,7 @@ test("request rejects monitor register payloads with G/HG before transport", asy
   const payload = Buffer.concat([Buffer.from([0x01, 0x00]), Buffer.from([0x0a, 0x00, 0x00, 0x00, 0xab, 0x00])]);
 
   assert.throws(
-    () => client.request(Command.MONITOR_REGISTER, 0x0002, payload),
+    () => client._request(Command.MONITOR_REGISTER, 0x0002, payload),
     (error) => error instanceof ValueError && /Entry Monitor Device \(0x0801\) does not support standalone G\/HG/.test(error.message)
   );
   assert.equal(calls, 0);

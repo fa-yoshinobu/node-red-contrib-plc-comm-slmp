@@ -8,7 +8,7 @@ const path = require("node:path");
 const {
   BUILTIN_CAPABILITY_PROFILES,
   Command,
-  SlmpClient,
+  SlmpClient: StrictSlmpClient,
   SlmpProfileFeatureError,
   ValueError,
   displayName,
@@ -16,6 +16,14 @@ const {
   profileDescriptors,
 } = require("../lib/slmp");
 const fixture = require("./fixtures/slmp_ethernet_profiles.json");
+const TEST_TARGET = Object.freeze({ network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 });
+
+function SlmpClient(options) {
+  const client = new StrictSlmpClient({ port: 1025, transport: "tcp", target: TEST_TARGET, ...options });
+  const readDevices = client.readDevices.bind(client);
+  client.readDevices = (device, points, requestOptions = {}) => readDevices(device, points, { bitUnit: false, ...requestOptions });
+  return client;
+}
 
 test("built-in capability profile table matches the canonical fixture", () => {
   assert.deepEqual(BUILTIN_CAPABILITY_PROFILES, fixture);
@@ -49,7 +57,7 @@ test("Node-RED editor shows display_name labels and keeps canonical PLC profile 
 test("blocked profile features fail before transport with a dedicated error", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv" });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(4) };
   };
@@ -61,15 +69,19 @@ test("blocked profile features fail before transport with a dedicated error", as
       error.profileId === "melsec:qnudv" &&
       error.featureKey === "block" &&
       error.state === "blocked" &&
-      /strictProfile=false/.test(error.message)
+      /profile and feature combination/.test(error.message)
   );
   assert.equal(calls, 0);
 });
 
-test("strictProfile=false sends blocked high-level requests", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", strictProfile: false });
+test("the maintainer-only boolean profile bypass sends blocked high-level requests", async () => {
+  assert.throws(
+    () => new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", strictProfile: false }),
+    /no longer a public option/
+  );
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", _maintainerStrictProfile: false });
   const calls = [];
-  client.request = async (command, subcommand, data) => {
+  client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
     return { endCode: 0, data: Buffer.alloc(4) };
   };
@@ -83,7 +95,7 @@ test("strictProfile=false sends blocked high-level requests", async () => {
 test("supported, config-dependent, and delegated features are not profile-guarded", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv" });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.from([0x34, 0x12]) };
   };
@@ -118,15 +130,15 @@ test("raw request API is not feature-guarded", async () => {
     return { endCode: 0, data: Buffer.alloc(0) };
   };
 
-  await client.request(Command.DEVICE_READ_BLOCK, 0x0000, Buffer.alloc(0));
+  await client._request(Command.DEVICE_READ_BLOCK, 0x0000, Buffer.alloc(0));
 
   assert.equal(calls, 1);
 });
 
 test("profile point limits are enforced independently of strictProfile", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", strictProfile: false });
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(96 * 2) };
   };
@@ -142,8 +154,8 @@ test("profile point limits are enforced independently of strictProfile", async (
     (error) => error instanceof ValueError && /1\.\.80/.test(error.message)
   );
 
-  const iql = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-l", strictProfile: false });
-  iql.request = async () => {
+  const iql = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-l", _maintainerStrictProfile: false });
+  iql._request = async () => {
     throw new Error("unexpected transport call");
   };
   await assert.rejects(
@@ -155,8 +167,8 @@ test("profile point limits are enforced independently of strictProfile", async (
     (error) => error instanceof ValueError && /limit=960/.test(error.message)
   );
 
-  const iqf = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f", strictProfile: false });
-  iqf.request = async () => {
+  const iqf = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-f", _maintainerStrictProfile: false });
+  iqf._request = async () => {
     throw new Error("unexpected transport call");
   };
   await assert.rejects(
@@ -171,9 +183,9 @@ test("profile point limits are enforced independently of strictProfile", async (
 });
 
 test("profile write_policy is enforced independently of strictProfile", async () => {
-  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", strictProfile: false });
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
   let calls = 0;
-  client.request = async () => {
+  client._request = async () => {
     calls += 1;
     return { endCode: 0, data: Buffer.alloc(0) };
   };

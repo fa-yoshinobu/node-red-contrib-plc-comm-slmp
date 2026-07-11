@@ -51,7 +51,9 @@
         "addresses":  "D300:U,4\nD320:STR,10",
         "addressesType":  "str",
         "outputMode":  "array",
+        "metadataMode":  "full",
         "errorHandling":  "output2",
+        "outputs":  2,
         "x":  340,
         "y":  120,
         "wires":  [
@@ -96,7 +98,9 @@
         "connection":  "cfg-slmp-udp",
         "updates":  "",
         "updatesType":  "str",
+        "metadataMode":  "full",
         "errorHandling":  "output2",
+        "outputs":  2,
         "x":  340,
         "y":  200,
         "wires":  [
@@ -185,6 +189,7 @@
         "transport":  "udp",
         "timeout":  "3000",
         "plcProfile":  "melsec:iq-r",
+        "useRemotePassword":  false,
         "monitoringTimer":  "16",
         "network":  "0",
         "station":  "255",

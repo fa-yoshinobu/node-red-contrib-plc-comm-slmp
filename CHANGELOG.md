@@ -18,6 +18,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+
+- Library: `SlmpClient` now requires explicit `port`, `transport`, concrete `plcProfile`, and one complete `target` or `defaultTarget`; raw request `subcommand` and payload are required.
+- Library: Removed public `strictProfile`, user-selected request `series` and 4E `serial`, localized end-code message hooks, and the `:I`, `:STRING`, and `DSTR...` address aliases.
+- Library: `readDevices` and `writeDevices` require Boolean `bitUnit`; Remote RUN requires Boolean `force` plus `clearMode`, and Remote PAUSE requires Boolean `force`.
+- Node-RED: Read/write source types, output/metadata/error modes, output count, runtime override shapes, and bare-address write dtype are now explicit and strictly validated.
+- Node-RED: Remote password use now requires the `Use remote password` checkbox; when enabled, the credential must be non-empty.
+
+### Changed
+
+- Library: Communication timeout defaults to 3000 ms, monitoring timer defaults to four seconds (`0x0010`), and TCP sockets enable keepalive after 30 seconds idle.
+- Library: `readNamed` and `writeNamed` reject random operations that exceed a single-request limit instead of splitting them into multiple requests.
+- Library: Remote RESET uses fixed subcommand `0x0000` and payload `0x0001`, and completes after sending without waiting for a success response.
+- Library: 4E serials are assigned internally and requests sharing one client are serialized.
+- Library: UDP timeout detaches and closes the socket generation so delayed datagrams cannot satisfy a later request.
+
+### Fixed
+
+- Library: Random, extended-random, and block writes reject duplicate or overlapping destinations before transport.
+- Library: Removed inert end-code message properties; numeric end code, stable end-code key, structured error information, and password classification remain.
+- Node-RED: Removed unsupported-device skip overrides and made metadata ownership deterministic across full, minimal, and off modes.
+- Docs: Updated user pages and examples to the explicit overhaul contract.
+- Tests: Vendored all shared vectors, added transport-state, keepalive, overlap, required-option, and one-request-limit coverage, and removed all shared-vector skips.
+
 ## [3.1.0] - 2026-07-10
 
 ### Added

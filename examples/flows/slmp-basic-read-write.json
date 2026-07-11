@@ -51,7 +51,9 @@
         "addresses":  "D300:U\nD301:U\nD200:F\nD302.3",
         "addressesType":  "str",
         "outputMode":  "object",
+        "metadataMode":  "full",
         "errorHandling":  "output2",
+        "outputs":  2,
         "x":  340,
         "y":  120,
         "wires":  [
@@ -96,7 +98,9 @@
         "connection":  "cfg-slmp-basic",
         "updates":  "",
         "updatesType":  "str",
+        "metadataMode":  "full",
         "errorHandling":  "output2",
+        "outputs":  2,
         "x":  340,
         "y":  200,
         "wires":  [
@@ -185,6 +189,7 @@
         "transport":  "tcp",
         "timeout":  "3000",
         "plcProfile":  "melsec:iq-r",
+        "useRemotePassword":  false,
         "monitoringTimer":  "16",
         "network":  "0",
         "station":  "255",

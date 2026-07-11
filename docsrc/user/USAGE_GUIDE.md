@@ -18,8 +18,8 @@
 | Transport | `tcp` or `udp`. |
 | Timeout ms | Communication timeout in milliseconds. |
 | PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-r:rj71en71`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:lcpu`, `melsec:lcpu:lj71e71-100`, `melsec:qcpu:qj71e71-100`, `melsec:qnu`, `melsec:qnu:qj71e71-100`, `melsec:qnudv`, and `melsec:qnudv:qj71e71-100`. |
-| Strict profile | Enabled by default. Rejects high-level features known unavailable on the selected PLC profile before sending. |
-| Remote password | Optional SLMP remote password credential. When set, the connection unlocks after opening and tries to lock before disconnecting. |
+| Use remote password | Explicitly enables the remote-password lifecycle. Leave unchecked when the PLC route does not use it. |
+| Remote password | Required and non-empty when Use remote password is checked. Disabled otherwise. |
 | Monitor timer | SLMP monitoring timer value sent in requests. |
 | Network | Target network number, `0` to `255`. |
 | Station | Target station number, `0` to `255`. |
@@ -31,13 +31,16 @@ request waits until the previous request has received a response, timed out, or
 failed. This is intentional for SLMP compatibility because PLCs have
 model-dependent limits for commands sent before earlier responses arrive.
 
+TCP connections enable keepalive after 30 seconds idle. UDP timeouts discard
+the timed-out socket generation before a later request can open a new one.
+
 For parallel communication, use separate `slmp-connection` config nodes. Each
 config node owns its own client connection and therefore its own request queue.
 
 ## Remote password
 
 Node-RED is the only SLMP package here with a connection-field remote password lifecycle.
-When `Remote password` is set on `slmp-connection`, the node unlocks after opening
+When `Use remote password` is checked and a non-empty credential is set, the node unlocks after opening
 and tries to lock before disconnecting.
 
 For `C200`-series password end codes, see the shared
@@ -46,9 +49,10 @@ page.
 
 ## Routing / target station
 
-Most flows keep the route fields at their defaults, which target the directly
-connected own station. Change them only when your PLC network is
-configured for another station, multi-CPU module I/O, or multidrop access.
+Every saved connection explicitly contains all four route fields. The editor
+initializes a new connection for the directly connected own station. Change
+those values only when your PLC network is configured for another station,
+multi-CPU module I/O, or multidrop access.
 
 Route fields control the SLMP destination header. They are not device family
 selectors; routed devices such as `Un\Gn` and `Jn\...` still need their own
@@ -71,8 +75,8 @@ The same object can be placed in `msg.slmp.target`, or configured through the
 Route source on `slmp-read` and `slmp-write`.
 
 JavaScript code that calls the low-level client can use `ModuleIONo` constants
-for `moduleIO`, for example `ModuleIONo.MULTIPLE_CPU_2`. A missing route still uses the
-own-station value `0x03FF`.
+for `moduleIO`, for example `ModuleIONo.MULTIPLE_CPU_2`. Low-level clients must
+receive a complete route; a missing or partial route is rejected.
 
 `slmp-read` and `slmp-write` use the public high-level address parser for normal
 device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
@@ -101,14 +105,12 @@ device access as user-facing address forms.
 | `msg.connect` | When `true`, opens the shared connection. |
 | `msg.disconnect` | When `true`, closes the shared connection. |
 | `msg.reinitialize` | When `true`, closes and reconnects the shared connection. |
-| `msg.slmpSkipUnsupported` | When `true`, unsupported-device errors become skipped messages instead of failures. |
-| `msg.slmp.skipUnsupported` | Same skip flag inside `msg.slmp`. |
 
 | Output field | Description |
 | --- | --- |
 | `msg.payload` | Read result. Object mode is keyed by normalized address, array mode follows address order, and value mode returns a scalar for one address. |
 | `msg.slmp.addresses` | Full metadata mode only: normalized address list. |
-| `msg.slmp.connection` | Full metadata mode only: effective connection profile, strict profile setting, frame type, target, and remote password status. |
+| `msg.slmp.connection` | Full metadata mode only: effective connection profile, frame type, target, and remote password status. |
 | `msg.slmp.target` | Full and minimal metadata modes: effective route target. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of requested addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
@@ -138,14 +140,12 @@ device access as user-facing address forms.
 | `msg.connect` | When `true`, opens the shared connection. |
 | `msg.disconnect` | When `true`, closes the shared connection. |
 | `msg.reinitialize` | When `true`, closes and reconnects the shared connection. |
-| `msg.slmpSkipUnsupported` | When `true`, unsupported-device errors become skipped messages instead of failures. |
-| `msg.slmp.skipUnsupported` | Same skip flag inside `msg.slmp`. |
 
 | Output field | Description |
 | --- | --- |
 | `msg.payload` | The incoming payload is preserved unless your flow changes it before the write. |
 | `msg.slmp.updates` | Full metadata mode only: normalized update object. |
-| `msg.slmp.connection` | Full metadata mode only: effective connection profile, strict profile setting, frame type, target, and remote password status. |
+| `msg.slmp.connection` | Full metadata mode only: effective connection profile, frame type, target, and remote password status. |
 | `msg.slmp.target` | Full and minimal metadata modes: effective route target. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of update addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
@@ -156,18 +156,21 @@ device access as user-facing address forms.
 | --- | --- | --- |
 | Unsigned word | `D100:U` | Unsigned 16-bit word. |
 | Signed word | `D100:S` | Signed 16-bit word. |
-| Signed word alias | `D100:I` | Alias that normalizes to `D100:S`. |
 | Unsigned dword | `D100:D` | Unsigned 32-bit value. |
 | Signed dword | `D100:L` | Signed 32-bit value. |
 | Float | `D100:F` | 32-bit float. |
 | String | `D100:STR,10` | UTF-8 string with a 10-byte maximum, packed two bytes per word. |
-| String alias | `DSTR100,10` | Compatibility alias for `D100:STR,10`. |
 | Bit in word | `D50.3` | One bit inside a word device. |
 | Direct bit | `M1000:BIT` | One bit device. |
 | Counted bit | `M1000:BIT,8` | Eight consecutive bit devices. |
 | Counted word | `D100:U,4` | Four consecutive word values. |
 
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
+
+Use only `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`. The removed compatibility
+spellings `:I`, `:STRING`, and `DSTR...` are rejected. A named random operation
+that exceeds one SLMP request is rejected before transport; the library does
+not divide it into multiple sampling or write times.
 
 ## Long device families
 
@@ -211,7 +214,7 @@ When Metadata is `full`, `msg.slmp` includes:
 | --- | --- |
 | `msg.slmp.addresses` | Normalized read addresses. Present on `slmp-read`. |
 | `msg.slmp.updates` | Normalized write updates. Present on `slmp-write`. |
-| `msg.slmp.connection` | Connection profile with host, port, transport, PLC profile, strict profile setting, frame type, series, target, and remote password status. |
+| `msg.slmp.connection` | Connection profile with host, port, transport, PLC profile, frame type, series, target, and remote password status. |
 | `msg.slmp.target` | Effective request target after route overrides. |
 
 When Metadata is `minimal`, `msg.slmp` includes only `target`, `itemCount`, and `metadataMode`.
@@ -238,6 +241,6 @@ if (msg.error && msg.error.endCode !== undefined) {
 }
 ```
 
-Strict profile failures use `SlmpProfileFeatureError`. In normal flows, fix the selected PLC profile or use a supported operation. Disable Strict profile only for deliberate verification.
-
-Unsupported device-code errors can be converted into skipped messages by sending `msg.slmpSkipUnsupported = true` or `msg.slmp.skipUnsupported = true`.
+Profile capability failures use `SlmpProfileFeatureError`. Select the exact PLC
+profile and use a supported operation. Normal public APIs do not provide a
+profile-check bypass or an unsupported-device skip switch.

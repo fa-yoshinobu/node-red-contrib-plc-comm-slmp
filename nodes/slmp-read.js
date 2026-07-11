@@ -1,23 +1,22 @@
 "use strict";
 
 const { normalizeAddress, normalizeAddressList, normalizeTarget, readNamed } = require("../lib/slmp");
-
-const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcProfile '([^']+)'/;
+const { hasOwn, normalizeDisplayName, requireEnum, requireSourceType, validateOutputs } = require("./runtime-validation");
 
 module.exports = function registerSlmpRead(RED) {
   function SlmpReadNode(config) {
     RED.nodes.createNode(this, config);
 
-    this.name = config.name;
+    this.name = normalizeDisplayName(config.name);
     this.connection = RED.nodes.getNode(config.connection);
     this.addresses = config.addresses || "";
-    this.addressesType = config.addressesType || "str";
+    this.addressesType = requireSourceType(config, "addressesType");
     this.routeTarget = config.routeTarget || "";
-    this.routeTargetType = config.routeTargetType || "str";
-    this.outputMode = config.outputMode || "object";
-    this.errorHandling = config.errorHandling || "throw";
-    this.metadataMode = normalizeMetadataMode(config.metadataMode);
-    this.outputs = this.errorHandling === "output2" ? 2 : 1;
+    this.routeTargetType = this.routeTarget === "" ? config.routeTargetType : requireSourceType(config, "routeTargetType");
+    this.outputMode = requireEnum(config, "outputMode", ["object", "array", "value"]);
+    this.errorHandling = requireEnum(config, "errorHandling", ["throw", "msg", "output2"]);
+    this.metadataMode = requireEnum(config, "metadataMode", ["full", "minimal", "off"]);
+    this.outputs = validateOutputs(config, this.errorHandling);
 
     this.on("input", async (msg, send, done) => {
       send = send || ((message) => this.send(message));
@@ -44,6 +43,9 @@ module.exports = function registerSlmpRead(RED) {
         if (addresses.length === 0) {
           throw new Error("No SLMP addresses were provided");
         }
+        if (this.outputMode === "value" && addresses.length !== 1) {
+          throw new Error("outputMode=value requires exactly one address");
+        }
 
         const client = this.connection.getClient();
         const snapshot = await readNamed(client, addresses, target ? { target } : {});
@@ -67,19 +69,35 @@ module.exports = function registerSlmpRead(RED) {
 };
 
 async function resolveAddresses(RED, node, msg) {
-  if (Array.isArray(msg.addresses) || typeof msg.addresses === "string") {
-    return normalizeAddressList(msg.addresses);
+  if (hasOwn(msg, "addresses")) {
+    if (!Array.isArray(msg.addresses) && typeof msg.addresses !== "string") {
+      throw new Error("msg.addresses must be a non-empty string or array");
+    }
+    const addresses = normalizeAddressList(msg.addresses);
+    if (addresses.length === 0) {
+      throw new Error("msg.addresses must not be empty");
+    }
+    return addresses;
   }
   const configured = await evaluateConfiguredValue(RED, node, msg, node.addresses, node.addressesType, "addresses");
   return normalizeAddressList(configured);
 }
 
 async function resolveTarget(RED, node, msg) {
-  if (isPlainObject(msg.target)) {
+  if (hasOwn(msg, "target")) {
+    if (!isPlainObject(msg.target)) {
+      throw new Error("msg.target must be a complete routing object");
+    }
     return normalizeTarget(msg.target);
   }
-  if (isPlainObject(msg.slmp && msg.slmp.target)) {
+  if (isPlainObject(msg.slmp) && hasOwn(msg.slmp, "target")) {
+    if (!isPlainObject(msg.slmp.target)) {
+      throw new Error("msg.slmp.target must be a complete routing object");
+    }
     return normalizeTarget(msg.slmp.target);
+  }
+  if (node.routeTarget === "") {
+    return undefined;
   }
   const configured = await evaluateConfiguredValue(RED, node, msg, node.routeTarget, node.routeTargetType, "target");
   return normalizeTargetSource(configured);
@@ -102,10 +120,6 @@ function evaluateConfiguredValue(RED, node, msg, value, type, label) {
 
 function fail(node, msg, send, done, error) {
   const normalized = error instanceof Error ? error : new Error(String(error));
-  if (shouldSkipUnsupportedDevice(msg, normalized)) {
-    sendUnsupportedDeviceSkip(node, msg, send, done, normalized);
-    return;
-  }
   node.status({ fill: "red", shape: "ring", text: normalized.message });
   if (node.errorHandling === "msg") {
     msg.error = normalized;
@@ -124,39 +138,6 @@ function fail(node, msg, send, done, error) {
 function validateAddressesForConnection(addresses, profile) {
   const options = profile && profile.plcProfile ? { plcProfile: profile.plcProfile } : {};
   return addresses.map((address) => normalizeAddress(address, options));
-}
-
-function shouldSkipUnsupportedDevice(msg, error) {
-  const skipRequested = Boolean(
-    msg && (msg.slmpSkipUnsupported === true || (isPlainObject(msg.slmp) && msg.slmp.skipUnsupported === true))
-  );
-  return skipRequested && UNSUPPORTED_DEVICE_RE.test(error.message || "");
-}
-
-function sendUnsupportedDeviceSkip(node, msg, send, done, error) {
-  error.code = "SLMP_UNSUPPORTED_DEVICE";
-  const profile = node.connection && typeof node.connection.getProfile === "function" ? node.connection.getProfile() : undefined;
-  const skipped = {
-    ...msg,
-    error,
-    skipped: true,
-    slmpSkippedUnsupported: true,
-    skipReason: error.message,
-    slmp: {
-      ...(isPlainObject(msg.slmp) ? msg.slmp : {}),
-      ...(profile ? { connection: profile } : {}),
-      skipped: true,
-      skipStatus: "UNSUPPORTED_DEVICE",
-      skipReason: error.message,
-    },
-  };
-  node.status({ fill: "yellow", shape: "ring", text: "skipped unsupported device" });
-  if (node.errorHandling === "output2") {
-    send([null, skipped]);
-  } else {
-    send(skipped);
-  }
-  done();
 }
 
 function normalizeTargetSource(value) {
@@ -201,25 +182,20 @@ function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function normalizeMetadataMode(value) {
-  const normalized = String(value || "full").trim().toLowerCase();
-  if (normalized === "minimal" || normalized === "off") {
-    return normalized;
-  }
-  return "full";
-}
-
 function applyMetadata(msg, mode, metadata) {
-  const normalizedMode = normalizeMetadataMode(mode);
-  if (normalizedMode === "off") {
+  if (mode === "off") {
     return;
   }
-  if (normalizedMode === "minimal") {
+  if (mode === "minimal") {
     msg.slmp = buildMinimalMetadata(msg.slmp, metadata);
     return;
   }
+  const next = clearOwnedMetadata(msg.slmp);
   msg.slmp = {
-    ...(isPlainObject(msg.slmp) ? msg.slmp : {}),
+    ...next,
+    operation: "read",
+    metadataMode: "full",
+    itemCount: metadata.itemCount,
     addresses: metadata.addresses,
     connection: metadata.connection,
     target: metadata.target,
@@ -227,13 +203,19 @@ function applyMetadata(msg, mode, metadata) {
 }
 
 function buildMinimalMetadata(existing, metadata) {
-  const next = isPlainObject(existing) ? { ...existing } : {};
-  delete next.addresses;
-  delete next.updates;
-  delete next.connection;
+  const next = clearOwnedMetadata(existing);
+  next.operation = "read";
   next.target = metadata.target;
   next.itemCount = metadata.itemCount;
   next.metadataMode = "minimal";
+  return next;
+}
+
+function clearOwnedMetadata(existing) {
+  const next = isPlainObject(existing) ? { ...existing } : {};
+  for (const key of ["addresses", "updates", "connection", "target", "itemCount", "metadataMode", "operation"]) {
+    delete next[key];
+  }
   return next;
 }
 
@@ -241,7 +223,7 @@ function formatPayload(snapshot, addresses, outputMode) {
   if (outputMode === "array") {
     return addresses.map((address) => snapshot[address]);
   }
-  if (outputMode === "value" && addresses.length === 1) {
+  if (outputMode === "value") {
     return snapshot[addresses[0]];
   }
   return snapshot;

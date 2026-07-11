@@ -7,6 +7,11 @@ family.
 
 The main low-level client type is `SlmpClient` from `lib/slmp/client.js`.
 
+Construction requires `host`, `port`, `transport`, a concrete canonical
+`plcProfile`, and exactly one complete `target` or `defaultTarget`. Timeout is
+optional with a 3000 ms default; monitoring timer is optional with a four-second
+default. TCP enables keepalive after 30 seconds idle.
+
 ## Direct And Random Device Operations
 
 | Operation | Public API |
@@ -27,6 +32,10 @@ such as `U1\G0`, `U3E0\HG0`, or `J2\SW10` where the route requires it.
 The current Node-RED low-level client does not expose separate extended direct
 device helpers. Use the extended random APIs for routed random access.
 
+`readDevices` and `writeDevices` require a Boolean `bitUnit`. Random and block
+writes reject duplicate or overlapping destinations. Named random operations
+must fit one protocol request; the library does not split an oversized call.
+
 ## Specialized Operations
 
 | Operation | Public API |
@@ -40,6 +49,11 @@ device helpers. Use the extended random APIs for routed random access.
 | Remote password | `remotePasswordUnlock`, `remotePasswordLock` |
 | CPU operation state | `readCpuOperationState` |
 
+Remote RUN is `remoteRun({ force, clearMode })`, where `force` is Boolean and
+`clearMode` is `0`, `1`, or `2`. Remote PAUSE is
+`remotePause({ force })`. Both fields are required. Remote RESET accepts no
+subcommand or response-wait override.
+
 Monitor registration/cycle APIs are not part of the current Node-RED
 low-level client surface.
 
@@ -52,6 +66,20 @@ low-level client surface.
 | Typed values | `readTyped`, `writeTyped` |
 | Named mixed snapshots | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
+
+All public address-to-number and number-to-address helpers require the
+canonical `plcProfile`. `parseDevice` returns an immutable semantic object that
+contains that profile. Passing the object to a client configured for another
+profile is rejected before transport.
+
+The supported dtype vocabulary is `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`.
+Compatibility spellings `:I`, `:STRING`, and `DSTR...` are not accepted.
+
+The raw request API requires command, subcommand, and an explicit byte payload.
+Request `series` and 4E `serial` are not public options; both are derived or
+assigned by the client. PLC errors expose the numeric end code, stable
+`slmp_end_code_xxxx` key, and structured error information, not localized
+manual-derived messages.
 
 ## Profile Selection
 

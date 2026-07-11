@@ -374,7 +374,7 @@
   </div>
   <div class="form-row" id="node-input-addressesLiteralRow">
     <label for="node-input-addressesLiteral"><i class="fa fa-list"></i> Addresses</label>
-    <textarea id="node-input-addressesLiteral" style="height: 140px;" placeholder="D100:U&#10;D100:I&#10;D100:U,10&#10;D200:F,4&#10;M1000:BIT&#10;D100:STR,10"></textarea>
+    <textarea id="node-input-addressesLiteral" style="height: 140px;" placeholder="D100:U&#10;D101:S&#10;D100:U,10&#10;D200:F,4&#10;M1000:BIT&#10;D100:STR,10"></textarea>
   </div>
   <div class="form-row">
     <label for="node-input-routeTargetSource"><i class="fa fa-sitemap"></i> Route</label>
@@ -414,7 +414,7 @@
 
 <script type="text/html" data-help-name="slmp-read">
   <p>Reads one or more SLMP addresses and writes the result to <code>msg.payload</code>.</p>
-  <p>Supported forms include <code>D100:U</code>, <code>D100:I</code>, <code>D100:U,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000:BIT</code>, <code>M1000:BIT,8</code>, <code>D100:STR,10</code>, and <code>DSTR100,10</code>.</p>
+  <p>Supported forms include <code>D100:U</code>, <code>D101:S</code>, <code>D100:U,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000:BIT</code>, <code>M1000:BIT,8</code>, and <code>D100:STR,10</code>.</p>
   <p><code>,count</code> returns arrays for numeric and direct-bit reads. String reads use UTF-8 bytes packed two per word.</p>
   <p>Output can be an object keyed by address, an array in address order, or a single scalar when exactly one address is requested.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>

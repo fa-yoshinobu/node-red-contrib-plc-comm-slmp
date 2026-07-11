@@ -359,7 +359,7 @@
   </div>
   <div class="form-row" id="node-input-updatesLiteralRow">
     <label for="node-input-updatesLiteral"><i class="fa fa-pencil"></i> Static updates</label>
-    <textarea id="node-input-updatesLiteral" style="height: 140px;" placeholder="{&quot;D100:U&quot;: 42, &quot;D100:I&quot;: -1, &quot;D100:U,3&quot;: [10,11,12], &quot;M1000:BIT&quot;: true, &quot;D100:STR,10&quot;: &quot;HELLO&quot;}"></textarea>
+    <textarea id="node-input-updatesLiteral" style="height: 140px;" placeholder="{&quot;D100:U&quot;: 42, &quot;D101:S&quot;: -1, &quot;D100:U,3&quot;: [10,11,12], &quot;M1000:BIT&quot;: true, &quot;D100:STR,10&quot;: &quot;HELLO&quot;}"></textarea>
   </div>
   <div class="form-row">
     <label for="node-input-routeTargetSource"><i class="fa fa-sitemap"></i> Route</label>
@@ -391,8 +391,8 @@
 
 <script type="text/html" data-help-name="slmp-write">
   <p>Writes one or more SLMP values using the same named-device foundation as the SLMP libraries, extended here with count and string forms.</p>
-  <p>Preferred dynamic input is <code>msg.updates</code> as an object, for example <code>{ "D100:U": 42, "D100:I": -1, "D100:U,3": [10,11,12], "M1000:BIT": true, "D100:STR,10": "HELLO" }</code>.</p>
-  <p>Count-qualified addresses expect arrays, while string addresses expect a string value. <code>DSTR100,10</code> is accepted as a compatibility alias.</p>
+  <p>Preferred dynamic input is <code>msg.updates</code> as an object, for example <code>{ "D100:U": 42, "D101:S": -1, "D100:U,3": [10,11,12], "M1000:BIT": true, "D100:STR,10": "HELLO" }</code>.</p>
+  <p>Count-qualified addresses expect arrays, while string addresses expect a string value. Use the canonical <code>D100:STR,10</code> form.</p>
   <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. Literal text accepts JSON objects only.</p>
   <p>Per-request routing can be supplied as <code>msg.target</code>, <code>msg.slmp.target</code>, or a configured route source. Route objects can include <code>network</code>, <code>station</code>, <code>moduleIO</code>, and <code>multidrop</code>.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>

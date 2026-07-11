@@ -24,29 +24,24 @@ test("parseAddress supports count and string forms", () => {
     hasCount: true,
     explicitDtype: true,
   });
-  assert.deepEqual(parseAddress("DSTR200,8"), {
-    base: "D200",
-    dtype: "STR",
-    bitIndex: null,
-    count: 8,
-    hasCount: true,
-    explicitDtype: true,
-  });
+  assert.throws(() => parseAddress("DSTR200,8"), /explicit dtype/i);
 });
 
 test("normalizeAddress and formatParsedAddress keep one canonical spelling", () => {
-  assert.equal(normalizeAddress(" d200:f "), "D200:F");
-  assert.equal(normalizeAddress("d50.a"), "D50.A");
-  assert.equal(normalizeAddress("d50.d"), "D50.D");
-  assert.equal(normalizeAddress("dstr200,8"), "D200:STR,8");
-  assert.equal(normalizeAddress("d100:i"), "D100:S");
-  assert.equal(formatParsedAddress(parseAddress("D100:U,10")), "D100:U,10");
+  const options = { plcProfile: "melsec:iq-r" };
+  assert.equal(normalizeAddress(" d200:f ", options), "D200:F");
+  assert.equal(normalizeAddress("d50.a", options), "D50.A");
+  assert.equal(normalizeAddress("d50.d", options), "D50.D");
+  assert.throws(() => normalizeAddress("dstr200,8", options), /explicit dtype/i);
+  assert.throws(() => normalizeAddress("d100:i", options), /unsupported dtype/i);
+  assert.throws(() => normalizeAddress("d100:string", options), /unsupported dtype/i);
+  assert.equal(formatParsedAddress(parseAddress("D100:U,10"), options), "D100:U,10");
   assert.throws(() => parseAddress("D100,10"), /requires an explicit dtype/i);
   assert.throws(() => parseAddress("D100:BOGUS"), /unsupported dtype/i);
-  assert.throws(() => normalizeAddress("D100:BOGUS"), /unsupported dtype/i);
-  assert.throws(() => normalizeAddress("d50.10"), /invalid bit-in-word/i);
+  assert.throws(() => normalizeAddress("D100:BOGUS", options), /unsupported dtype/i);
+  assert.throws(() => normalizeAddress("d50.10", options), /invalid bit-in-word/i);
   assert.throws(() => parseAddress("D50:BIT_IN_WORD"), /no bit index/i);
-  assert.throws(() => normalizeAddress("x1a:BIT"), /require explicit plcProfile/i);
+  assert.throws(() => normalizeAddress("x1a:BIT"), /require options\.plcProfile/i);
   assert.equal(normalizeAddress("x1a:BIT", { plcProfile: "melsec:iq-r" }), "X1A:BIT");
   assert.equal(normalizeAddress("y217:BIT", { plcProfile: "melsec:iq-f" }), "Y217:BIT");
   assert.throws(() => normalizeAddress("x1a:BIT", { plcProfile: "iq-r" }), /Unsupported plcProfile/);
@@ -54,6 +49,7 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
 
 test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index", async () => {
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices() {
       throw new Error("unexpected read");
     },
@@ -68,6 +64,7 @@ test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index"
 
 test("readNamed and writeNamed reject unknown dtype suffixes", async () => {
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom() {
       throw new Error("unexpected read");
     },
@@ -90,6 +87,7 @@ test("normalizeAddressList keeps count suffixes in comma-separated input", () =>
 test("readNamed batches word and dword requests like the Python helper layer", async () => {
   const calls = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom({ wordDevices, dwordDevices }) {
       calls.push({
         kind: "readRandom",
@@ -123,26 +121,23 @@ test("readNamed batches word and dword requests like the Python helper layer", a
   assert.equal(snapshot["M1000:BIT"], true);
   assert.ok(
     calls.some(
-      (call) => call.kind === "readRandom" && call.wordDevices.includes("M992") && call.wordDevices.includes("D100")
+      (call) =>
+        call.kind === "readRandom" &&
+        call.wordDevices.includes("M992") &&
+        call.wordDevices.includes("D100") &&
+        call.wordDevices.includes("D50")
     )
   );
   assert.ok(
     !calls.some((call) => call.kind === "readDevices" && call.device === "M1000" && call.options.bitUnit === true)
   );
-  assert.ok(
-    calls.some(
-      (call) =>
-        call.kind === "readDevices" &&
-        call.device === "D50" &&
-        call.points === 1 &&
-        call.options.bitUnit === false
-    )
-  );
+  assert.equal(calls.length, 1);
 });
 
-test("readNamed splits random reads at the iQ-R manual batch limit", async () => {
+test("readNamed rejects random reads that exceed the one-request limit before transport", async () => {
   const calls = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom({ wordDevices, dwordDevices }) {
       const wordNames = wordDevices.map((device) => `${device.code}${device.number}`);
       calls.push({ wordDevices: wordNames, dwordDevices });
@@ -157,19 +152,14 @@ test("readNamed splits random reads at the iQ-R manual batch limit", async () =>
   };
 
   const addresses = Array.from({ length: 97 }, (_, index) => `D${index * 2}:U`);
-  const snapshot = await readNamed(fakeClient, addresses);
-
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0].wordDevices.length, 96);
-  assert.equal(calls[1].wordDevices.length, 1);
-  assert.equal(calls[1].wordDevices[0], "D192");
-  assert.equal(snapshot["D0:U"], 0);
-  assert.equal(snapshot["D192:U"], 192);
+  await assert.rejects(() => readNamed(fakeClient, addresses), /must fit one request/i);
+  assert.equal(calls.length, 0);
 });
 
 test("writeNamed supports word, bit-in-word, direct bit, and float writes", async () => {
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices(device) {
       assert.equal(`${device.code}${device.number}`, "D50");
       return [0x0000];
@@ -209,9 +199,10 @@ test("writeNamed supports word, bit-in-word, direct bit, and float writes", asyn
   assert.deepEqual(bitWrite, { kind: "writeDevices", device: "M1000", values: [true], bitUnit: true });
 });
 
-test("writeNamed splits random word writes at the iQ-R manual weighted limit", async () => {
+test("writeNamed rejects random word writes that exceed the one-request limit before transport", async () => {
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async writeRandomWords({ wordValues, dwordValues }) {
       writes.push({
         wordValues: wordValues.map(([device, value]) => [`${device.code}${device.number}`, value]),
@@ -221,17 +212,14 @@ test("writeNamed splits random word writes at the iQ-R manual weighted limit", a
   };
 
   const updates = Object.fromEntries(Array.from({ length: 81 }, (_, index) => [`D${index * 2}:U`, index]));
-  await writeNamed(fakeClient, updates);
-
-  assert.equal(writes.length, 2);
-  assert.equal(writes[0].wordValues.length, 80);
-  assert.equal(writes[1].wordValues.length, 1);
-  assert.deepEqual(writes[1].wordValues[0], ["D160", 80]);
+  await assert.rejects(() => writeNamed(fakeClient, updates), /must fit one request/i);
+  assert.equal(writes.length, 0);
 });
 
 test("readNamed coalesces contiguous direct bits and word ranges into block reads", async () => {
   const calls = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom() {
       throw new Error("unexpected random read");
     },
@@ -277,6 +265,7 @@ test("readNamed supports count arrays and string addresses", async () => {
   const helloWords = [0x4548, 0x4c4c, 0x004f];
   const abcdWords = [0x4241, 0x4443];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom() {
       throw new Error("unexpected random read");
     },
@@ -306,13 +295,13 @@ test("readNamed supports count arrays and string addresses", async () => {
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["M1000:BIT,3", "D100:U,3", "D200:F,2", "D300:STR,5", "DSTR400,4"]);
+  const snapshot = await readNamed(fakeClient, ["M1000:BIT,3", "D100:U,3", "D200:F,2", "D300:STR,5", "D400:STR,4"]);
   assert.deepEqual(snapshot, {
     "M1000:BIT,3": [true, false, true],
     "D100:U,3": [11, 12, 13],
     "D200:F,2": [1.5, -2.25],
     "D300:STR,5": "HELLO",
-    "DSTR400,4": "ABCD",
+    "D400:STR,4": "ABCD",
   });
   assert.deepEqual(calls, [
     { device: "M1000", points: 3, bitUnit: true },
@@ -326,6 +315,7 @@ test("readNamed supports count arrays and string addresses", async () => {
 test("readNamed resolves LT and LST families through helper-backed 4-word blocks", async () => {
   const calls = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom() {
       throw new Error("unexpected random read");
     },
@@ -364,6 +354,7 @@ test("readNamed resolves LT and LST families through helper-backed 4-word blocks
 test("readTyped resolves long-family values through supported routes", async () => {
   const calls = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom({ dwordDevices }) {
       calls.push({
         device: dwordDevices.map((device) => `${device.code}${device.number}`).join(","),
@@ -395,14 +386,14 @@ test("readTyped resolves long-family values through supported routes", async () 
     },
   };
 
-  assert.equal(await readTyped(fakeClient, { code: "LTN", number: 0 }, "D"), 0x00010002);
-  assert.equal(await readTyped(fakeClient, { code: "LTS", number: 0 }, "BIT"), true);
-  assert.equal(await readTyped(fakeClient, { code: "LTC", number: 0 }, "BIT"), true);
-  assert.equal(await readTyped(fakeClient, { code: "LSTN", number: 4 }, "D"), 6);
-  assert.equal(await readTyped(fakeClient, { code: "LSTC", number: 4 }, "BIT"), true);
-  assert.equal(await readTyped(fakeClient, { code: "LCN", number: 10 }, "D"), 8);
-  assert.equal(await readTyped(fakeClient, { code: "LCS", number: 10 }, "BIT"), true);
-  assert.equal(await readTyped(fakeClient, { code: "LCC", number: 10 }, "BIT"), true);
+  assert.equal(await readTyped(fakeClient, { code: "LTN", number: 0, plcProfile: "melsec:iq-r" }, "D"), 0x00010002);
+  assert.equal(await readTyped(fakeClient, { code: "LTS", number: 0, plcProfile: "melsec:iq-r" }, "BIT"), true);
+  assert.equal(await readTyped(fakeClient, { code: "LTC", number: 0, plcProfile: "melsec:iq-r" }, "BIT"), true);
+  assert.equal(await readTyped(fakeClient, { code: "LSTN", number: 4, plcProfile: "melsec:iq-r" }, "D"), 6);
+  assert.equal(await readTyped(fakeClient, { code: "LSTC", number: 4, plcProfile: "melsec:iq-r" }, "BIT"), true);
+  assert.equal(await readTyped(fakeClient, { code: "LCN", number: 10, plcProfile: "melsec:iq-r" }, "D"), 8);
+  assert.equal(await readTyped(fakeClient, { code: "LCS", number: 10, plcProfile: "melsec:iq-r" }, "BIT"), true);
+  assert.equal(await readTyped(fakeClient, { code: "LCC", number: 10, plcProfile: "melsec:iq-r" }, "BIT"), true);
   assert.deepEqual(calls, [
     { device: "LTN0", points: 4, bitUnit: false },
     { device: "LTN0", points: 4, bitUnit: false },
@@ -418,6 +409,7 @@ test("readTyped resolves long-family values through supported routes", async () 
 test("readNamed resolves long counter current and state bits through supported routes", async () => {
   const calls = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom({ dwordDevices }) {
       calls.push({
         kind: "readRandom",
@@ -463,6 +455,7 @@ test("readNamed forwards per-request target overrides to client calls", async ()
   const calls = [];
   const target = { network: 2, station: 3, moduleIO: "03FF", multidrop: 1 };
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readRandom(options) {
       calls.push({
         kind: "readRandom",
@@ -496,6 +489,7 @@ test("writeNamed coalesces contiguous direct bits and same-word bit updates", as
   const reads = [];
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices(device, points, options) {
       reads.push({
         device: `${device.code}${device.number}`,
@@ -534,6 +528,7 @@ test("writeNamed coalesces contiguous direct bits and same-word bit updates", as
 test("writeNamed supports count arrays and string writes", async () => {
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices() {
       throw new Error("unexpected read");
     },
@@ -554,7 +549,7 @@ test("writeNamed supports count arrays and string writes", async () => {
     "D100:U,3": [11, 12, 13],
     "D200:F,2": [1.5, -2.25],
     "D300:STR,5": "HELLO",
-    "DSTR400,4": "ABCD",
+    "D400:STR,4": "ABCD",
   });
 
   const floatWords = [];
@@ -576,6 +571,7 @@ test("writeNamed supports count arrays and string writes", async () => {
 test("writeNamed routes long current values and long state bits through random writes", async () => {
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices() {
       throw new Error("unexpected read");
     },
@@ -640,6 +636,7 @@ test("writeNamed routes long current values and long state bits through random w
 test("writeTyped routes long current and state devices through random writes", async () => {
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async writeDevices() {
       throw new Error("unexpected direct write");
     },
@@ -657,8 +654,8 @@ test("writeTyped routes long current and state devices through random writes", a
     },
   };
 
-  await writeTyped(fakeClient, { code: "LCN", number: 10 }, "D", 123);
-  await writeTyped(fakeClient, { code: "LCS", number: 10 }, "BIT", true);
+  await writeTyped(fakeClient, { code: "LCN", number: 10, plcProfile: "melsec:iq-r" }, "D", 123);
+  await writeTyped(fakeClient, { code: "LCS", number: 10, plcProfile: "melsec:iq-r" }, "BIT", true);
 
   assert.deepEqual(writes, [
     { kind: "writeRandomWords", dwordValues: [["LCN10", 123]] },
@@ -669,6 +666,7 @@ test("writeTyped routes long current and state devices through random writes", a
 test("writes validate boolean and numeric values before any client call", async () => {
   let calls = 0;
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices() {
       calls += 1;
       return [0];
@@ -700,6 +698,7 @@ test("writes validate boolean and numeric values before any client call", async 
 test("writes accept only documented boolean tokens and integer widths", async () => {
   const writes = [];
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async writeDevices(device, values, options) {
       writes.push({ device: `${device.code}${device.number}`, values, bitUnit: options.bitUnit });
     },
@@ -727,6 +726,7 @@ test("writeNamed forwards per-request target overrides to client calls", async (
   const writes = [];
   const target = { network: 2, station: 3, moduleIO: "03FF", multidrop: 1 };
   const fakeClient = {
+    plcProfile: "melsec:iq-r",
     async readDevices(device, points, options) {
       writes.push({
         kind: "readDevices",
@@ -815,6 +815,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
       station: "255",
       moduleIO: "03FF",
       multidrop: "2",
+      useRemotePassword: true,
       credentials: {
         remotePassword: "secret1",
       },
@@ -826,7 +827,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     assert.equal(constructorOptions[0].transport, "udp");
     assert.equal(constructorOptions[0].timeout, 4500);
     assert.equal(constructorOptions[0].plcProfile, "melsec:iq-r");
-    assert.equal(constructorOptions[0].strictProfile, true);
+    assert.equal(Object.prototype.hasOwnProperty.call(constructorOptions[0], "strictProfile"), false);
     assert.equal(constructorOptions[0].remotePassword, "secret1");
     assert.ok(node.getClient() instanceof FakeSlmpClient);
     assert.deepEqual(node.getProfile(), {
@@ -834,7 +835,6 @@ test("slmp-connection creates a client and closes it with the node", async () =>
       port: 5001,
       transport: "udp",
       plcProfile: "melsec:iq-r",
-      strictProfile: true,
       frameType: "4e",
       plcSeries: "iqr",
       target: {
@@ -876,7 +876,7 @@ test("slmp-connection creates a client and closes it with the node", async () =>
   });
 });
 
-test("slmp-connection defaults missing port but rejects blank port", async () => {
+test("slmp-connection rejects missing and blank port", async () => {
   const constructorOptions = [];
 
   class FakeSlmpClient {
@@ -895,15 +895,16 @@ test("slmp-connection defaults missing port but rejects blank port", async () =>
     const { RED, create } = createMockRed();
     require("../nodes/slmp-connection")(RED);
 
-    create("slmp-connection", {
-      id: "conn-missing-port",
-      host: "192.168.0.10",
-      plcProfile: "melsec:iq-r",
-      monitoringTimer: 0,
-    });
-
-    assert.equal(constructorOptions[0].port, 1025);
-    assert.equal(constructorOptions[0].monitoringTimer, 0);
+    assert.throws(
+      () => create("slmp-connection", {
+        id: "conn-missing-port",
+        host: "192.168.0.10",
+        plcProfile: "melsec:iq-r",
+        monitoringTimer: 0,
+      }),
+      /port/
+    );
+    assert.equal(constructorOptions.length, 0);
     assert.throws(
       () =>
         create("slmp-connection", {
@@ -912,14 +913,48 @@ test("slmp-connection defaults missing port but rejects blank port", async () =>
           port: "",
           plcProfile: "melsec:iq-r",
         }),
-      /slmp-connection port is required/
+      /port/
+    );
+    assert.throws(
+      () => create("slmp-connection", {
+        id: "conn-password-toggle-missing",
+        host: "192.168.0.10",
+        port: 1025,
+        transport: "tcp",
+        plcProfile: "melsec:iq-r",
+      }),
+      /useRemotePassword is required and must be a boolean/
+    );
+    assert.throws(
+      () => create("slmp-connection", {
+        id: "conn-password-enabled-empty",
+        host: "192.168.0.10",
+        port: 1025,
+        transport: "tcp",
+        plcProfile: "melsec:iq-r",
+        useRemotePassword: true,
+        credentials: { remotePassword: "" },
+      }),
+      /remotePassword is required/
+    );
+    assert.throws(
+      () => create("slmp-connection", {
+        id: "conn-password-invalid-toggle",
+        host: "192.168.0.10",
+        port: 1025,
+        transport: "tcp",
+        plcProfile: "melsec:iq-r",
+        useRemotePassword: "true",
+        credentials: { remotePassword: "secret1" },
+      }),
+      /useRemotePassword is required and must be a boolean/
     );
   });
 });
 
 test("slmp-read prefers msg.addresses and can return a single value", async () => {
   const calls = [];
-  const fakeClient = { kind: "client" };
+  const fakeClient = { kind: "client", plcProfile: "melsec:iq-r" };
 
   await withMockedSlmp({
     readNamed: async (client, addresses) => {
@@ -933,6 +968,7 @@ test("slmp-read prefers msg.addresses and can return a single value", async () =
     setNode("cfg-1", {
       getClient: () => fakeClient,
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -955,8 +991,12 @@ test("slmp-read prefers msg.addresses and can return a single value", async () =
     assert.equal(result.sent.length, 1);
     assert.equal(msg.payload, true);
     assert.deepEqual(msg.slmp, {
+      operation: "read",
+      metadataMode: "full",
+      itemCount: 1,
       addresses: ["M1000:BIT"],
       connection: {
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -984,7 +1024,7 @@ test("slmp-read can return an array payload in address order", async () => {
 
     setNode("cfg-array-read", {
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-read", {
@@ -1016,7 +1056,7 @@ test("slmp-read resolves configured addresses from a msg property", async () => 
 
     setNode("cfg-typed-read", {
       getClient: () => ({}),
-      getProfile: () => ({ host: "127.0.0.1", port: 5000, transport: "tcp", frameType: "4e", plcSeries: "ql" }),
+      getProfile: () => ({ plcProfile: "melsec:iq-r", host: "127.0.0.1", port: 5000, transport: "tcp", frameType: "4e", plcSeries: "ql" }),
     });
 
     const node = create("slmp-read", {
@@ -1051,6 +1091,7 @@ test("slmp-read forwards msg.target to readNamed and records the effective route
     setNode("cfg-route-read", {
       getClient: () => ({}),
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1101,7 +1142,7 @@ test("slmp-read rejects a partial msg.target value before readNamed", async () =
 
     setNode("cfg-invalid-route-read", {
       getClient: () => ({}),
-      getProfile: () => ({ target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
+      getProfile: () => ({ plcProfile: "melsec:iq-r", target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
     });
 
     const node = create("slmp-read", {
@@ -1111,7 +1152,7 @@ test("slmp-read rejects a partial msg.target value before readNamed", async () =
     });
     const result = await invokeNode(node, { target: { network: "1junk" } });
 
-    assert.match(result.error.message, /target\.network.*integer/i);
+    assert.match(result.error.message, /target\..*required/i);
     assert.equal(readCalls, 0);
     assert.equal(result.sent.length, 0);
   });
@@ -1127,6 +1168,7 @@ test("slmp-read minimal metadata keeps only target and item count", async () => 
     setNode("cfg-read-minimal", {
       getClient: () => ({}),
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1149,6 +1191,7 @@ test("slmp-read minimal metadata keeps only target and item count", async () => 
     assert.equal(result.error, undefined);
     assert.deepEqual(msg.slmp, {
       custom: "keep",
+      operation: "read",
       target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 },
       itemCount: 2,
       metadataMode: "minimal",
@@ -1165,7 +1208,7 @@ test("slmp-read metadata off leaves msg.slmp unchanged", async () => {
 
     setNode("cfg-read-off", {
       getClient: () => ({}),
-      getProfile: () => ({ target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
+      getProfile: () => ({ plcProfile: "melsec:iq-r", target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
     });
 
     const node = create("slmp-read", {
@@ -1190,7 +1233,7 @@ test("slmp-read reports an error when no address is available", async () => {
 
     setNode("cfg-1", {
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-read", {
@@ -1223,7 +1266,7 @@ test("slmp-read can attach an error to msg.error instead of throwing", async () 
 
     setNode("cfg-read-msg-error", {
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-read", {
@@ -1254,7 +1297,7 @@ test("slmp-read can route errors to the second output", async () => {
 
     setNode("cfg-read-output2", {
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-read", {
@@ -1274,7 +1317,7 @@ test("slmp-read can route errors to the second output", async () => {
   });
 });
 
-test("slmp-read can opt in to skip unsupported device errors", async () => {
+test("slmp-read does not let the removed skipUnsupported flag bypass errorHandling", async () => {
   await withMockedSlmp({
     readNamed: async () => {
       throw new Error("SLMP device code 'LTC' is not supported for plcProfile 'melsec:lcpu'.");
@@ -1300,10 +1343,10 @@ test("slmp-read can opt in to skip unsupported device errors", async () => {
     assert.equal(result.error, undefined);
     assert.equal(result.sent.length, 1);
     assert.equal(result.sent[0][0], null);
-    assert.equal(result.sent[0][1].slmpSkippedUnsupported, true);
-    assert.equal(result.sent[0][1].slmp.skipStatus, "UNSUPPORTED_DEVICE");
-    assert.equal(result.sent[0][1].error.code, "SLMP_UNSUPPORTED_DEVICE");
-    assert.deepEqual(node.statusCalls.at(-1), { fill: "yellow", shape: "ring", text: "skipped unsupported device" });
+    assert.equal(result.sent[0][1].slmpSkippedUnsupported, undefined);
+    assert.equal(result.sent[0][1].error.code, undefined);
+    assert.match(result.sent[0][1].error.message, /not supported/);
+    assert.equal(node.statusCalls.at(-1).fill, "red");
   });
 });
 
@@ -1319,7 +1362,7 @@ test("slmp-read supports connect/disconnect/reinitialize control messages", asyn
       disconnect: async () => actions.push("disconnect"),
       reinitialize: async () => actions.push("reinitialize"),
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-read", {
@@ -1345,7 +1388,7 @@ test("slmp-read supports connect/disconnect/reinitialize control messages", asyn
 
 test("slmp-write builds a typed update from msg.address and msg.value", async () => {
   const calls = [];
-  const fakeClient = { kind: "client" };
+  const fakeClient = { kind: "client", plcProfile: "melsec:iq-r" };
 
   await withMockedSlmp({
     writeNamed: async (client, updates) => {
@@ -1358,6 +1401,7 @@ test("slmp-write builds a typed update from msg.address and msg.value", async ()
     setNode("cfg-1", {
       getClient: () => fakeClient,
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1372,7 +1416,7 @@ test("slmp-write builds a typed update from msg.address and msg.value", async ()
       updates: "",
     });
 
-    const msg = { address: "D200", dtype: "f", value: 3.5 };
+    const msg = { address: "D200", dtype: "F", value: 3.5 };
     const result = await invokeNode(node, msg);
 
     assert.equal(result.error, undefined);
@@ -1397,6 +1441,7 @@ test("slmp-write inserts dtype before a count suffix when msg.address uses ',cou
     setNode("cfg-1", {
       getClient: () => ({}),
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1413,7 +1458,7 @@ test("slmp-write inserts dtype before a count suffix when msg.address uses ',cou
 
     const result = await invokeNode(node, {
       address: "D200,2",
-      dtype: "f",
+      dtype: "F",
       value: [1.5, -2.25],
     });
 
@@ -1436,7 +1481,7 @@ test("slmp-write resolves configured updates from a msg property", async () => {
 
     setNode("cfg-write-msg", {
       getClient: () => ({}),
-      getProfile: () => ({ host: "127.0.0.1", port: 5000, transport: "tcp", frameType: "4e", plcSeries: "ql" }),
+      getProfile: () => ({ plcProfile: "melsec:iq-r", host: "127.0.0.1", port: 5000, transport: "tcp", frameType: "4e", plcSeries: "ql" }),
     });
 
     const node = create("slmp-write", {
@@ -1467,6 +1512,7 @@ test("slmp-write resolves a configured route target from msg and forwards it to 
     setNode("cfg-route-write", {
       getClient: () => ({}),
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1515,6 +1561,7 @@ test("slmp-write minimal metadata keeps only target and item count", async () =>
     setNode("cfg-write-minimal", {
       getClient: () => ({}),
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1537,6 +1584,7 @@ test("slmp-write minimal metadata keeps only target and item count", async () =>
     assert.equal(result.error, undefined);
     assert.deepEqual(msg.slmp, {
       custom: "keep",
+      operation: "write",
       target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 },
       itemCount: 2,
       metadataMode: "minimal",
@@ -1553,7 +1601,7 @@ test("slmp-write metadata off leaves msg.slmp unchanged", async () => {
 
     setNode("cfg-write-off", {
       getClient: () => ({}),
-      getProfile: () => ({ target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
+      getProfile: () => ({ plcProfile: "melsec:iq-r", target: { network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 } }),
     });
 
     const node = create("slmp-write", {
@@ -1585,6 +1633,7 @@ test("slmp-write rejects configured update lines when msg does not override them
     setNode("cfg-1", {
       getClient: () => ({}),
       getProfile: () => ({
+        plcProfile: "melsec:iq-r",
         host: "127.0.0.1",
         port: 5000,
         transport: "tcp",
@@ -1618,7 +1667,7 @@ test("slmp-write can route errors to the second output", async () => {
 
     setNode("cfg-write-output2", {
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-write", {
@@ -1637,7 +1686,7 @@ test("slmp-write can route errors to the second output", async () => {
   });
 });
 
-test("slmp-write can opt in to skip unsupported device errors", async () => {
+test("slmp-write does not let the removed skipUnsupported flag bypass errorHandling", async () => {
   await withMockedSlmp({
     writeNamed: async () => {
       throw new Error("SLMP device code 'LTC' is not supported for plcProfile 'melsec:lcpu'.");
@@ -1663,10 +1712,10 @@ test("slmp-write can opt in to skip unsupported device errors", async () => {
     assert.equal(result.error, undefined);
     assert.equal(result.sent.length, 1);
     assert.equal(result.sent[0][0], null);
-    assert.equal(result.sent[0][1].slmpSkippedUnsupported, true);
-    assert.equal(result.sent[0][1].slmp.skipStatus, "UNSUPPORTED_DEVICE");
-    assert.equal(result.sent[0][1].error.code, "SLMP_UNSUPPORTED_DEVICE");
-    assert.deepEqual(node.statusCalls.at(-1), { fill: "yellow", shape: "ring", text: "skipped unsupported device" });
+    assert.equal(result.sent[0][1].slmpSkippedUnsupported, undefined);
+    assert.equal(result.sent[0][1].error.code, undefined);
+    assert.match(result.sent[0][1].error.message, /not supported/);
+    assert.equal(node.statusCalls.at(-1).fill, "red");
   });
 });
 
@@ -1682,7 +1731,7 @@ test("slmp-write supports connect/disconnect/reinitialize control messages", asy
       disconnect: async () => actions.push("disconnect"),
       reinitialize: async () => actions.push("reinitialize"),
       getClient: () => ({}),
-      getProfile: () => ({}),
+      getProfile: () => ({ plcProfile: "melsec:iq-r" }),
     });
 
     const node = create("slmp-write", {
@@ -1750,7 +1799,16 @@ function createMockRed() {
     create(name, config) {
       const Constructor = registeredTypes.get(name);
       assert.ok(Constructor, `Node type ${name} is not registered`);
-      return new Constructor(config);
+      const editorDefaults = name === "slmp-read"
+        ? { addressesType: "str", routeTargetType: "str", outputMode: "object", metadataMode: "full", errorHandling: "throw", outputs: 1 }
+        : name === "slmp-write"
+          ? { updatesType: "str", routeTargetType: "str", metadataMode: "full", errorHandling: "throw", outputs: 1 }
+          : {};
+      const resolved = { ...editorDefaults, ...config };
+      if ((name === "slmp-read" || name === "slmp-write") && !Object.prototype.hasOwnProperty.call(config, "outputs")) {
+        resolved.outputs = resolved.errorHandling === "output2" ? 2 : 1;
+      }
+      return new Constructor(resolved);
     },
     setNode(id, node) {
       nodes.set(id, node);

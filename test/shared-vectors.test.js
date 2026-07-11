@@ -9,20 +9,8 @@ const slmp = require("../lib/slmp");
 
 const SHARED_SPEC_DIR = path.resolve(
   __dirname,
-  "..",
-  "..",
-  "plc-comm-slmp-cross-verify",
-  "specs",
-  "shared"
+  "shared-spec"
 );
-
-const sharedSpecAvailable = fs.existsSync(SHARED_SPEC_DIR);
-
-function sharedVectorTest(name, fn) {
-  return sharedSpecAvailable
-    ? test(name, fn)
-    : test.skip(name, { skip: "shared verification vectors are not checked out" }, fn);
-}
 
 function loadJson(name) {
   return JSON.parse(fs.readFileSync(path.join(SHARED_SPEC_DIR, name), "utf8"));
@@ -46,7 +34,10 @@ class CaptureClient extends slmp.SlmpClient {
   constructor(responseData) {
     super({
       host: "127.0.0.1",
+      port: 1025,
+      transport: "tcp",
       plcProfile: "melsec:iq-r",
+      target: { network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 },
       monitoringTimer: 0x0010,
       raiseOnError: true,
     });
@@ -66,18 +57,18 @@ class CaptureClient extends slmp.SlmpClient {
   }
 }
 
-sharedVectorTest("shared address normalization vectors match Node high-level helpers", () => {
+test("shared address normalization vectors match Node high-level helpers", () => {
   const data = loadJson("high_level_address_normalize_vectors.json");
   for (const entry of data.cases) {
     if (!entry.implementations.includes("node")) {
       continue;
     }
     const options = requiresExplicitPlcProfile(entry.input) ? { plcProfile: "melsec:iq-r" } : undefined;
-    assert.equal(options ? slmp.normalizeAddress(entry.input, options) : slmp.normalizeAddress(entry.input), entry.expected, entry.id);
+    assert.equal(slmp.normalizeAddress(entry.input, options || { plcProfile: "melsec:iq-r" }), entry.expected, entry.id);
   }
 });
 
-sharedVectorTest("shared address parse vectors match Node high-level parser", () => {
+test("shared address parse vectors match Node high-level parser", () => {
   const data = loadJson("high_level_address_parse_vectors.json");
   for (const entry of data.cases) {
     if (!entry.implementations.includes("node")) {
@@ -96,7 +87,7 @@ sharedVectorTest("shared address parse vectors match Node high-level parser", ()
   }
 });
 
-sharedVectorTest("shared device vectors match Node low-level encoder", () => {
+test("shared device vectors match Node low-level encoder", () => {
   const data = loadJson("device_spec_vectors.json");
   for (const entry of data.vectors) {
     if (!entry.implementations.includes("node")) {
@@ -108,7 +99,7 @@ sharedVectorTest("shared device vectors match Node low-level encoder", () => {
   }
 });
 
-sharedVectorTest("shared frame vectors match Node client requests", async () => {
+test("shared frame vectors match Node client requests", async () => {
   const data = loadJson("frame_golden_vectors.json");
   for (const entry of data.cases) {
     if (!entry.implementations.includes("node")) {
@@ -130,7 +121,7 @@ async function dispatchFrameCase(client, entry) {
       return;
     }
     case "read_words": {
-      const values = await client.readDevices(args.device, args.points);
+      const values = await client.readDevices(args.device, args.points, { bitUnit: false });
       assert.deepEqual(values, [0x1234, 0x5678]);
       return;
     }
@@ -165,7 +156,7 @@ async function dispatchFrameCase(client, entry) {
       await client.remotePasswordUnlock(args.password);
       return;
     case "remote_reset":
-      await client.remoteReset({ expectResponse: args.expect_response ?? true });
+      await client.remoteReset();
       return;
     default:
       throw new Error(`Unsupported shared frame operation for Node: ${entry.operation}`);

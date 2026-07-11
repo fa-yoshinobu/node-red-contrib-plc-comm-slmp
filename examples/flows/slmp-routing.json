@@ -59,7 +59,9 @@
         "routeTarget":  "",
         "routeTargetType":  "str",
         "outputMode":  "array",
+        "metadataMode":  "full",
         "errorHandling":  "output2",
+        "outputs":  2,
         "x":  430,
         "y":  140,
         "wires":  [
@@ -114,6 +116,7 @@
         "transport":  "tcp",
         "timeout":  "3000",
         "plcProfile":  "melsec:iq-r",
+        "useRemotePassword":  false,
         "monitoringTimer":  "16",
         "network":  "0",
         "station":  "255",
