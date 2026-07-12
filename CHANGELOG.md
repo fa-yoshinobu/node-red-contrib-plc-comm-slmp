@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Added public monitor registration/cycle, self-test loopback, and fixed Clear Error semantic APIs to the low-level `SlmpClient`.
+- Library: Monitor cycle expected counts must total at least one and stay within the selected profile's monitor-registration limit.
+- Library: Monitor cycles require explicit registered counts and never auto-register or retry; self-test verifies declared length, actual length, and exact echo against the transmitted Buffer snapshot.
+- Docs: Clarified that `U3En\HG` never changes or retries the explicitly selected request target.
 - Tests: Removed vendored cross-repository vector JSON and its dedicated runner. Cross-implementation comparison is executed independently of this Node-RED package.
 ### BREAKING
 

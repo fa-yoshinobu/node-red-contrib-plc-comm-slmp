@@ -64,11 +64,14 @@ request; hidden follow-up and bit-in-word read-modify-write are not performed.
 | Memory command words | `memoryReadWords`, `memoryWriteWords` |
 | Extend-unit command bytes | `extendUnitReadBytes`, `extendUnitWriteBytes` |
 | Extend-unit command words | `extendUnitReadWords`, `extendUnitWriteWords` |
+| Monitor registration/cycle | `registerMonitorDevices`, `registerMonitorDevicesExt`, `runMonitorCycle` |
 | Label array access | `readArrayLabels`, `writeArrayLabels` |
 | Label random access | `readRandomLabels`, `writeRandomLabels` |
 | Remote CPU control | `remoteRun`, `remoteStop`, `remotePause`, `remoteLatchClear`, `remoteReset` |
 | Remote password | `remotePasswordUnlock`, `remotePasswordLock` |
 | CPU operation state | `readCpuOperationState` |
+| Self-test loopback | `selfTestLoopback` |
+| Clear PLC error | `clearError` |
 
 Remote RUN is `remoteRun({ force, clearMode })`, where `force` is Boolean and
 `clearMode` is one of `RemoteClearMode.NO_CLEAR`,
@@ -81,8 +84,12 @@ for a client constructed without managed `remotePassword`. They are rejected on
 a managed client so a manual lock cannot make its connection-generation state
 incorrect. Managed clients use only automatic connect/close authentication.
 
-Monitor registration/cycle APIs are not part of the current Node-RED
-low-level client surface.
+Monitor registration and each `runMonitorCycle` call are separate one-request
+operations. The cycle requires explicit registered Word and DWord counts. It
+does not auto-register, retry, or infer them; the PLC defines the error when a
+cycle is requested before registration. `selfTestLoopback` accepts a 1–960 byte
+Buffer containing only ASCII `0-9/A-F` and verifies declared length, actual
+length, and exact echo. `clearError` always uses the fixed empty payload.
 
 ## High-Level Helpers
 

@@ -411,3 +411,40 @@ The changed acceptance criteria are fully observable through parser, mock transp
 ## Claude review status
 
 Pending user authorization. Before invoking Claude, present this repository and diff scope, NR-SLMP-OH decisions, test/package evidence, supplied review material, and expected finding format, then wait for explicit authorization for that batch.
+
+## 2026-07-12 D-128, D-129, D-131, and D-132 delta
+
+### D-128 — Public low-level monitor APIs
+
+- Scope: `registerMonitorDevices`, `registerMonitorDevicesExt`, and `runMonitorCycle`.
+- Target: typed Word/DWord registration and explicit, nonzero, profile-bounded cycle counts, one request per call, no auto-registration, split, retry, or fallback.
+- Compatibility: additive low-level surface; these are not new Node-RED node types.
+- Acceptance: normal/qualified registration, exact cycle decoding, invalid counts, PLC error, response mismatch, and one-request boundaries are covered.
+
+### D-129 — Public exact self-test API
+
+- Scope: `selfTestLoopback(Buffer)`.
+- Target: 1–960 ASCII `0-9/A-F`; exact declared length, response size, and echo equality against the transmitted Buffer snapshot.
+- Compatibility: additive semantic API; malformed echoes fail rather than returning bytes.
+- Acceptance: exact request, invalid inputs, short/trailing/wrong-length/wrong-echo responses are covered.
+
+### D-131 — Public Clear Error API
+
+- Scope: `clearError()`.
+- Target: one fixed `0x1617/0x0000` empty-payload request and normal PLC-error propagation.
+- Compatibility: additive replacement for raw command numbers.
+- Acceptance: exact request and one-error/no-fallback behavior are covered.
+
+### D-132 — HG target ownership
+
+- Scope: low-level qualified HG operations and request target overrides.
+- Target: preserve the connection or complete request override exactly; never infer from `U3En`, retry another target, or read back automatically. Cross-CPU reads remain valid.
+- Compatibility: applications explicitly provide CPU No.2 target when required.
+- Acceptance: `U3E1\HG` uses Own Station without an override and `0x03E1` only with the explicit CPU No.2 override.
+
+- [x] Local implementation and regression tests completed.
+- [x] 171 tests, editor smoke, package contents, and release check passed.
+- [x] User API, migration, changelog, and shared target guidance updated.
+- [ ] Claude review of this delta completed — pending a separately authorized batch.
+- [ ] New public-API live verification completed — deferred until after Claude review.
+- [ ] D-132 Extend Unit versus HG physical-area classification completed.

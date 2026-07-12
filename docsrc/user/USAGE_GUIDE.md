@@ -97,6 +97,20 @@ JavaScript code that calls the low-level client can use `ModuleIONo` constants
 for `moduleIO`, for example `ModuleIONo.MULTIPLE_CPU_2`. Low-level clients must
 receive a complete route; a missing or partial route is rejected.
 
+For low-level iQ-R multi-CPU `U3En\HG...` access, the qualified device never
+changes the request target. The application must explicitly select the target
+CPU when a write must be reflected there; cross-CPU reads remain valid. No
+automatic target fallback, resend, readback, or retry is performed. See the
+shared [iQ-R target guidance](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/iq-r/#multi-cpu-cpu-buffer-target).
+
+Low-level `SlmpClient` users can register Word/DWord monitor devices with
+`registerMonitorDevices` or `registerMonitorDevicesExt`, then execute one cycle
+with explicit `wordPoints` and `dwordPoints`. `selfTestLoopback(Buffer)` and
+`clearError()` provide fixed semantic system commands without raw command
+numbers. The combined monitor count must be nonzero and cannot exceed the
+selected profile's monitor-registration limit. These low-level operations are
+not additional Node-RED node types.
+
 `slmp-read` and `slmp-write` use the public high-level address parser for normal
 device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
 device access as user-facing address forms.

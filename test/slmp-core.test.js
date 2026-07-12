@@ -552,6 +552,31 @@ test("SlmpClient inherits a complete route only when request target is absent", 
   assert.deepEqual(readRequestTarget(frames[1]), override);
 });
 
+test("HG qualified device never changes the user-selected request target", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const frames = [];
+  client._sendAndReceive = async (frame) => {
+    frames.push(Buffer.from(frame));
+    return make4EResponse(frame.readUInt16LE(2), Buffer.alloc(0));
+  };
+
+  await client.writeRandomWordsExt({ wordValues: [[String.raw`U3E1\HG100`, 0x1234]] });
+  const cpu2 = { network: 0, station: 0xff, moduleIO: ModuleIONo.MULTIPLE_CPU_2, multidrop: 0 };
+  await client.writeRandomWordsExt({ wordValues: [[String.raw`U3E1\HG100`, 0x5678]], target: cpu2 });
+
+  assert.equal(frames.length, 2);
+  assert.deepEqual(readRequestTarget(frames[0]), TEST_TARGET);
+  assert.deepEqual(readRequestTarget(frames[1]), cpu2);
+  assert.equal(frames[0].readUInt16LE(15), Command.DEVICE_WRITE_RANDOM);
+  assert.equal(frames[1].readUInt16LE(15), Command.DEVICE_WRITE_RANDOM);
+});
+
 test("queued requests snapshot the effective target before caller mutation", async () => {
   const client = new StrictSlmpClient({
     host: "127.0.0.1",
@@ -2424,6 +2449,159 @@ test("request rejects monitor register payloads with G/HG before transport", asy
     (error) => error instanceof ValueError && /Entry Monitor Device \(0x0801\) does not support standalone G\/HG/.test(error.message)
   );
   assert.equal(calls, 0);
+});
+
+test("selfTestLoopback validates, sends one fixed command, and verifies the echo", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    return { endCode: 0, data: Buffer.from([0x04, 0x00, 0x41, 0x31, 0x42, 0x32]) };
+  };
+
+  assert.deepEqual(await client.selfTestLoopback(Buffer.from("A1B2", "ascii")), Buffer.from("A1B2", "ascii"));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, Command.SELF_TEST);
+  assert.equal(calls[0].subcommand, 0);
+  assert.equal(calls[0].data.toString("hex"), "040041314232");
+
+  for (const invalid of [Buffer.alloc(0), Buffer.from("abcd"), Buffer.from("HELLO"), "A1B2"]) {
+    await assert.rejects(() => client.selfTestLoopback(invalid), /selfTestLoopback/);
+  }
+  assert.equal(calls.length, 1);
+});
+
+test("selfTestLoopback verifies the transmitted snapshot when caller data changes", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let releaseResponse;
+  const responseGate = new Promise((resolve) => { releaseResponse = resolve; });
+  let transmitted;
+  client._request = async (_command, _subcommand, data) => {
+    transmitted = Buffer.from(data);
+    await responseGate;
+    return { endCode: 0, data: Buffer.from(transmitted) };
+  };
+  const callerData = Buffer.from("A1B2", "ascii");
+
+  const pending = client.selfTestLoopback(callerData);
+  callerData.fill(0x46);
+  releaseResponse();
+
+  assert.deepEqual(await pending, Buffer.from("A1B2", "ascii"));
+  assert.equal(transmitted.toString("hex"), "040041314232");
+});
+
+test("selfTestLoopback rejects malformed echo responses", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const responses = [
+    Buffer.from([0x04]),
+    Buffer.from([0x03, 0x00, 0x41, 0x31, 0x42, 0x32]),
+    Buffer.from([0x04, 0x00, 0x41, 0x31, 0x42]),
+    Buffer.from([0x04, 0x00, 0x41, 0x31, 0x42, 0x33]),
+  ];
+  client._request = async () => ({ endCode: 0, data: responses.shift() });
+  for (let index = 0; index < 4; index += 1) {
+    await assert.rejects(() => client.selfTestLoopback(Buffer.from("A1B2")), SlmpError);
+  }
+});
+
+test("clearError sends one fixed empty command", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await client.clearError();
+  assert.deepEqual(calls, [{ command: Command.CLEAR_ERROR, subcommand: 0, data: Buffer.alloc(0) }]);
+});
+
+test("monitor semantic APIs register once and decode three cycles", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    if (command === Command.MONITOR) {
+      return { endCode: 0, data: Buffer.from([0x11, 0x11, 0x78, 0x56, 0x34, 0x12]) };
+    }
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await client.registerMonitorDevices({ wordDevices: ["D120"], dwordDevices: ["D200"] });
+  for (let cycle = 0; cycle < 3; cycle += 1) {
+    const result = await client.runMonitorCycle({ wordPoints: 1, dwordPoints: 1 });
+    assert.deepEqual(result, { word: [0x1111], dword: [0x12345678] });
+  }
+  assert.equal(calls.length, 4);
+  assert.equal(calls[0].command, Command.MONITOR_REGISTER);
+  for (const call of calls.slice(1)) {
+    assert.equal(call.command, Command.MONITOR);
+    assert.equal(call.data.length, 0);
+  }
+});
+
+test("extended monitor registration uses the qualified-device subcommand", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let captured;
+  client._request = async (command, subcommand, data) => {
+    captured = { command, subcommand, data: Buffer.from(data) };
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await client.registerMonitorDevicesExt({ wordDevices: [String.raw`U3E0\HG0`] });
+  assert.equal(captured.command, Command.MONITOR_REGISTER);
+  assert.equal(captured.subcommand, 0x0082);
+  assert.equal(captured.data[0], 1);
+  assert.equal(captured.data[1], 0);
+});
+
+test("monitor semantic APIs reject incomplete counts before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let calls = 0;
+  client._request = async () => { calls += 1; return { endCode: 0, data: Buffer.alloc(0) }; };
+
+  await assert.rejects(() => client.registerMonitorDevices(), /must not both be empty/);
+  await assert.rejects(() => client.runMonitorCycle({ wordPoints: 1 }), /required/);
+  await assert.rejects(() => client.runMonitorCycle({ wordPoints: 0, dwordPoints: 0 }), /must not both be zero/);
+  await assert.rejects(() => client.runMonitorCycle({ wordPoints: 97, dwordPoints: 0 }), /out of range/);
+  assert.equal(calls, 0);
+});
+
+test("monitor semantic API propagates PLC errors and size mismatch without fallback", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const plcError = new SlmpError("PLC NG");
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    throw plcError;
+  };
+
+  await assert.rejects(() => client.runMonitorCycle({ wordPoints: 1, dwordPoints: 0 }), (error) => error === plcError);
+  assert.equal(calls, 1);
+
+  client._request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.from([0x11]) };
+  };
+  await assert.rejects(
+    () => client.runMonitorCycle({ wordPoints: 1, dwordPoints: 0 }),
+    /monitor response size mismatch/
+  );
+  assert.equal(calls, 2);
+});
+
+test("clearError propagates one PLC error without another command", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const plcError = new SlmpError("PLC NG");
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    throw plcError;
+  };
+
+  await assert.rejects(() => client.clearError(), (error) => error === plcError);
+  assert.equal(calls, 1);
 });
 
 function delay(ms) {
