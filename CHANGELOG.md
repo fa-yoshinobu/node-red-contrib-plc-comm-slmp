@@ -97,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Release: Bumped npm package and lockfile metadata to `3.1.0`.
-- Tooling: Pinned canonical SLMP profile imports to immutable profile commit `e7e8f071ff1819a6b088b6a793e6f08029c54e38`.
+- Tooling: Pinned canonical SLMP profile imports to published profile tag `v2.0.0`.
 
 ### Fixed
 - Library: Rejected unknown boolean tokens and non-finite, fractional, signed-width, or out-of-range integer writes before transport instead of coercing them.
