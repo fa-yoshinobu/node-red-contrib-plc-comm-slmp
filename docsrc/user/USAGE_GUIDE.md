@@ -99,7 +99,9 @@ receive a complete route; a missing or partial route is rejected.
 
 For low-level iQ-R multi-CPU `U3En\HG...` access, the qualified device never
 changes the request target. The application must explicitly select the target
-CPU when a write must be reflected there; cross-CPU reads remain valid. No
+CPU when a write must be reflected there. A write can return a normal end code
+without changing the intended CPU buffer when the selected request target
+identifies a different CPU or Own Station; cross-CPU reads remain valid. No
 automatic target fallback, resend, readback, or retry is performed. See the
 shared [iQ-R target guidance](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/iq-r/#multi-cpu-cpu-buffer-target).
 

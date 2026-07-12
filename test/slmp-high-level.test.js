@@ -460,6 +460,43 @@ test("named count and string entries share one multi-block request", async () =>
   assert.equal(calls[1].blocks.length, 2);
 });
 
+test("one contiguous named word cluster uses one direct request on block-disabled profiles", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:qcpu:qj71e71-100",
+    target: { network: 0, station: 0xFF, moduleIO: 0x03FF, multidrop: 0 },
+  });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    return { endCode: 0, data: command === 0x0401 ? Buffer.from([0x11, 0x11, 0x22, 0x22]) : Buffer.alloc(0) };
+  };
+
+  assert.deepEqual(await readNamed(client, ["D100:U,2"]), { "D100:U,2": [0x1111, 0x2222] });
+  await writeNamed(client, { "D100:U,2": [0x3333, 0x4444] });
+
+  assert.deepEqual(calls.map((call) => call.command), [0x0401, 0x1401]);
+});
+
+test("named multi-block options cannot replace compiled destinations", async () => {
+  const calls = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async writeBlock(options) {
+      calls.push(options.wordBlocks.map(([device, values]) => [`${device.code}${device.number}`, values]));
+    },
+  };
+
+  await writeNamed(
+    fakeClient,
+    { "D100:U,2": [1, 2], "D110:U,2": [3, 4] },
+    { wordBlocks: [["D999", [9]]] }
+  );
+  assert.deepEqual(calls, [[["D100", [1, 2]], ["D110", [3, 4]]]]);
+});
+
 test("readNamed forwards per-request target overrides to client calls", async () => {
   const calls = [];
   const target = { network: 2, station: 3, moduleIO: "03FF", multidrop: 1 };

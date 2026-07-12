@@ -2505,6 +2505,20 @@ test("selfTestLoopback rejects malformed echo responses", async () => {
   }
 });
 
+test("selfTestLoopback accepts 960 bytes and rejects 961 before transport", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let calls = 0;
+  client._request = async (_command, _subcommand, data) => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.from(data) };
+  };
+  const maximum = Buffer.alloc(960, 0x41);
+
+  assert.deepEqual(await client.selfTestLoopback(maximum), maximum);
+  await assert.rejects(() => client.selfTestLoopback(Buffer.alloc(961, 0x41)), /1\.\.960/);
+  assert.equal(calls, 1);
+});
+
 test("clearError sends one fixed empty command", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   const calls = [];
@@ -2535,6 +2549,10 @@ test("monitor semantic APIs register once and decode three cycles", async () => 
   }
   assert.equal(calls.length, 4);
   assert.equal(calls[0].command, Command.MONITOR_REGISTER);
+  assert.deepEqual(
+    calls[0].data,
+    Buffer.from([0x01, 0x01, 0x78, 0x00, 0x00, 0x00, 0xA8, 0x00, 0xC8, 0x00, 0x00, 0x00, 0xA8, 0x00])
+  );
   for (const call of calls.slice(1)) {
     assert.equal(call.command, Command.MONITOR);
     assert.equal(call.data.length, 0);
@@ -2562,9 +2580,31 @@ test("monitor semantic APIs reject incomplete counts before transport", async ()
   client._request = async () => { calls += 1; return { endCode: 0, data: Buffer.alloc(0) }; };
 
   await assert.rejects(() => client.registerMonitorDevices(), /must not both be empty/);
+  await assert.rejects(
+    () => client.registerMonitorDevices({ wordDevices: Array.from({ length: 97 }, (_, index) => `D${index}`) }),
+    /out of range/
+  );
+  await assert.rejects(
+    () => client.registerMonitorDevicesExt({
+      wordDevices: Array.from({ length: 97 }, (_, index) => String.raw`U3E0\D${index}`),
+    }),
+    /out of range/
+  );
   await assert.rejects(() => client.runMonitorCycle({ wordPoints: 1 }), /required/);
   await assert.rejects(() => client.runMonitorCycle({ wordPoints: 0, dwordPoints: 0 }), /must not both be zero/);
   await assert.rejects(() => client.runMonitorCycle({ wordPoints: 97, dwordPoints: 0 }), /out of range/);
+  assert.equal(calls, 0);
+});
+
+test("monitor registration validation names command 0x0801", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let calls = 0;
+  client._request = async () => { calls += 1; return { endCode: 0, data: Buffer.alloc(0) }; };
+
+  await assert.rejects(
+    () => client.registerMonitorDevices({ wordDevices: ["LCS0"] }),
+    /Entry Monitor Device \(0x0801\)/
+  );
   assert.equal(calls, 0);
 });
 
