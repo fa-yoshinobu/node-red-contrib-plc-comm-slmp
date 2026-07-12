@@ -171,7 +171,7 @@ test("readNamed rejects random reads that exceed the one-request limit before tr
   assert.equal(calls.length, 0);
 });
 
-test("writeNamed supports word, bit-in-word, direct bit, and float writes", async () => {
+test("writeNamed rejects mixed families and bit-in-word before transport", async () => {
   const writes = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -196,22 +196,11 @@ test("writeNamed supports word, bit-in-word, direct bit, and float writes", asyn
     },
   };
 
-  await writeNamed(fakeClient, {
-    "D100:U": 42,
-    "D50.3": true,
-    "M1000:BIT": true,
-    "D200:F": 3.5,
-  });
-
-  const randomWrite = writes.find((write) => write.kind === "writeRandomWords");
-  const bitWrite = writes.find((write) => write.kind === "writeDevices" && write.device === "M1000");
-  const wordWrite = writes.find((write) => write.kind === "writeDevices" && write.device === "D50");
-
-  assert.deepEqual(randomWrite.wordValues, [["D100", 42]]);
-  assert.equal(randomWrite.dwordValues.length, 1);
-  assert.equal(randomWrite.dwordValues[0][0], "D200");
-  assert.deepEqual(wordWrite, { kind: "writeDevices", device: "D50", values: [8], bitUnit: false });
-  assert.deepEqual(bitWrite, { kind: "writeDevices", device: "M1000", values: [true], bitUnit: true });
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "D100:U": 42, "D50.3": true, "M1000:BIT": true, "D200:F": 3.5 }),
+    /bit-in-word read-modify-write/
+  );
+  assert.equal(writes.length, 0);
 });
 
 test("writeNamed rejects random word writes that exceed the one-request limit before transport", async () => {
@@ -231,7 +220,21 @@ test("writeNamed rejects random word writes that exceed the one-request limit be
   assert.equal(writes.length, 0);
 });
 
-test("readNamed coalesces contiguous direct bits and word ranges into block reads", async () => {
+test("writeNamed rejects overlapping normalized destinations before transport", async () => {
+  const calls = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async writeDevices(...args) { calls.push(args); },
+    async writeRandomWords(...args) { calls.push(args); },
+  };
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "D100:D": 0x11223344, "D101:U": 0x9999 }),
+    /overlapping destination/
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("readNamed rejects block-read fallback routes before transport", async () => {
   const calls = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -254,22 +257,14 @@ test("readNamed coalesces contiguous direct bits and word ranges into block read
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["TS1000:BIT", "TS1001:BIT", "TS1002:BIT", "D100:U", "D101:U", "D102:U"]);
-  assert.deepEqual(snapshot, {
-    "TS1000:BIT": true,
-    "TS1001:BIT": false,
-    "TS1002:BIT": true,
-    "D100:U": 11,
-    "D101:U": 12,
-    "D102:U": 13,
-  });
-  assert.deepEqual(calls, [
-    { device: "TS1000", points: 3, bitUnit: true },
-    { device: "D100", points: 3, bitUnit: false },
-  ]);
+  await assert.rejects(
+    () => readNamed(fakeClient, ["TS1000:BIT", "D100:U"]),
+    /exactly one protocol request/
+  );
+  assert.deepEqual(calls, []);
 });
 
-test("readNamed supports count arrays and string addresses", async () => {
+test("readNamed rejects count arrays and strings that require block reads", async () => {
   const calls = [];
   const floatWords = [];
   for (const value of [1.5, -2.25]) {
@@ -310,24 +305,14 @@ test("readNamed supports count arrays and string addresses", async () => {
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["M1000:BIT,3", "D100:U,3", "D200:F,2", "D300:STR,5", "D400:STR,4"]);
-  assert.deepEqual(snapshot, {
-    "M1000:BIT,3": [true, false, true],
-    "D100:U,3": [11, 12, 13],
-    "D200:F,2": [1.5, -2.25],
-    "D300:STR,5": "HELLO",
-    "D400:STR,4": "ABCD",
-  });
-  assert.deepEqual(calls, [
-    { device: "M1000", points: 3, bitUnit: true },
-    { device: "D100", points: 3, bitUnit: false },
-    { device: "D200", points: 4, bitUnit: false },
-    { device: "D300", points: 3, bitUnit: false },
-    { device: "D400", points: 2, bitUnit: false },
-  ]);
+  await assert.rejects(
+    () => readNamed(fakeClient, ["M1000:BIT,3", "D300:STR,5"]),
+    /exactly one protocol request/
+  );
+  assert.deepEqual(calls, []);
 });
 
-test("readNamed resolves LT and LST families through helper-backed 4-word blocks", async () => {
+test("readNamed permits one long-timer cluster as one request", async () => {
   const calls = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -350,20 +335,10 @@ test("readNamed resolves LT and LST families through helper-backed 4-word blocks
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["LTN0:D", "LTC0:BIT", "LTS0:BIT", "LTN1:D", "LSTN4:D", "LSTC4:BIT", "LSTS4:BIT,2"]);
-  assert.deepEqual(snapshot, {
-    "LTN0:D": 0x00010002,
-    "LTC0:BIT": true,
-    "LTS0:BIT": true,
-    "LTN1:D": 4,
-    "LSTN4:D": 6,
-    "LSTC4:BIT": true,
-    "LSTS4:BIT,2": [false, true],
-  });
-  assert.deepEqual(calls, [
-    { device: "LTN0", points: 8, bitUnit: false },
-    { device: "LSTN4", points: 8, bitUnit: false },
-  ]);
+  const snapshot = await readNamed(fakeClient, ["LTN0:D", "LTC0:BIT"]);
+  assert.equal(snapshot["LTN0:D"], 0x00010002);
+  assert.equal(snapshot["LTC0:BIT"], true);
+  assert.deepEqual(calls, [{ device: "LTN0", points: 4, bitUnit: false }]);
 });
 
 test("readTyped resolves long-family values through supported routes", async () => {
@@ -421,7 +396,7 @@ test("readTyped resolves long-family values through supported routes", async () 
   ]);
 });
 
-test("readNamed resolves long counter current and state bits through supported routes", async () => {
+test("readNamed rejects mixed long-counter random and direct routes", async () => {
   const calls = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -452,18 +427,37 @@ test("readNamed resolves long counter current and state bits through supported r
     },
   };
 
-  const snapshot = await readNamed(fakeClient, ["LCN0:D", "LCC0:BIT", "LCS0:BIT", "LCN1:D"]);
-  assert.deepEqual(snapshot, {
-    "LCN0:D": 0x00010002,
-    "LCC0:BIT": true,
-    "LCS0:BIT": true,
-    "LCN1:D": 4,
-  });
-  assert.deepEqual(calls, [
-    { kind: "readRandom", dwordDevices: ["LCN0", "LCN1"] },
-    { kind: "readDevices", device: "LCC0", points: 1, bitUnit: true },
-    { kind: "readDevices", device: "LCS0", points: 1, bitUnit: true },
-  ]);
+  await assert.rejects(() => readNamed(fakeClient, ["LCN0:D", "LCC0:BIT"]), /exactly one protocol request/);
+  assert.deepEqual(calls, []);
+});
+
+test("named count and string entries share one multi-block request", async () => {
+  const calls = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async readBlock(options) {
+      calls.push({ kind: "readBlock", blocks: options.wordBlocks });
+      return {
+        wordBlocks: [
+          { values: [11, 12, 13] },
+          { values: [0x4241, 0x4443] },
+        ],
+        bitBlocks: [],
+      };
+    },
+    async writeBlock(options) {
+      calls.push({ kind: "writeBlock", blocks: options.wordBlocks });
+    },
+  };
+
+  const snapshot = await readNamed(fakeClient, ["D100:U,3", "D110:STR,4"]);
+  assert.deepEqual(snapshot, { "D100:U,3": [11, 12, 13], "D110:STR,4": "ABCD" });
+  await writeNamed(fakeClient, { "D100:U,3": [21, 22, 23], "D110:STR,4": "WXYZ" });
+
+  assert.equal(calls.filter((call) => call.kind === "readBlock").length, 1);
+  assert.equal(calls.filter((call) => call.kind === "writeBlock").length, 1);
+  assert.equal(calls[0].blocks.length, 2);
+  assert.equal(calls[1].blocks.length, 2);
 });
 
 test("readNamed forwards per-request target overrides to client calls", async () => {
@@ -500,7 +494,7 @@ test("readNamed forwards per-request target overrides to client calls", async ()
   assert.deepEqual(calls, [{ kind: "readRandom", target }]);
 });
 
-test("writeNamed coalesces contiguous direct bits and same-word bit updates", async () => {
+test("writeNamed rejects bit-in-word mixed with direct bits", async () => {
   const reads = [];
   const writes = [];
   const fakeClient = {
@@ -525,22 +519,15 @@ test("writeNamed coalesces contiguous direct bits and same-word bit updates", as
     },
   };
 
-  await writeNamed(fakeClient, {
-    "D50.3": true,
-    "D50.4": true,
-    "M1000:BIT": true,
-    "M1001:BIT": false,
-    "M1002:BIT": true,
-  });
-
-  assert.deepEqual(reads, [{ device: "D50", points: 1, bitUnit: false }]);
-  assert.deepEqual(writes, [
-    { device: "M1000", values: [true, false, true], bitUnit: true },
-    { device: "D50", values: [0x0018], bitUnit: false },
-  ]);
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "D50.3": true, "M1000:BIT": true }),
+    /bit-in-word read-modify-write/
+  );
+  assert.deepEqual(reads, []);
+  assert.deepEqual(writes, []);
 });
 
-test("writeNamed supports count arrays and string writes", async () => {
+test("writeNamed rejects block and bit families before transport", async () => {
   const writes = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -559,31 +546,14 @@ test("writeNamed supports count arrays and string writes", async () => {
     },
   };
 
-  await writeNamed(fakeClient, {
-    "M1000:BIT,3": [true, false, true],
-    "D100:U,3": [11, 12, 13],
-    "D200:F,2": [1.5, -2.25],
-    "D300:STR,5": "HELLO",
-    "D400:STR,4": "ABCD",
-  });
-
-  const floatWords = [];
-  for (const value of [1.5, -2.25]) {
-    const raw = Buffer.alloc(4);
-    raw.writeFloatLE(value, 0);
-    floatWords.push(raw.readUInt16LE(0), raw.readUInt16LE(2));
-  }
-
-  assert.deepEqual(writes, [
-    { device: "M1000", values: [true, false, true], bitUnit: true },
-    { device: "D100", values: [11, 12, 13], bitUnit: false },
-    { device: "D200", values: floatWords, bitUnit: false },
-    { device: "D300", values: [0x4548, 0x4c4c, 0x004f], bitUnit: false },
-    { device: "D400", values: [0x4241, 0x4443], bitUnit: false },
-  ]);
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "D100:U,3": [11, 12, 13], "M100:BIT": true }),
+    /exactly one protocol request/
+  );
+  assert.deepEqual(writes, []);
 });
 
-test("writeNamed routes long current values and long state bits through random writes", async () => {
+test("writeNamed rejects mixed long current and state command families", async () => {
   const writes = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -613,39 +583,11 @@ test("writeNamed routes long current values and long state bits through random w
     },
   };
 
-  await writeNamed(fakeClient, {
-    "LTN0:D,2": [1, 2],
-    "LSTN4:L": -5,
-    "LTC0:BIT": true,
-    "LSTS4:BIT": true,
-    "LCC10:BIT": true,
-    "LCS10:BIT": false,
-    "LZ0:D": 123456,
-    "LZ1:D": 789,
-  });
-
-  assert.deepEqual(writes, [
-    {
-      kind: "writeRandomWords",
-      wordValues: [],
-      dwordValues: [
-        ["LTN0", 1],
-        ["LTN1", 2],
-        ["LSTN4", 0xfffffffb],
-        ["LZ0", 123456],
-        ["LZ1", 789],
-      ],
-    },
-    {
-      kind: "writeRandomBits",
-      bitValues: [
-        ["LTC0", true],
-        ["LSTS4", true],
-        ["LCC10", true],
-        ["LCS10", false],
-      ],
-    },
-  ]);
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "LSTN4:L": -5, "LTC0:BIT": true }),
+    /exactly one protocol request/
+  );
+  assert.deepEqual(writes, []);
 });
 
 test("writeTyped routes long current and state devices through random writes", async () => {
@@ -775,8 +717,6 @@ test("writeNamed forwards per-request target overrides to client calls", async (
     fakeClient,
     {
       "D100:U": 42,
-      "D50.3": true,
-      "M1000:BIT": true,
       "D200:F": 1.5,
     },
     { target }
@@ -784,9 +724,6 @@ test("writeNamed forwards per-request target overrides to client calls", async (
 
   assert.deepEqual(writes, [
     { kind: "writeRandomWords", wordValues: [["D100", 42]], dwordValues: [["D200", 1069547520]], target },
-    { kind: "writeDevices", device: "M1000", values: [true], bitUnit: true, target },
-    { kind: "readDevices", device: "D50", points: 1, bitUnit: false, target },
-    { kind: "writeDevices", device: "D50", values: [8], bitUnit: false, target },
   ]);
 });
 

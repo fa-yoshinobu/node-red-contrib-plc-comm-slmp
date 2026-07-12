@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
+const { SlmpTransport } = require("../lib/slmp/transport");
 
 const slmpApi = require("../lib/slmp");
 const {
@@ -630,7 +631,8 @@ test("Extended Device public model is semantic and raw wire encoders are hidden"
   assert.equal(typed.address, String.raw`U1\G0`);
   assert.equal(typed.modification.index, 4);
   assert.throws(() => new SlmpIndexZ(-1), /0\.\.255/);
-  assert.throws(() => new SlmpIndexLz(256), /0\.\.255/);
+  assert.equal(new SlmpIndexLz(1).index, 1);
+  assert.throws(() => new SlmpIndexLz(2), /0\.\.1/);
   assert.throws(() => new SlmpExtendedDevice("D0", {}), /modification/);
 });
 
@@ -1073,6 +1075,18 @@ test("3E TCP frame extraction discards responses without a waiter", async () => 
   await assert.rejects(() => client._awaitTcpFrame(0), /TCP communication timeout/);
 });
 
+test("TCP busy rejection occurs before any frame is written", async () => {
+  const transport = new SlmpTransport({
+    host: "127.0.0.1", port: 1025, transportType: "tcp", frameType: "3e", timeout: 100,
+  });
+  let writes = 0;
+  transport._tcpSocket = { write() { writes += 1; } };
+  transport._tcpPending = { resolve() {}, reject() {}, timeoutHandle: setTimeout(() => {}, 1000) };
+  await assert.rejects(() => transport.sendAndReceive(Buffer.from([1]), 0), /already waiting/);
+  clearTimeout(transport._tcpPending.timeoutHandle);
+  assert.equal(writes, 0);
+});
+
 test("remote password configuration distinguishes omission from invalid explicit values", () => {
   const base = {
     host: "127.0.0.1",
@@ -1447,8 +1461,8 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
     dwordDevices: [new SlmpExtendedDevice(String.raw`U01\G10`, new SlmpIndirect())],
   });
   assert.deepEqual(read, {
-    word: { D100: 0x1234 },
-    dword: { [String.raw`U01\G10`]: 0x89abcdef },
+    word: { "D100+Z4": 0x1234 },
+    dword: { [String.raw`U01\G10+INDIRECT`]: 0x89abcdef },
   });
 
   await client.writeRandomWordsExt({
@@ -1685,6 +1699,14 @@ test("write APIs reject duplicate and overlapping destinations before transport"
     () => client.writeRandomWords({ wordValues: [["D100", 1], ["D100", 2]] }),
     /duplicate word destinations/
   );
+  for (const value of [-1, 0x10000, 1.5, "1", true, NaN]) {
+    await assert.rejects(() => client.writeDevices("D0", [value], { bitUnit: false }), /integer in range/);
+    await assert.rejects(() => client.writeRandomWords({ wordValues: [["D0", value]] }), /integer in range/);
+  }
+  for (const value of ["false", "0", 2, -1, 0.5, {}]) {
+    await assert.rejects(() => client.writeDevices("M0", [value], { bitUnit: true }), /boolean|number 0 or 1/);
+    await assert.rejects(() => client.writeRandomBits({ bitValues: [["M0", value]] }), /boolean|number 0 or 1/);
+  }
   await assert.rejects(
     () => client.writeRandomWords({ wordValues: [["D100", 1]], dwordValues: [["D99", 2]] }),
     /overlapping word\/dword destinations/
@@ -2097,6 +2119,25 @@ test("label helpers build payloads and parse responses", async () => {
       [Command.LABEL_ARRAY_WRITE, 0x0000, "0100000006004c006100620065006c00570001000200aabb"],
     ]
   );
+});
+
+test("remoteReset closes the send-only transport generation", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let sent = 0;
+  let closed = 0;
+  client.connect = async () => undefined;
+  client._transport = {
+    nextSerial() { return 0; },
+    async sendOnly() { sent += 1; },
+    async close() { closed += 1; },
+    hasOpenTransport() { return true; },
+    connectionGeneration() { return 1; },
+  };
+
+  await client.remoteReset();
+
+  assert.equal(sent, 1);
+  assert.equal(closed, 1);
 });
 
 test("label abbreviation omission and references are validated before transport", async () => {

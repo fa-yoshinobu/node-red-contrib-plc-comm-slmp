@@ -191,15 +191,26 @@ an incomplete or conflicting selector is not completed from `msg.dtype`.
 | String | `D100:STR,10` | UTF-8 string with a 10-byte maximum, packed two bytes per word. |
 | Bit in word | `D50.3` | One bit inside a word device. |
 | Direct bit | `M1000:BIT` | One bit device. |
-| Counted bit | `M1000:BIT,8` | Eight consecutive bit devices. |
-| Counted word | `D100:U,4` | Four consecutive word values. |
+| Counted bit | `M1000:BIT,8` | One contiguous bit request. |
+| Counted word | `D100:U,4` | One word block inside a single block request. |
 
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
 Use only `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`. The removed compatibility
-spellings `:I`, `:STRING`, and `DSTR...` are rejected. A named random operation
-that exceeds one SLMP request is rejected before transport; the library does
-not divide it into multiple sampling or write times.
+spellings `:I`, `:STRING`, and `DSTR...` are rejected. `readNamed` and
+`writeNamed` accept only update sets that compile to one protocol request.
+Compatible word blocks, including counted and string entries, may share one
+block request. Mixed command families and bit-in-word read-modify-write are
+rejected before transport. Use explicit APIs when multiple commands are required.
+
+Direct write values are not coerced: word/DWord values must be exact in-range
+integers and bits must be Boolean or numeric 0/1. Named writes also reject
+overlapping destinations. Extended random-read result keys append `+Zn`,
+`+LZn`, or `+INDIRECT` when a modifier is present.
+
+`remoteReset` confirms that the request frame was transmitted, closes the
+current transport generation, and does not confirm PLC execution. Reconnect
+and verify PLC state before issuing another operation.
 
 ## Long device families
 

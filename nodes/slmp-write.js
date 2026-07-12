@@ -300,8 +300,14 @@ function fail(node, msg, send, done, error) {
 function validateUpdatesForConnection(updates, profile) {
   const options = profile && profile.plcProfile ? { plcProfile: profile.plcProfile } : {};
   const normalized = {};
+  const sourceByNormalized = new Map();
   for (const [address, value] of Object.entries(updates || {})) {
-    normalized[normalizeAddress(address, options)] = value;
+    const key = normalizeAddress(address, options);
+    if (sourceByNormalized.has(key)) {
+      throw new Error(`Duplicate write address after normalization: '${sourceByNormalized.get(key)}' and '${address}'`);
+    }
+    sourceByNormalized.set(key, address);
+    normalized[key] = value;
   }
   return normalized;
 }

@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: TCP connection setup now fails closed if no-delay or required keepalive configuration throws. The socket is destroyed, the connect promise rejects, and the transport never retains the partially configured socket.
 - Library: `raiseOnError` now defaults to `true` only when absent and accepts actual Booleans only at connection and request scope. Strings, numbers, null, empty values, objects, and arrays are rejected before transport instead of being coerced.
 - Library: The complete connection target is immutable for the client lifetime. Each queued request now validates and snapshots its effective target, monitoring timer, end-code policy, and payload at call time, so later caller mutation cannot change the destination or request bytes.
-- Library: `readNamed` and `writeNamed` reject random operations that exceed a single-request limit instead of splitting them into multiple requests.
+- Library: `readNamed` and `writeNamed` emit one protocol request or reject the complete operation before transport. Compatible random or multi-block word entries may share that request; mixed command families and bit-in-word writes no longer create hidden follow-up requests.
 - Library: Remote RESET uses fixed subcommand `0x0000` and payload `0x0001`, and completes after sending without waiting for a success response.
 - Library: 4E serials are assigned internally and requests sharing one client are serialized.
 - Library: UDP timeout detaches and closes the socket generation so delayed datagrams cannot satisfy a later request.
@@ -77,6 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Library: Random, extended-random, and block writes reject duplicate or overlapping destinations before transport.
+- Library: Direct, random, extended-random, block, memory, and extend-unit write paths reject coercible strings, fractional values, Boolean-as-word values, truthy bit values, and out-of-range integers instead of masking or converting them.
+- Library: `writeNamed` rejects overlapping word/DWord and normalized-address destinations; Extended Device random-read keys include Z/LZ/indirect modification so distinct operands cannot overwrite each other.
+- Library: Send-only remote reset closes its transport generation after the frame is written, TCP busy rejection occurs before socket write, unlock failure preserves the primary error even when local close also fails, and LZ modifiers accept only index 0 or 1.
 - Library: Removed inert end-code message properties; numeric end code, stable end-code key, structured error information, and password classification remain.
 - Node-RED: Removed unsupported-device skip overrides and made metadata ownership deterministic across full, minimal, and off modes.
 - Docs: Updated user pages and examples to the explicit overhaul contract.

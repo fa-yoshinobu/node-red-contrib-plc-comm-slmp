@@ -40,14 +40,7 @@
         value: false,
         required: true,
         validate: function (value) {
-          if (typeof value !== "boolean") {
-            return false;
-          }
-          if (!value) {
-            return true;
-          }
-          const password = $("#node-config-input-remotePassword");
-          return password.length === 1 && String(password.val() || "").length > 0;
+          return typeof value === "boolean";
         }
       },
       monitoringTimer: {

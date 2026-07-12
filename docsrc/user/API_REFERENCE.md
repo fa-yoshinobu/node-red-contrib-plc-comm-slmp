@@ -52,8 +52,10 @@ The current Node-RED low-level client does not expose separate extended direct
 device helpers. Use the extended random APIs for routed random access.
 
 `readDevices` and `writeDevices` require a Boolean `bitUnit`. Random and block
-writes reject duplicate or overlapping destinations. Named random operations
-must fit one protocol request; the library does not split an oversized call.
+writes reject duplicate or overlapping destinations. `readNamed` and
+`writeNamed` emit one protocol request or reject the complete operation before
+transport. Compatible random or multi-block word entries may share one
+request; hidden follow-up and bit-in-word read-modify-write are not performed.
 
 ## Specialized Operations
 

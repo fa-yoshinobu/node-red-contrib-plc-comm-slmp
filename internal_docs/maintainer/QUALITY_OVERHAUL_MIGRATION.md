@@ -68,15 +68,16 @@ Acceptance criteria:
 
 Scope: named random reads/writes and low-level random/extended-random/block writes.
 
-Target contract: an operation that exceeds one request is rejected before transport rather than chunked. Random and block writes reject duplicate or overlapping destinations, including DWord spans and equal extended routes.
+Target contract: each named read/write emits one protocol request or is rejected before transport. Compatible random or multi-block word entries may share that request; mixed command families, bit-in-word writes, and oversized operations never become hidden follow-up requests. Random and block writes reject duplicate or overlapping destinations, including DWord spans and equal extended routes.
 
 Compatibility impact: hidden random chunking is removed; previously accepted ambiguous overlapping writes fail.
 
 Acceptance criteria:
 
-1. A 97-device iQ-R named random read and an 81-word named random write issue zero requests.
+1. A 97-device iQ-R named random read, an 81-word named random write, and every incompatible named route issue zero requests.
 2. Word/DWord overlap, DWord/DWord overlap, duplicate bits, block overlap, and equal-route extended overlap issue zero requests.
 3. A bit-in-word that can join a random read is included in that single random request rather than causing a second direct read.
+4. Compatible word/DWord named values use one random request; compatible named bits use one random-bit request.
 
 ## NR-SLMP-OH-004 — Explicit control and authentication intent
 
@@ -337,6 +338,23 @@ Normal and Extended Device random reads may omit either `wordDevices` or `dwordD
 ### D-020 — Random-word-write category omission
 
 Normal and Extended Device random word writes may omit either `wordValues` or `dwordValues`. At least one valid address/value pair is required across both categories. All-empty, explicit non-collection, malformed, invalid, duplicate, and overlapping destinations fail before request submission. Random bit write remains a separate API with required bit values.
+
+All low-level write values are validated without JavaScript coercion. Word and
+DWord values must be exact finite integers in their unsigned wire ranges; bit
+values must be Booleans or the numbers 0/1. `writeNamed` additionally rejects
+overlapping cluster slots and Node-RED rejects address keys that collide after
+canonical normalization.
+
+`readNamed` and `writeNamed` are single-request-or-reject APIs. Count/string
+word entries may share one multi-block request. Random, direct-bit, long-device,
+and block families are never mixed into hidden follow-up requests; bit-in-word
+writes remain explicit read-modify-write operations. Callers use explicit APIs
+when more than one command is required.
+
+Send-only remote reset closes the transport generation after transmission so
+a possible NG response cannot satisfy the next 3E request. TCP pending-slot
+conflicts are rejected before `socket.write`. Extended random-read result keys
+include semantic Z/LZ/indirect modifiers, and LZ indexes are limited to 0/1.
 
 ### D-021 / D-022 — Block category omission
 
