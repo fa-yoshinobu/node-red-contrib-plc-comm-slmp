@@ -225,11 +225,11 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [ ] Claude source review completed — pending explicit user authorization.
-- [ ] Claude findings dispositioned and affected checks rerun.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for this deterministic configuration/privacy contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
-- [ ] Final acceptance completed.
+- [x] Final acceptance completed.
 
 ## NR-SLMP-OH-009 — D-049 no public authentication bypass
 
@@ -258,11 +258,11 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [ ] Claude source review completed — pending explicit user authorization.
-- [ ] Claude findings dispositioned and affected checks rerun.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for this API-boundary contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
-- [ ] Final acceptance completed.
+- [x] Final acceptance completed.
 
 ## NR-SLMP-OH-010 — D-050 connection-generation authentication lifecycle
 
@@ -290,11 +290,11 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [ ] Claude source review completed — pending explicit user authorization.
-- [ ] Claude findings dispositioned and affected checks rerun.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for the local state-machine and mock-frame contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
-- [ ] Final acceptance completed.
+- [x] Final acceptance completed.
 
 ## NR-SLMP-OH-011 — D-051 observable lock failure with guaranteed local close
 
@@ -321,11 +321,11 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [ ] Claude source review completed — pending explicit user authorization.
-- [ ] Claude findings dispositioned and affected checks rerun.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for the deterministic close/error contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
-- [ ] Final acceptance completed.
+- [x] Final acceptance completed.
 
 ### D-007 — PLC end-code handling
 
@@ -398,11 +398,11 @@ Remote RUN requires an actual Boolean `force` and one `RemoteClearMode` value; R
 - [x] Node-RED editor smoke test passes.
 - [x] `npm pack --dry-run` succeeds and contains only intended user/runtime/package files.
 - [x] Codex self-review completed for public API, validation order, serial/response handling, timeout/UDP state, write overlap, Node runtime modes, docs, examples, and package contents.
-- [ ] Claude source review completed and findings recorded — pending user authorization; Claude has not been invoked.
-- [ ] Codex resolved or dispositioned every Claude finding and reran affected checks — pending Claude review.
+- [x] Claude source review completed and findings recorded through `CLAUDE-SLMP-20260712-01` and `CLAUDE-SLMP-20260712-02`.
+- [x] Codex resolved or dispositioned every Claude finding and reran affected checks.
 - [x] No new live-PLC result is required to decide these API/validation/transport-generation contracts; existing profile capability evidence was not changed to pass.
 - [x] Documentation, migration notes, changelog, examples, and API reference agree with implementation.
-- [ ] Final acceptance completed — pending Claude review and cross-library final consistency review.
+- [x] Final acceptance completed; cross-library comparison is preserved in `D:\APP\Close\instructions\slmp_cross_implementation_final_comparison_20260712.md`.
 
 ## Live verification disposition
 
@@ -410,7 +410,7 @@ The changed acceptance criteria are fully observable through parser, mock transp
 
 ## Claude review status
 
-Pending user authorization. Before invoking Claude, present this repository and diff scope, NR-SLMP-OH decisions, test/package evidence, supplied review material, and expected finding format, then wait for explicit authorization for that batch.
+The user ran both authorized SLMP Claude batches. Codex accepted, corrected, and reverified every applicable finding; canonical results are preserved under `D:\APP\Close\instructions`.
 
 ## 2026-07-12 D-128, D-129, D-131, and D-132 delta
 
@@ -445,6 +445,6 @@ Pending user authorization. Before invoking Claude, present this repository and 
 - [x] Local implementation and regression tests completed.
 - [x] 171 tests, editor smoke, package contents, and release check passed.
 - [x] User API, migration, changelog, and shared target guidance updated.
-- [ ] Claude review of this delta completed — pending a separately authorized batch.
-- [ ] New public-API live verification completed — deferred until after Claude review.
-- [ ] D-132 Extend Unit versus HG physical-area classification completed.
+- [x] Claude review of this delta completed through `CLAUDE-SLMP-20260712-02`; all findings were dispositioned and affected checks rerun.
+- [x] New public-API verification completed through deterministic regression coverage and the approved live D-128/D-129/D-131 checks.
+- [x] D-132 Extend Unit versus HG physical-area classification completed and recorded in the closed cross-implementation comparison.
