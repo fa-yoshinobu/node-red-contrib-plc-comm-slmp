@@ -378,7 +378,7 @@ Remote RUN requires an actual Boolean `force` and one `RemoteClearMode` value; R
 
 - [x] Implementation completed for NR-SLMP-OH-001 through NR-SLMP-OH-011 in this repository.
 - [x] Tests added or updated for the machine-verifiable acceptance criteria.
-- [x] `npm test` passes 161 tests with zero skip, including four vendored shared-vector groups and
+- [x] `npm test` passes the repository-local contract tests with zero skip, including
   D-007 Boolean-only PLC end-code policy, D-111/D-112/D-113 direct-client, normalizer, editor, runtime, and exact transport-timeout
   boundaries, D-115 connection/request route coverage, D-116 source-type/evaluator coverage, and
   D-117 route-source priority/fallback/metadata coverage, D-118 fixed output shapes, and D-119
@@ -406,7 +406,7 @@ Remote RUN requires an actual Boolean `force` and one `RemoteClearMode` value; R
 
 ## Live verification disposition
 
-The changed acceptance criteria are fully observable through parser, mock transport, local TCP socket, editor, shared-vector, and package tests. No command in this batch requires a PLC response to distinguish pass from fail. Existing profile capability rows and hardware-specific compatibility remain unchanged and retain their prior verified/unverified state.
+The changed acceptance criteria are fully observable through parser, mock transport, local TCP socket, editor, and package tests. No command in this batch requires a PLC response to distinguish pass from fail. Existing profile capability rows and hardware-specific compatibility remain unchanged and retain their prior verified/unverified state.
 
 ## Claude review status
 

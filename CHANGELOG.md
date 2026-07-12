@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Tests: Removed vendored cross-repository vector JSON and its dedicated runner. Cross-implementation comparison is executed independently of this Node-RED package.
 ### BREAKING
 
 - Library: `SlmpClient` now requires explicit `port`, `transport`, concrete `plcProfile`, and one complete `target` or `defaultTarget`; raw request `subcommand` and payload are required.
@@ -83,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Removed inert end-code message properties; numeric end code, stable end-code key, structured error information, and password classification remain.
 - Node-RED: Removed unsupported-device skip overrides and made metadata ownership deterministic across full, minimal, and off modes.
 - Docs: Updated user pages and examples to the explicit overhaul contract.
-- Tests: Vendored all shared vectors, added transport-state, keepalive, overlap, required-option, and one-request-limit coverage, and removed all shared-vector skips.
+- Tests: Added transport-state, keepalive, overlap, required-option, and one-request-limit coverage.
 
 ## [3.1.0] - 2026-07-10
 
