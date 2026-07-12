@@ -36,7 +36,20 @@
         }
       },
       plcProfile: { value: "", required: true },
-      useRemotePassword: { value: false, required: true },
+      useRemotePassword: {
+        value: false,
+        required: true,
+        validate: function (value) {
+          if (typeof value !== "boolean") {
+            return false;
+          }
+          if (!value) {
+            return true;
+          }
+          const password = $("#node-config-input-remotePassword");
+          return password.length === 1 && String(password.val() || "").length > 0;
+        }
+      },
       monitoringTimer: {
         value: 16,
         required: true,
@@ -95,7 +108,9 @@
       const usePassword = $("#node-config-input-useRemotePassword");
       const password = $("#node-config-input-remotePassword");
       const updatePasswordState = function () {
-        password.prop("disabled", !usePassword.is(":checked"));
+        const enabled = usePassword.is(":checked");
+        password.prop("disabled", !enabled);
+        password.prop("required", enabled);
       };
       usePassword.on("change", updatePasswordState);
       updatePasswordState();
@@ -166,8 +181,10 @@
 
 <script type="text/html" data-help-name="slmp-connection">
   <p>Reusable SLMP connection profile for MELSEC PLC access over binary 3E or 4E frames.</p>
+  <p><b>Name</b> is an optional display-only label. Empty, whitespace, or non-string values mean no custom label; duplicate labels are allowed. It never selects the connection, endpoint, profile, route, or request content.</p>
   <p>Select one explicit PLC type. The node derives the frame type, access profile, and string address rules from that type.</p>
-  <p>Strict profile rejects features known unavailable on the selected PLC profile before sending.</p>
+  <p>The selected profile always rejects features known unavailable on that PLC before sending.</p>
+  <p>The monitor timer is the 16-bit SLMP field in 250 ms units. The new-node value 16 requests four seconds. An explicit 0 means the PLC-side processing wait is indefinite; the client communication timeout remains separate and can still end the request.</p>
   <p>If the PLC route is protected by a remote password, enable <b>Use remote password</b> and enter a non-empty credential. The node sends remote-password unlock after connecting and tries remote-password lock before disconnecting.</p>
   <p><code>slmp-read</code> and <code>slmp-write</code> can send <code>connect</code>, <code>disconnect</code>, and <code>reinitialize</code> control messages through this shared connection.</p>
 </script>

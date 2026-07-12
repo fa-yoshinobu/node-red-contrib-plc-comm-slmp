@@ -11,7 +11,10 @@ module.exports = function registerSlmpRead(RED) {
     this.connection = RED.nodes.getNode(config.connection);
     this.addresses = config.addresses || "";
     this.addressesType = requireSourceType(config, "addressesType");
-    this.routeTarget = config.routeTarget || "";
+    this.routeTarget = hasOwn(config, "routeTarget") ? config.routeTarget : "";
+    if (typeof this.routeTarget !== "string") {
+      throw new Error("routeTarget must be a string source value when configured");
+    }
     this.routeTargetType = this.routeTarget === "" ? config.routeTargetType : requireSourceType(config, "routeTargetType");
     this.outputMode = requireEnum(config, "outputMode", ["object", "array", "value"]);
     this.errorHandling = requireEnum(config, "errorHandling", ["throw", "msg", "output2"]);
@@ -27,6 +30,7 @@ module.exports = function registerSlmpRead(RED) {
       }
 
       try {
+        warnRemovedSkipUnsupported(this, msg);
         const controlAction = getControlAction(msg);
         if (controlAction) {
           this.status({ fill: "yellow", shape: "ring", text: controlAction });
@@ -39,7 +43,7 @@ module.exports = function registerSlmpRead(RED) {
         this.status({ fill: "blue", shape: "dot", text: "reading" });
         const profile = this.connection.getProfile();
         const addresses = validateAddressesForConnection(await resolveAddresses(RED, this, msg), profile);
-        const target = await resolveTarget(RED, this, msg);
+        const { target, source: targetSource } = await resolveTarget(RED, this, msg);
         if (addresses.length === 0) {
           throw new Error("No SLMP addresses were provided");
         }
@@ -54,6 +58,7 @@ module.exports = function registerSlmpRead(RED) {
           addresses,
           connection: profile,
           target: target || profile.target,
+          targetSource,
           itemCount: addresses.length,
         });
         this.status({ fill: "green", shape: "dot", text: `${addresses.length} item(s)` });
@@ -68,10 +73,26 @@ module.exports = function registerSlmpRead(RED) {
   RED.nodes.registerType("slmp-read", SlmpReadNode);
 };
 
+function warnRemovedSkipUnsupported(node, msg) {
+  const hasLegacyFlag = hasOwn(msg, "slmpSkipUnsupported")
+    || (isPlainObject(msg.slmp) && hasOwn(msg.slmp, "skipUnsupported"));
+  if (hasLegacyFlag && typeof node.warn === "function") {
+    node.warn("skipUnsupported was removed; handle the structured error using the configured error mode");
+  }
+}
+
 async function resolveAddresses(RED, node, msg) {
   if (hasOwn(msg, "addresses")) {
     if (!Array.isArray(msg.addresses) && typeof msg.addresses !== "string") {
       throw new Error("msg.addresses must be a non-empty string or array");
+    }
+    if ((typeof msg.addresses === "string" && !msg.addresses.trim())
+        || (Array.isArray(msg.addresses) && msg.addresses.length === 0)) {
+      throw new Error("msg.addresses must not be empty");
+    }
+    if (Array.isArray(msg.addresses)
+        && msg.addresses.some((address) => typeof address !== "string" || !address.trim())) {
+      throw new Error("msg.addresses must contain only non-empty address strings");
     }
     const addresses = normalizeAddressList(msg.addresses);
     if (addresses.length === 0) {
@@ -88,24 +109,31 @@ async function resolveTarget(RED, node, msg) {
     if (!isPlainObject(msg.target)) {
       throw new Error("msg.target must be a complete routing object");
     }
-    return normalizeTarget(msg.target);
+    return { target: normalizeTarget(msg.target), source: "msg.target" };
   }
   if (isPlainObject(msg.slmp) && hasOwn(msg.slmp, "target")) {
     if (!isPlainObject(msg.slmp.target)) {
       throw new Error("msg.slmp.target must be a complete routing object");
     }
-    return normalizeTarget(msg.slmp.target);
+    return { target: normalizeTarget(msg.slmp.target), source: "msg.slmp.target" };
   }
   if (node.routeTarget === "") {
-    return undefined;
+    return { target: undefined, source: "connection" };
   }
   const configured = await evaluateConfiguredValue(RED, node, msg, node.routeTarget, node.routeTargetType, "target");
-  return normalizeTargetSource(configured);
+  try {
+    return { target: normalizeTargetSource(configured), source: `configured.${node.routeTargetType}` };
+  } catch (error) {
+    throw new Error(`Configured route target (${node.routeTargetType}) is invalid: ${error.message}`);
+  }
 }
 
 function evaluateConfiguredValue(RED, node, msg, value, type, label) {
-  if (!RED.util || typeof RED.util.evaluateNodeProperty !== "function" || !type || type === "str") {
+  if (type === "str") {
     return Promise.resolve(value);
+  }
+  if (!RED.util || typeof RED.util.evaluateNodeProperty !== "function") {
+    return Promise.reject(new Error(`Unable to evaluate ${label}: Node-RED property evaluator is unavailable`));
   }
   return new Promise((resolve, reject) => {
     RED.util.evaluateNodeProperty(value, type, node, msg, (error, resolved) => {
@@ -141,13 +169,13 @@ function validateAddressesForConnection(addresses, profile) {
 }
 
 function normalizeTargetSource(value) {
-  if (value === undefined || value === null || value === "") {
-    return undefined;
+  if (value === undefined || value === null) {
+    throw new Error("Routing target reference is missing");
   }
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) {
-      return undefined;
+      throw new Error("Routing target must not be empty");
     }
     try {
       const parsed = JSON.parse(trimmed);
@@ -199,6 +227,7 @@ function applyMetadata(msg, mode, metadata) {
     addresses: metadata.addresses,
     connection: metadata.connection,
     target: metadata.target,
+    targetSource: metadata.targetSource,
   };
 }
 
@@ -206,6 +235,7 @@ function buildMinimalMetadata(existing, metadata) {
   const next = clearOwnedMetadata(existing);
   next.operation = "read";
   next.target = metadata.target;
+  next.targetSource = metadata.targetSource;
   next.itemCount = metadata.itemCount;
   next.metadataMode = "minimal";
   return next;
@@ -213,7 +243,7 @@ function buildMinimalMetadata(existing, metadata) {
 
 function clearOwnedMetadata(existing) {
   const next = isPlainObject(existing) ? { ...existing } : {};
-  for (const key of ["addresses", "updates", "connection", "target", "itemCount", "metadataMode", "operation"]) {
+  for (const key of ["addresses", "updates", "connection", "target", "targetSource", "itemCount", "metadataMode", "operation"]) {
     delete next[key];
   }
   return next;

@@ -320,7 +320,7 @@
       const literalField = $("#node-input-addressesLiteral");
       literalField.val(this.addresses || "");
       sourceField.val(this.addresses || "");
-      $("#node-input-addressesType").val(this.addressesType || "str");
+      $("#node-input-addressesType").val(this.addressesType);
       const refreshAddresses = setupSlmpSourceField(
         "#node-input-addressesSource",
         "#node-input-addressesType",
@@ -331,7 +331,7 @@
       const routeLiteral = $("#node-input-routeTargetLiteral");
       routeLiteral.val(this.routeTarget || "");
       routeField.val(this.routeTarget || "");
-      $("#node-input-routeTargetType").val(this.routeTargetType || "str");
+      $("#node-input-routeTargetType").val(this.routeTargetType);
       const refreshRoute = setupSlmpSourceField(
         "#node-input-routeTargetSource",
         "#node-input-routeTargetType",
@@ -414,11 +414,12 @@
 
 <script type="text/html" data-help-name="slmp-read">
   <p>Reads one or more SLMP addresses and writes the result to <code>msg.payload</code>.</p>
+  <p><b>Name</b> is an optional display-only label. It is not a node ID, connection reference, route, request field, or metadata field, and duplicate labels are allowed.</p>
   <p>Supported forms include <code>D100:U</code>, <code>D101:S</code>, <code>D100:U,10</code>, <code>D200:F</code>, <code>D200:F,4</code>, <code>D50.3</code>, <code>M1000:BIT</code>, <code>M1000:BIT,8</code>, and <code>D100:STR,10</code>.</p>
   <p><code>,count</code> returns arrays for numeric and direct-bit reads. String reads use UTF-8 bytes packed two per word.</p>
   <p>Output can be an object keyed by address, an array in address order, or a single scalar when exactly one address is requested.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
-  <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. At runtime, <code>msg.addresses</code> takes priority over the configured source.</p>
+  <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. At runtime, a present <code>msg.addresses</code> must be a valid non-empty string or array of non-empty strings. Invalid input is an error and never falls back to the configured source.</p>
   <p>Per-request routing can be supplied as <code>msg.target</code>, <code>msg.slmp.target</code>, or a configured route source. Route objects can include <code>network</code>, <code>station</code>, <code>moduleIO</code>, and <code>multidrop</code>.</p>
   <p>Send <code>msg.connect</code>, <code>msg.disconnect</code>, or <code>msg.reinitialize</code> as <code>true</code>, or send the same words in <code>msg.topic</code>, to control the shared connection.</p>
   <p>The node keeps the caller-visible logical request shape. It does not silently retry one logical read as a different fallback split request.</p>

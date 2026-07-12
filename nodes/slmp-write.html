@@ -305,7 +305,7 @@
       const literalField = $("#node-input-updatesLiteral");
       literalField.val(this.updates || "");
       sourceField.val(this.updates || "");
-      $("#node-input-updatesType").val(this.updatesType || "str");
+      $("#node-input-updatesType").val(this.updatesType);
       const refreshUpdates = setupSlmpSourceField(
         "#node-input-updatesSource",
         "#node-input-updatesType",
@@ -316,7 +316,7 @@
       const routeLiteral = $("#node-input-routeTargetLiteral");
       routeLiteral.val(this.routeTarget || "");
       routeField.val(this.routeTarget || "");
-      $("#node-input-routeTargetType").val(this.routeTargetType || "str");
+      $("#node-input-routeTargetType").val(this.routeTargetType);
       const refreshRoute = setupSlmpSourceField(
         "#node-input-routeTargetSource",
         "#node-input-routeTargetType",
@@ -391,12 +391,14 @@
 
 <script type="text/html" data-help-name="slmp-write">
   <p>Writes one or more SLMP values using the same named-device foundation as the SLMP libraries, extended here with count and string forms.</p>
+  <p><b>Name</b> is an optional display-only label. It is not a node ID, connection reference, route, request field, or metadata field, and duplicate labels are allowed.</p>
   <p>Preferred dynamic input is <code>msg.updates</code> as an object, for example <code>{ "D100:U": 42, "D101:S": -1, "D100:U,3": [10,11,12], "M1000:BIT": true, "D100:STR,10": "HELLO" }</code>.</p>
+  <p>A present runtime field is authoritative: invalid or empty <code>msg.updates</code>/<code>msg.address</code> is an error and never falls back to configured updates. <code>msg.updates</code> and <code>msg.address</code> are mutually exclusive; <code>msg.value</code>/<code>msg.dtype</code> cannot appear without <code>msg.address</code>.</p>
   <p>Count-qualified addresses expect arrays, while string addresses expect a string value. Use the canonical <code>D100:STR,10</code> form.</p>
   <p>The configured source can be literal text, <code>msg</code>, <code>flow</code>, <code>global</code>, or <code>env</code>. Literal text accepts JSON objects only.</p>
   <p>Per-request routing can be supplied as <code>msg.target</code>, <code>msg.slmp.target</code>, or a configured route source. Route objects can include <code>network</code>, <code>station</code>, <code>moduleIO</code>, and <code>multidrop</code>.</p>
   <p>Metadata can emit full <code>msg.slmp</code>, a minimal object with only the effective target and item count, or leave <code>msg.slmp</code> unchanged.</p>
-  <p>You can also send a single write with <code>msg.address</code>, <code>msg.dtype</code> when the address has no suffix, and the value in <code>msg.value</code>. If <code>msg.address</code> already includes <code>,count</code>, the dtype is inserted before the count suffix.</p>
+  <p>You can also send a single write with <code>msg.address</code> and <code>msg.value</code>. A bare address requires exactly one uppercase <code>msg.dtype</code>: <code>BIT</code>, <code>U</code>, <code>S</code>, <code>D</code>, <code>L</code>, <code>F</code>, or <code>STR</code>. Omit <code>msg.dtype</code> when the address already contains a complete dtype or word-bit selector; specifying both is an error. If <code>msg.address</code> already includes <code>,count</code>, the dtype is inserted before the count suffix. An incomplete or conflicting colon/period selector is rejected instead of being completed from <code>msg.dtype</code>.</p>
   <p>Send <code>msg.connect</code>, <code>msg.disconnect</code>, or <code>msg.reinitialize</code> as <code>true</code>, or send the same words in <code>msg.topic</code>, to control the shared connection.</p>
   <p>The node keeps the caller-visible logical write shape. It does not silently retry one logical update as a different fallback split request.</p>
   <p>Error handling can throw, attach the error to <code>msg.error</code>, or emit the failed message on the second output.</p>

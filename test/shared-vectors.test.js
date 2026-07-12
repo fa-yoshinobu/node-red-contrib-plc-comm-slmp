@@ -31,12 +31,12 @@ function build4EResponse(requestFrame, responseData, endCode = 0) {
 }
 
 class CaptureClient extends slmp.SlmpClient {
-  constructor(responseData) {
+  constructor(responseData, plcProfile = "melsec:iq-r") {
     super({
       host: "127.0.0.1",
       port: 1025,
       transport: "tcp",
-      plcProfile: "melsec:iq-r",
+      plcProfile,
       target: { network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 },
       monitoringTimer: 0x0010,
       raiseOnError: true,
@@ -105,7 +105,10 @@ test("shared frame vectors match Node client requests", async () => {
     if (!entry.implementations.includes("node")) {
       continue;
     }
-    const client = new CaptureClient(Buffer.from(entry.response_data_hex || "", "hex"));
+    const client = new CaptureClient(
+      Buffer.from(entry.response_data_hex || "", "hex"),
+      entry.plc_profile || "melsec:iq-r"
+    );
     await dispatchFrameCase(client, entry);
     assert.ok(client.capturedFrame, `${entry.id}: frame was not captured`);
     assert.equal(client.capturedFrame.toString("hex").toUpperCase(), entry.request_hex, entry.id);

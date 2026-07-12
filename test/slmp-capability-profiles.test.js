@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
+const publicApi = require("../lib/slmp");
 const {
   BUILTIN_CAPABILITY_PROFILES,
   Command,
@@ -14,7 +15,7 @@ const {
   displayName,
   ensureProfileFeatureAllowed,
   profileDescriptors,
-} = require("../lib/slmp");
+} = publicApi;
 const fixture = require("./fixtures/slmp_ethernet_profiles.json");
 const TEST_TARGET = Object.freeze({ network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 });
 
@@ -75,10 +76,23 @@ test("blocked profile features fail before transport with a dedicated error", as
 });
 
 test("the maintainer-only boolean profile bypass sends blocked high-level requests", async () => {
-  assert.throws(
-    () => new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", strictProfile: false }),
-    /no longer a public option/
-  );
+  assert.equal(Object.prototype.hasOwnProperty.call(publicApi, "normalizeStrictProfile"), false);
+  for (const value of [true, false, "true", "false", "0", "off", 0, null, "", "unknown", {}, []]) {
+    assert.throws(
+      () => new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", strictProfile: value }),
+      /no longer a public option/,
+    );
+    assert.throws(
+      () => new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", strict_profile: value }),
+      /no longer a public option/,
+    );
+  }
+  for (const value of ["false", "0", "off", 0, null, "", "unknown", {}, []]) {
+    assert.throws(
+      () => new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", _maintainerStrictProfile: value }),
+      /must be a boolean/,
+    );
+  }
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:qnudv", _maintainerStrictProfile: false });
   const calls = [];
   client._request = async (command, subcommand, data) => {
@@ -101,22 +115,25 @@ test("supported, config-dependent, and delegated features are not profile-guarde
   };
 
   await client.readDevices("D100", 1);
-  ensureProfileFeatureAllowed("melsec:iq-f", "ext_module_access", true);
-  ensureProfileFeatureAllowed("melsec:lcpu", "long_device_path", true);
+  ensureProfileFeatureAllowed("melsec:iq-f", "ext_module_access");
+  ensureProfileFeatureAllowed("melsec:lcpu", "long_device_path");
 
   assert.equal(calls, 1);
 });
 
-test("blocked link-direct features use the same strict profile guard semantics", () => {
+test("public profile guard cannot be disabled with an extra argument", () => {
   assert.throws(
-    () => ensureProfileFeatureAllowed("melsec:iq-f", "ext_link_direct", true),
+    () => ensureProfileFeatureAllowed("melsec:iq-f", "ext_link_direct"),
     (error) =>
       error instanceof SlmpProfileFeatureError &&
       error.profileId === "melsec:iq-f" &&
       error.featureKey === "ext_link_direct" &&
       error.state === "blocked"
   );
-  assert.doesNotThrow(() => ensureProfileFeatureAllowed("melsec:iq-f", "ext_link_direct", false));
+  assert.throws(
+    () => ensureProfileFeatureAllowed("melsec:iq-f", "ext_link_direct", false),
+    (error) => error instanceof SlmpProfileFeatureError,
+  );
 });
 
 test("raw request API is not feature-guarded", async () => {

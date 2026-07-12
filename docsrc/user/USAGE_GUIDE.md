@@ -12,7 +12,7 @@
 
 | Config field | Description |
 | --- | --- |
-| Name | Optional label shown in the Node-RED editor. |
+| Name | Optional display-only label. Empty/whitespace/non-string values mean no custom label; duplicate labels are allowed and never identify a connection or PLC route. |
 | Host | PLC host name or IP address. For the examples, use `192.168.250.100`. |
 | Port | TCP or UDP port. Use `1025` for TCP examples and `1035` for UDP examples. |
 | Transport | `tcp` or `udp`. |
@@ -20,7 +20,7 @@
 | PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-r:rj71en71`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:lcpu`, `melsec:lcpu:lj71e71-100`, `melsec:qcpu:qj71e71-100`, `melsec:qnu`, `melsec:qnu:qj71e71-100`, `melsec:qnudv`, and `melsec:qnudv:qj71e71-100`. |
 | Use remote password | Explicitly enables the remote-password lifecycle. Leave unchecked when the PLC route does not use it. |
 | Remote password | Required and non-empty when Use remote password is checked. Disabled otherwise. |
-| Monitor timer | SLMP monitoring timer value sent in requests. |
+| Monitor timer | SLMP monitoring timer field in 250 ms units, `0` to `65535`. A new node starts at `16` (four seconds). An explicit `0` requests an indefinite PLC-side processing wait. |
 | Network | Target network number, `0` to `255`. |
 | Station | Target station number, `0` to `255`. |
 | Module I/O | Target module I/O number, entered as hexadecimal such as `03FF`. |
@@ -34,6 +34,13 @@ model-dependent limits for commands sent before earlier responses arrive.
 TCP connections enable keepalive after 30 seconds idle. UDP timeouts discard
 the timed-out socket generation before a later request can open a new one.
 
+The monitor timer and `Timeout ms` control different waits. The monitor timer
+is sent to the PLC. `Timeout ms` is the local communication deadline. Therefore,
+even when the monitor timer is explicitly `0`, the client can still end the
+request when its communication timeout expires. Missing monitor timer settings
+use `16`; null, blank, Boolean, fractional, negative, non-finite, and
+out-of-range values are configuration errors rather than defaults.
+
 For parallel communication, use separate `slmp-connection` config nodes. Each
 config node owns its own client connection and therefore its own request queue.
 
@@ -41,7 +48,14 @@ config node owns its own client connection and therefore its own request queue.
 
 Node-RED is the only SLMP package here with a connection-field remote password lifecycle.
 When `Use remote password` is checked and a non-empty credential is set, the node unlocks after opening
-and tries to lock before disconnecting.
+and tries to lock before disconnecting. The field is disabled and not forwarded when the checkbox is
+off. When it is on, iQ-R credentials must be 6–32 printable ASCII characters and Q/L credentials must
+be exactly 4 printable ASCII characters.
+
+Authentication belongs to one concrete TCP/UDP connection. A reconnect unlocks again before the first
+normal command; a failed normal command is never replayed automatically. Disconnect always closes the
+local transport. If the PLC rejects the final lock or the lock times out, the disconnect operation
+reports that failure and does not claim that the PLC is locked.
 
 For `C200`-series password end codes, see the shared
 [SLMP Troubleshooting & Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-codes/)
@@ -74,6 +88,11 @@ Per-request routing can be supplied from a message:
 The same object can be placed in `msg.slmp.target`, or configured through the
 Route source on `slmp-read` and `slmp-write`.
 
+Route priority is `msg.target`, `msg.slmp.target`, configured Route source, then
+the connection route when no override is present. If a higher-priority property
+or configured source exists but is invalid or missing its referenced value, the
+operation fails; it does not continue to a different PLC route.
+
 JavaScript code that calls the low-level client can use `ModuleIONo` constants
 for `moduleIO`, for example `ModuleIONo.MULTIPLE_CPU_2`. Low-level clients must
 receive a complete route; a missing or partial route is rejected.
@@ -86,19 +105,19 @@ device access as user-facing address forms.
 
 | Config field | Description |
 | --- | --- |
-| Name | Optional label shown in the editor. |
+| Name | Optional display-only label; it is not sent, emitted as metadata, or used as the connection identity. |
 | Connection | The `slmp-connection` config node to use. |
 | Source | Where to read the address list from: literal text, `msg`, `flow`, `global`, or `env`. |
 | Addresses | Literal address list when Source is literal text. Use one address per line for clarity. |
 | Route | Optional per-request route source: literal JSON, `msg`, `flow`, `global`, or `env`. |
 | Route JSON | Literal route object with `network`, `station`, `moduleIO`, and `multidrop`. |
-| Output | `object`, `array`, or `value` when exactly one address is requested. |
+| Output | `object` always returns an address-keyed object, `array` always returns an array, and `value` requires exactly one address. |
 | Metadata | `full`, `minimal`, or `off` for `msg.slmp` output. |
 | Errors | Throw, attach to `msg.error`, or send the failed message to a second output. |
 
 | Msg field | Description |
 | --- | --- |
-| `msg.addresses` | Runtime address list. A string or array here takes priority over the configured Source. |
+| `msg.addresses` | When present, a non-empty string or an array containing only non-empty address strings. Invalid input fails and never falls back to the configured Source. |
 | `msg.target` | Per-request route override object. |
 | `msg.slmp.target` | Per-request route override when `msg.target` is not set. |
 | `msg.topic` | `connect`, `disconnect`, or `reinitialize` controls the shared connection instead of reading. |
@@ -112,6 +131,7 @@ device access as user-facing address forms.
 | `msg.slmp.addresses` | Full metadata mode only: normalized address list. |
 | `msg.slmp.connection` | Full metadata mode only: effective connection profile, frame type, target, and remote password status. |
 | `msg.slmp.target` | Full and minimal metadata modes: effective route target. |
+| `msg.slmp.targetSource` | Full and minimal metadata modes: `msg.target`, `msg.slmp.target`, `configured.<type>`, or `connection`. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of requested addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
 
@@ -119,7 +139,7 @@ device access as user-facing address forms.
 
 | Config field | Description |
 | --- | --- |
-| Name | Optional label shown in the editor. |
+| Name | Optional display-only label; it is not sent, emitted as metadata, or used as the connection identity. |
 | Connection | The `slmp-connection` config node to use. |
 | Source | Where to read updates from: literal text, `msg`, `flow`, `global`, or `env`. |
 | Static updates | Literal JSON object when Source is literal text. |
@@ -132,7 +152,7 @@ device access as user-facing address forms.
 | --- | --- |
 | `msg.updates` | Runtime update object, for example `{ "D300:U": 123, "M1000:BIT": true }`. |
 | `msg.address` | Single-address write path. |
-| `msg.dtype` | Data type for `msg.address` when the address has no suffix. |
+| `msg.dtype` | Required for a bare single-write address. Use exactly `BIT`, `U`, `S`, `D`, `L`, `F`, or `STR`. Omit it when the address already contains a complete dtype or word-bit selector; specifying both is an error. |
 | `msg.value` | Single-address write value. Required when `msg.address` is used. |
 | `msg.target` | Per-request route override object. |
 | `msg.slmp.target` | Per-request route override when `msg.target` is not set. |
@@ -141,12 +161,21 @@ device access as user-facing address forms.
 | `msg.disconnect` | When `true`, closes the shared connection. |
 | `msg.reinitialize` | When `true`, closes and reconnects the shared connection. |
 
+Runtime write fields are authoritative when present. `msg.updates` and
+`msg.address` are mutually exclusive, and `msg.value`/`msg.dtype` are valid only
+with `msg.address`. Invalid, empty, conflicting, or isolated runtime fields fail;
+the node does not execute configured updates as a fallback.
+Single-write dtype must come from exactly one source. A colon or period in
+`msg.address` must form a complete supported dtype/count or word-bit selector;
+an incomplete or conflicting selector is not completed from `msg.dtype`.
+
 | Output field | Description |
 | --- | --- |
 | `msg.payload` | The incoming payload is preserved unless your flow changes it before the write. |
 | `msg.slmp.updates` | Full metadata mode only: normalized update object. |
 | `msg.slmp.connection` | Full metadata mode only: effective connection profile, frame type, target, and remote password status. |
 | `msg.slmp.target` | Full and minimal metadata modes: effective route target. |
+| `msg.slmp.targetSource` | Full and minimal metadata modes: selected route source. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of update addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
 
@@ -216,12 +245,20 @@ When Metadata is `full`, `msg.slmp` includes:
 | `msg.slmp.updates` | Normalized write updates. Present on `slmp-write`. |
 | `msg.slmp.connection` | Connection profile with host, port, transport, PLC profile, frame type, series, target, and remote password status. |
 | `msg.slmp.target` | Effective request target after route overrides. |
+| `msg.slmp.targetSource` | Selected route source and therefore why that target was used. |
 
-When Metadata is `minimal`, `msg.slmp` includes only `target`, `itemCount`, and `metadataMode`.
+When Metadata is `minimal`, `msg.slmp` includes `operation`, `target`,
+`targetSource`, `itemCount`, and `metadataMode`.
 
-When Metadata is `off`, the node leaves `msg.slmp` unchanged.
+When Metadata is `off`, the node leaves `msg.slmp` unchanged. Any pre-existing
+value is not guaranteed to describe the current operation or result.
 
 ## Error handling
+
+Success is always sent through output 1. The selected error mode determines the
+only failure route and therefore the saved terminal count: `throw` and `msg`
+have one terminal, while `output2` has two. A flow whose saved count conflicts
+with the selected mode is rejected for migration review.
 
 | Mode | Behavior |
 | --- | --- |
@@ -244,3 +281,9 @@ if (msg.error && msg.error.endCode !== undefined) {
 Profile capability failures use `SlmpProfileFeatureError`. Select the exact PLC
 profile and use a supported operation. Normal public APIs do not provide a
 profile-check bypass or an unsupported-device skip switch.
+
+Older Function nodes may still add `msg.slmpSkipUnsupported` or
+`msg.slmp.skipUnsupported`. These inputs have been removed and produce a runtime
+migration warning. They never change the selected error route. To continue a
+flow after a specific capability error, select `msg.error` or the second output
+and make that decision explicitly in the application flow.

@@ -9,8 +9,23 @@ The main low-level client type is `SlmpClient` from `lib/slmp/client.js`.
 
 Construction requires `host`, `port`, `transport`, a concrete canonical
 `plcProfile`, and exactly one complete `target` or `defaultTarget`. Timeout is
-optional with a 3000 ms default; monitoring timer is optional with a four-second
-default. TCP enables keepalive after 30 seconds idle.
+optional with a 3000 ms default. Monitoring timer is optional with a four-second
+default (`16` in 250 ms units), accepts exact integers in `0..65535`, and uses
+explicit `0` for PLC-side indefinite processing wait. It is independent from
+the local communication timeout. TCP enables keepalive after 30 seconds idle.
+
+`remotePassword` is optional. Omit it (or use explicit `undefined`) to disable
+managed authentication. When present it must be a printable ASCII string with
+the selected profile's exact length rule: 6–32 characters for iQ-R-family
+profiles, or exactly 4 for Q/L-family profiles. Null, empty, non-string, and
+invalid credentials fail during construction. The credential is private client
+state and is not returned by metadata or serialization.
+
+`connect()` accepts no options. If managed authentication is configured, every
+new transport generation is unlocked before its first user command. The removed
+authentication-bypass option is not part of the public surface; normal, raw,
+and password request paths cannot skip the lifecycle. `close()` tries to lock the active authenticated generation,
+always closes locally, and rejects when lock or local close fails.
 
 ## Direct And Random Device Operations
 
@@ -27,7 +42,11 @@ default. TCP enables keepalive after 30 seconds idle.
 | Type name | `readTypeName` |
 
 Extended random APIs use the 008x subcommands. Use qualified device notation
-such as `U1\G0`, `U3E0\HG0`, or `J2\SW10` where the route requires it.
+such as `U1\G0`, `U3E0\HG0`, or `J2\SW10` where the route requires it. Raw
+extension fields are not public. When index or indirect modification is needed,
+wrap the address in `new SlmpExtendedDevice(address, modification)` with
+`SlmpIndexZ`, `SlmpIndexLz`, or `SlmpIndirect`. Extended write tuples are exact
+`[device, value]` pairs; the device may be a qualified string or the typed wrapper.
 
 The current Node-RED low-level client does not expose separate extended direct
 device helpers. Use the extended random APIs for routed random access.
@@ -50,9 +69,15 @@ must fit one protocol request; the library does not split an oversized call.
 | CPU operation state | `readCpuOperationState` |
 
 Remote RUN is `remoteRun({ force, clearMode })`, where `force` is Boolean and
-`clearMode` is `0`, `1`, or `2`. Remote PAUSE is
+`clearMode` is one of `RemoteClearMode.NO_CLEAR`,
+`RemoteClearMode.CLEAR_EXCEPT_LATCH`, or `RemoteClearMode.CLEAR_ALL`. Remote PAUSE is
 `remotePause({ force })`. Both fields are required. Remote RESET accepts no
 subcommand or response-wait override.
+
+`remotePasswordUnlock` and `remotePasswordLock` are explicit low-level commands
+for a client constructed without managed `remotePassword`. They are rejected on
+a managed client so a manual lock cannot make its connection-generation state
+incorrect. Managed clients use only automatic connect/close authentication.
 
 Monitor registration/cycle APIs are not part of the current Node-RED
 low-level client surface.
@@ -62,7 +87,7 @@ low-level client surface.
 | Operation | Public API |
 | --- | --- |
 | Address parsing and formatting | `parseDevice`, `deviceToString`, `normalizeAddress`, `parseAddress`, `formatParsedAddress` |
-| Extended-device helpers | `normalizeExtensionSpec`, `resolveExtendedDeviceAndExtension`, `encodeExtendedDeviceSpec` |
+| Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
 | Named mixed snapshots | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
