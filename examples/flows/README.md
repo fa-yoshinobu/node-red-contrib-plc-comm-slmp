@@ -46,7 +46,7 @@ To persist CSV-equivalent rows, route the long-form row messages through a CSV n
 | [`slmp-control-error.json`](slmp-control-error.json) | Connection control messages, `msg`-provided addresses, and second-output error routing. | 3 |
 | [`slmp-routing.json`](slmp-routing.json) | Per-request route override with `msg.target`. | 4 |
 | [`slmp-udp-read-write.json`](slmp-udp-read-write.json) | Basic UDP read and write. Set the UDP port to `1035` before deploy. | 5 |
-| [`slmp-device-matrix.json`](slmp-device-matrix.json) | One-by-one and run-all high-level read/write coverage with status feedback, skipped unsupported devices, timeout tracking, and JSONL logging. | 6 |
+| [`slmp-device-matrix.json`](slmp-device-matrix.json) | One-by-one and run-all high-level read/write coverage with status feedback, explicit error routing, timeout tracking, and JSONL logging. | 6 |
 | [`slmp-demo.json`](slmp-demo.json) | Combined demo with connection controls, array read, string read, write, and error output examples. | 7 |
 
 The device-matrix flow is for verification after your first simple read works. Do not use it as the first smoke test.

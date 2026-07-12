@@ -1,22 +1,25 @@
 "use strict";
 
 const { normalizeAddress, normalizeTarget, writeNamed } = require("../lib/slmp");
-
-const UNSUPPORTED_DEVICE_RE = /^SLMP device code '([^']+)' is not supported for plcProfile '([^']+)'/;
+const { hasOwn, normalizeDisplayName, requireEnum, requireSourceType, validateOutputs } = require("./runtime-validation");
+const SINGLE_WRITE_DTYPES = new Set(["BIT", "U", "S", "D", "L", "F", "STR"]);
 
 module.exports = function registerSlmpWrite(RED) {
   function SlmpWriteNode(config) {
     RED.nodes.createNode(this, config);
 
-    this.name = config.name;
+    this.name = normalizeDisplayName(config.name);
     this.connection = RED.nodes.getNode(config.connection);
     this.updates = config.updates || "";
-    this.updatesType = config.updatesType || "str";
-    this.routeTarget = config.routeTarget || "";
-    this.routeTargetType = config.routeTargetType || "str";
-    this.errorHandling = config.errorHandling || "throw";
-    this.metadataMode = normalizeMetadataMode(config.metadataMode);
-    this.outputs = this.errorHandling === "output2" ? 2 : 1;
+    this.updatesType = requireSourceType(config, "updatesType");
+    this.routeTarget = hasOwn(config, "routeTarget") ? config.routeTarget : "";
+    if (typeof this.routeTarget !== "string") {
+      throw new Error("routeTarget must be a string source value when configured");
+    }
+    this.routeTargetType = this.routeTarget === "" ? config.routeTargetType : requireSourceType(config, "routeTargetType");
+    this.errorHandling = requireEnum(config, "errorHandling", ["throw", "msg", "output2"]);
+    this.metadataMode = requireEnum(config, "metadataMode", ["full", "minimal", "off"]);
+    this.outputs = validateOutputs(config, this.errorHandling);
 
     this.on("input", async (msg, send, done) => {
       send = send || ((message) => this.send(message));
@@ -27,6 +30,7 @@ module.exports = function registerSlmpWrite(RED) {
       }
 
       try {
+        warnRemovedSkipUnsupported(this, msg);
         const controlAction = getControlAction(msg);
         if (controlAction) {
           this.status({ fill: "yellow", shape: "ring", text: controlAction });
@@ -39,7 +43,7 @@ module.exports = function registerSlmpWrite(RED) {
         this.status({ fill: "blue", shape: "dot", text: "writing" });
         const profile = this.connection.getProfile();
         const updates = validateUpdatesForConnection(await resolveUpdates(RED, this, msg), profile);
-        const target = await resolveTarget(RED, this, msg);
+        const { target, source: targetSource } = await resolveTarget(RED, this, msg);
         const keys = Object.keys(updates);
         if (keys.length === 0) {
           throw new Error("No SLMP updates were provided");
@@ -51,6 +55,7 @@ module.exports = function registerSlmpWrite(RED) {
           updates,
           connection: profile,
           target: target || profile.target,
+          targetSource,
           itemCount: keys.length,
         });
         this.status({ fill: "green", shape: "dot", text: `${keys.length} item(s)` });
@@ -65,39 +70,93 @@ module.exports = function registerSlmpWrite(RED) {
   RED.nodes.registerType("slmp-write", SlmpWriteNode);
 };
 
-async function resolveUpdates(RED, node, msg) {
-  if (isUpdateSource(msg.updates)) {
-    return normalizeUpdatesSource(msg.updates);
+function warnRemovedSkipUnsupported(node, msg) {
+  const hasLegacyFlag = hasOwn(msg, "slmpSkipUnsupported")
+    || (isPlainObject(msg.slmp) && hasOwn(msg.slmp, "skipUnsupported"));
+  if (hasLegacyFlag && typeof node.warn === "function") {
+    node.warn("skipUnsupported was removed; handle the structured error using the configured error mode");
   }
-  if (typeof msg.address === "string" && msg.address.trim()) {
-    if (!Object.prototype.hasOwnProperty.call(msg, "value")) {
+}
+
+async function resolveUpdates(RED, node, msg) {
+  const hasUpdates = hasOwn(msg, "updates");
+  const hasAddress = hasOwn(msg, "address");
+  const hasValue = hasOwn(msg, "value");
+  const hasDtype = hasOwn(msg, "dtype");
+  if (hasUpdates && hasAddress) {
+    throw new Error("msg.updates and msg.address are mutually exclusive");
+  }
+  if (hasUpdates) {
+    const updates = normalizeUpdatesSource(msg.updates, "msg.updates");
+    if (Object.keys(updates).length === 0) {
+      throw new Error("msg.updates must not be empty");
+    }
+    if (hasValue || hasDtype) {
+      throw new Error("msg.value and msg.dtype may only be used with msg.address");
+    }
+    return updates;
+  }
+  if (hasAddress) {
+    if (typeof msg.address !== "string" || !msg.address.trim()) {
+      throw new Error("msg.address must be a non-empty string");
+    }
+    if (!hasValue) {
       throw new Error("msg.value is required when msg.address is used");
     }
     return {
-      [withDtype(msg.address, msg.dtype)]: msg.value,
+      [withDtype(msg.address, msg.dtype, hasDtype)]: msg.value,
     };
+  }
+  if (hasValue || hasDtype) {
+    throw new Error("msg.value and msg.dtype require msg.address");
   }
   const configured = await evaluateConfiguredValue(RED, node, msg, node.updates, node.updatesType, "updates");
   return normalizeUpdatesSource(configured);
 }
 
 async function resolveTarget(RED, node, msg) {
-  if (isPlainObject(msg.target)) {
-    return normalizeTarget(msg.target);
+  if (hasOwn(msg, "target")) {
+    if (!isPlainObject(msg.target)) {
+      throw new Error("msg.target must be a complete routing object");
+    }
+    return { target: normalizeTarget(msg.target), source: "msg.target" };
   }
-  if (isPlainObject(msg.slmp && msg.slmp.target)) {
-    return normalizeTarget(msg.slmp.target);
+  if (isPlainObject(msg.slmp) && hasOwn(msg.slmp, "target")) {
+    if (!isPlainObject(msg.slmp.target)) {
+      throw new Error("msg.slmp.target must be a complete routing object");
+    }
+    return { target: normalizeTarget(msg.slmp.target), source: "msg.slmp.target" };
+  }
+  if (node.routeTarget === "") {
+    return { target: undefined, source: "connection" };
   }
   const configured = await evaluateConfiguredValue(RED, node, msg, node.routeTarget, node.routeTargetType, "target");
-  return normalizeTargetSource(configured);
+  try {
+    return { target: normalizeTargetSource(configured), source: `configured.${node.routeTargetType}` };
+  } catch (error) {
+    throw new Error(`Configured route target (${node.routeTargetType}) is invalid: ${error.message}`);
+  }
 }
 
-function withDtype(address, dtype) {
+function withDtype(address, dtype, dtypePresent) {
   const trimmed = String(address).trim();
-  if (!dtype || trimmed.includes(":") || trimmed.includes(".") || /^[A-Z]+STR[0-9A-F]+\s*,\s*\d+$/i.test(trimmed)) {
+  const colonCount = (trimmed.match(/:/g) || []).length;
+  const dotCount = (trimmed.match(/\./g) || []).length;
+  const embedded = (colonCount === 1 && dotCount === 0 && /:[A-Z]+(?:\s*,\s*\d+)?$/i.test(trimmed))
+    || (colonCount === 0 && dotCount === 1 && /\.[0-9A-F]+$/i.test(trimmed));
+  if ((colonCount > 0 || dotCount > 0) && !embedded) {
+    throw new Error("msg.address contains an incomplete or conflicting dtype/bit selector");
+  }
+  if (embedded && dtypePresent) {
+    throw new Error("dtype must be specified exactly once: either in msg.address or msg.dtype");
+  }
+  if (embedded) {
     return trimmed;
   }
-  const normalizedDtype = String(dtype).trim().toUpperCase();
+  if (!dtypePresent || typeof dtype !== "string" || !SINGLE_WRITE_DTYPES.has(dtype)) {
+    throw new Error("msg.dtype is required for a bare address and must be exactly BIT, U, S, D, L, F, or STR");
+  }
+  const normalizedDtype = dtype;
   const countMatch = /^(.*?)(,\s*\d+)$/.exec(trimmed);
   if (countMatch) {
     return `${countMatch[1]}:${normalizedDtype}${countMatch[2]}`;
@@ -106,8 +165,11 @@ function withDtype(address, dtype) {
 }
 
 function evaluateConfiguredValue(RED, node, msg, value, type, label) {
-  if (!RED.util || typeof RED.util.evaluateNodeProperty !== "function" || !type || type === "str") {
+  if (type === "str") {
     return Promise.resolve(value);
+  }
+  if (!RED.util || typeof RED.util.evaluateNodeProperty !== "function") {
+    return Promise.reject(new Error(`Unable to evaluate ${label}: Node-RED property evaluator is unavailable`));
   }
   return new Promise((resolve, reject) => {
     RED.util.evaluateNodeProperty(value, type, node, msg, (error, resolved) => {
@@ -120,24 +182,24 @@ function evaluateConfiguredValue(RED, node, msg, value, type, label) {
   });
 }
 
-function normalizeUpdatesSource(value) {
+function normalizeUpdatesSource(value, label = "updates") {
   if (isPlainObject(value)) {
     return value;
   }
   if (typeof value === "string") {
     return parseConfiguredUpdates(value);
   }
-  return {};
+  throw new Error(`${label} must be a JSON object or JSON object string`);
 }
 
 function normalizeTargetSource(value) {
-  if (value === undefined || value === null || value === "") {
-    return undefined;
+  if (value === undefined || value === null) {
+    throw new Error("Routing target reference is missing");
   }
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) {
-      return undefined;
+      throw new Error("Routing target must not be empty");
     }
     try {
       const parsed = JSON.parse(trimmed);
@@ -179,48 +241,47 @@ function isUpdateSource(value) {
   return isPlainObject(value) || typeof value === "string";
 }
 
-function normalizeMetadataMode(value) {
-  const normalized = String(value || "full").trim().toLowerCase();
-  if (normalized === "minimal" || normalized === "off") {
-    return normalized;
-  }
-  return "full";
-}
-
 function applyMetadata(msg, mode, metadata) {
-  const normalizedMode = normalizeMetadataMode(mode);
-  if (normalizedMode === "off") {
+  if (mode === "off") {
     return;
   }
-  if (normalizedMode === "minimal") {
+  if (mode === "minimal") {
     msg.slmp = buildMinimalMetadata(msg.slmp, metadata);
     return;
   }
+  const next = clearOwnedMetadata(msg.slmp);
   msg.slmp = {
-    ...(isPlainObject(msg.slmp) ? msg.slmp : {}),
+    ...next,
+    operation: "write",
+    metadataMode: "full",
+    itemCount: metadata.itemCount,
     updates: metadata.updates,
     connection: metadata.connection,
     target: metadata.target,
+    targetSource: metadata.targetSource,
   };
 }
 
 function buildMinimalMetadata(existing, metadata) {
-  const next = isPlainObject(existing) ? { ...existing } : {};
-  delete next.addresses;
-  delete next.updates;
-  delete next.connection;
+  const next = clearOwnedMetadata(existing);
+  next.operation = "write";
   next.target = metadata.target;
+  next.targetSource = metadata.targetSource;
   next.itemCount = metadata.itemCount;
   next.metadataMode = "minimal";
   return next;
 }
 
+function clearOwnedMetadata(existing) {
+  const next = isPlainObject(existing) ? { ...existing } : {};
+  for (const key of ["addresses", "updates", "connection", "target", "targetSource", "itemCount", "metadataMode", "operation"]) {
+    delete next[key];
+  }
+  return next;
+}
+
 function fail(node, msg, send, done, error) {
   const normalized = error instanceof Error ? error : new Error(String(error));
-  if (shouldSkipUnsupportedDevice(msg, normalized)) {
-    sendUnsupportedDeviceSkip(node, msg, send, done, normalized);
-    return;
-  }
   node.status({ fill: "red", shape: "ring", text: normalized.message });
   if (node.errorHandling === "msg") {
     msg.error = normalized;
@@ -239,43 +300,16 @@ function fail(node, msg, send, done, error) {
 function validateUpdatesForConnection(updates, profile) {
   const options = profile && profile.plcProfile ? { plcProfile: profile.plcProfile } : {};
   const normalized = {};
+  const sourceByNormalized = new Map();
   for (const [address, value] of Object.entries(updates || {})) {
-    normalized[normalizeAddress(address, options)] = value;
+    const key = normalizeAddress(address, options);
+    if (sourceByNormalized.has(key)) {
+      throw new Error(`Duplicate write address after normalization: '${sourceByNormalized.get(key)}' and '${address}'`);
+    }
+    sourceByNormalized.set(key, address);
+    normalized[key] = value;
   }
   return normalized;
-}
-
-function shouldSkipUnsupportedDevice(msg, error) {
-  const skipRequested = Boolean(
-    msg && (msg.slmpSkipUnsupported === true || (isPlainObject(msg.slmp) && msg.slmp.skipUnsupported === true))
-  );
-  return skipRequested && UNSUPPORTED_DEVICE_RE.test(error.message || "");
-}
-
-function sendUnsupportedDeviceSkip(node, msg, send, done, error) {
-  error.code = "SLMP_UNSUPPORTED_DEVICE";
-  const profile = node.connection && typeof node.connection.getProfile === "function" ? node.connection.getProfile() : undefined;
-  const skipped = {
-    ...msg,
-    error,
-    skipped: true,
-    slmpSkippedUnsupported: true,
-    skipReason: error.message,
-    slmp: {
-      ...(isPlainObject(msg.slmp) ? msg.slmp : {}),
-      ...(profile ? { connection: profile } : {}),
-      skipped: true,
-      skipStatus: "UNSUPPORTED_DEVICE",
-      skipReason: error.message,
-    },
-  };
-  node.status({ fill: "yellow", shape: "ring", text: "skipped unsupported device" });
-  if (node.errorHandling === "output2") {
-    send([null, skipped]);
-  } else {
-    send(skipped);
-  }
-  done();
 }
 
 function getControlAction(msg) {

@@ -32,9 +32,9 @@ Create or open a `slmp-connection` config node and set these fields:
 | Port | `1025` | TCP port for the first example. |
 | Transport | `TCP` | Use TCP for the first run. |
 | PLC profile | `melsec:iq-r` | Required canonical PLC profile. |
-| Strict profile | enabled | Keep enabled for the first run. |
 
-Leave the route fields at their defaults unless your PLC network needs a different target.
+Confirm all route fields initialized by the editor. Use the own-station values
+unless your PLC network needs a different target.
 
 ## Import the basic flow
 

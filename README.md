@@ -14,9 +14,9 @@ This library is part of the plc-comm family. See the [package matrix](https://fa
 
 The maintained profile table is in [PLC profiles](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/PROFILES/). Choose one exact canonical PLC profile from that table.
 
-## Strict profile
+## Profile enforcement
 
-The `slmp-connection` node has a Strict profile option, enabled by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending. Disable Strict profile only for deliberate verification where you want the PLC to answer directly.
+Every `slmp-connection` requires one concrete PLC profile. Operations known to be unavailable for that profile are rejected before sending; normal Node-RED flows do not expose a profile-enforcement bypass. Protocol investigation that needs raw PLC evidence belongs in the separate maintainer verification tooling.
 
 ## Request serialization
 

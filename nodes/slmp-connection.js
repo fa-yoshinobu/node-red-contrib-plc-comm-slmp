@@ -1,20 +1,14 @@
 "use strict";
 
-const { SlmpClient, profileDescriptors } = require("../lib/slmp");
-
-const DEFAULT_PORT = 1025;
-
-function parseRequiredInteger(value, name, min, max, fallback) {
-  const source = value === undefined || value === null ? fallback : value;
-  if (String(source).trim() === "") {
-    throw new Error(`slmp-connection ${name} is required`);
-  }
-  const parsed = Number(source);
-  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-    throw new Error(`slmp-connection ${name} out of range (${min}..${max}): ${source}`);
-  }
-  return parsed;
-}
+const {
+  SlmpClient,
+  normalizeMonitoringTimer,
+  normalizePort,
+  normalizeTimeout,
+  normalizeTransport,
+  profileDescriptors,
+} = require("../lib/slmp");
+const { normalizeDisplayName } = require("./runtime-validation");
 
 module.exports = function registerSlmpConnection(RED) {
   if (RED.httpAdmin && typeof RED.httpAdmin.get === "function") {
@@ -34,15 +28,32 @@ module.exports = function registerSlmpConnection(RED) {
   function SlmpConnectionNode(config) {
     RED.nodes.createNode(this, config);
 
-    this.name = config.name;
+    this.name = normalizeDisplayName(config.name);
     this.host = config.host;
-    this.port = parseRequiredInteger(config.port, "port", 1, 65535, DEFAULT_PORT);
-    this.transport = config.transport || "tcp";
-    this.timeout = Number(config.timeout || 3000);
+    this.port = normalizePort(config.port);
+    this.transport = normalizeTransport(config.transport);
+    this.timeout = Object.prototype.hasOwnProperty.call(config, "timeout") ? normalizeTimeout(config.timeout) : 3000;
     this.plcProfile = config.plcProfile ? String(config.plcProfile).trim() : "";
-    this.strictProfile = config.strictProfile === undefined ? true : config.strictProfile !== false && config.strictProfile !== "false";
-    this.monitoringTimer = parseRequiredInteger(config.monitoringTimer, "monitoringTimer", 0, 0xffff, 0x0010);
-    this.remotePassword = this.credentials && this.credentials.remotePassword ? String(this.credentials.remotePassword) : "";
+    if (Object.prototype.hasOwnProperty.call(config, "strict_profile")) {
+      throw new Error("strict_profile is not a supported Node-RED connection property; remove it and review the profile selection");
+    }
+    if (Object.prototype.hasOwnProperty.call(config, "strictProfile") && config.strictProfile !== true) {
+      throw new Error("strictProfile is no longer configurable by normal Node-RED flows; remove it and review the profile selection");
+    }
+    this.monitoringTimer = Object.prototype.hasOwnProperty.call(config, "monitoringTimer")
+      ? normalizeMonitoringTimer(config.monitoringTimer)
+      : 0x0010;
+    if (typeof config.useRemotePassword !== "boolean") {
+      throw new Error("slmp-connection useRemotePassword is required and must be a boolean");
+    }
+    this.useRemotePassword = config.useRemotePassword === true;
+    let configuredPassword;
+    if (this.useRemotePassword) {
+      configuredPassword = this.credentials && this.credentials.remotePassword;
+      if (typeof configuredPassword !== "string" || configuredPassword.length === 0) {
+        throw new Error("slmp-connection remotePassword is required when useRemotePassword is enabled");
+      }
+    }
     this.target = {
       network: config.network,
       station: config.station,
@@ -60,11 +71,12 @@ module.exports = function registerSlmpConnection(RED) {
       transport: this.transport,
       timeout: this.timeout,
       plcProfile: this.plcProfile,
-      strictProfile: this.strictProfile,
       monitoringTimer: this.monitoringTimer,
       defaultTarget: this.target,
-      remotePassword: this.remotePassword,
     };
+    if (this.useRemotePassword) {
+      clientOptions.remotePassword = configuredPassword;
+    }
 
     this.client = new SlmpClient(clientOptions);
 
@@ -77,11 +89,10 @@ module.exports = function registerSlmpConnection(RED) {
       port: this.port,
       transport: this.transport,
       plcProfile: this.client.plcProfile,
-      strictProfile: this.client.strictProfile,
       frameType: this.client.frameType,
       plcSeries: this.client.plcSeries,
       target: this.client.defaultTarget,
-      remotePasswordConfigured: this.remotePassword.length > 0,
+      remotePasswordConfigured: this.useRemotePassword,
     });
     this.connect = async () => {
       this._setState("yellow", "ring", "connecting");
@@ -90,12 +101,20 @@ module.exports = function registerSlmpConnection(RED) {
     };
     this.disconnect = async () => {
       this._setState("yellow", "ring", "disconnecting");
-      await this.client.close();
-      this._setState("red", "ring", "disconnected");
+      try {
+        await this.client.close();
+      } finally {
+        this._setState("red", "ring", "disconnected");
+      }
     };
     this.reinitialize = async () => {
       this._setState("yellow", "ring", "reinitializing");
-      await this.client.close();
+      try {
+        await this.client.close();
+      } catch (error) {
+        this._setState("red", "ring", "disconnected");
+        throw error;
+      }
       await this.client.connect();
       this._setState("green", "dot", "connected");
     };
@@ -105,7 +124,17 @@ module.exports = function registerSlmpConnection(RED) {
     this.on("close", (_removed, done) => {
       this.client
         .close()
-        .catch(() => undefined)
+        .catch((error) => {
+          const endCode = Number.isInteger(error?.endCode)
+            ? ` end_code=0x${error.endCode.toString(16).toUpperCase().padStart(4, "0")}`
+            : "";
+          const message = `SLMP close completed with an authentication or transport error.${endCode}`;
+          if (typeof this.warn === "function") {
+            this.warn(message);
+          } else if (typeof this.error === "function") {
+            this.error(message);
+          }
+        })
         .finally(() => {
           this._setState("grey", "ring", "closed");
           done();

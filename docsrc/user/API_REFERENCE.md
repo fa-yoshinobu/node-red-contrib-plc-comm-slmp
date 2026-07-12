@@ -7,6 +7,26 @@ family.
 
 The main low-level client type is `SlmpClient` from `lib/slmp/client.js`.
 
+Construction requires `host`, `port`, `transport`, a concrete canonical
+`plcProfile`, and exactly one complete `target` or `defaultTarget`. Timeout is
+optional with a 3000 ms default. Monitoring timer is optional with a four-second
+default (`16` in 250 ms units), accepts exact integers in `0..65535`, and uses
+explicit `0` for PLC-side indefinite processing wait. It is independent from
+the local communication timeout. TCP enables keepalive after 30 seconds idle.
+
+`remotePassword` is optional. Omit it (or use explicit `undefined`) to disable
+managed authentication. When present it must be a printable ASCII string with
+the selected profile's exact length rule: 6–32 characters for iQ-R-family
+profiles, or exactly 4 for Q/L-family profiles. Null, empty, non-string, and
+invalid credentials fail during construction. The credential is private client
+state and is not returned by metadata or serialization.
+
+`connect()` accepts no options. If managed authentication is configured, every
+new transport generation is unlocked before its first user command. The removed
+authentication-bypass option is not part of the public surface; normal, raw,
+and password request paths cannot skip the lifecycle. `close()` tries to lock the active authenticated generation,
+always closes locally, and rejects when lock or local close fails.
+
 ## Direct And Random Device Operations
 
 | Operation | Public API |
@@ -22,10 +42,20 @@ The main low-level client type is `SlmpClient` from `lib/slmp/client.js`.
 | Type name | `readTypeName` |
 
 Extended random APIs use the 008x subcommands. Use qualified device notation
-such as `U1\G0`, `U3E0\HG0`, or `J2\SW10` where the route requires it.
+such as `U1\G0`, `U3E0\HG0`, or `J2\SW10` where the route requires it. Raw
+extension fields are not public. When index or indirect modification is needed,
+wrap the address in `new SlmpExtendedDevice(address, modification)` with
+`SlmpIndexZ`, `SlmpIndexLz`, or `SlmpIndirect`. Extended write tuples are exact
+`[device, value]` pairs; the device may be a qualified string or the typed wrapper.
 
 The current Node-RED low-level client does not expose separate extended direct
 device helpers. Use the extended random APIs for routed random access.
+
+`readDevices` and `writeDevices` require a Boolean `bitUnit`. Random and block
+writes reject duplicate or overlapping destinations. `readNamed` and
+`writeNamed` emit one protocol request or reject the complete operation before
+transport. Compatible random or multi-block word entries may share one
+request; hidden follow-up and bit-in-word read-modify-write are not performed.
 
 ## Specialized Operations
 
@@ -34,24 +64,56 @@ device helpers. Use the extended random APIs for routed random access.
 | Memory command words | `memoryReadWords`, `memoryWriteWords` |
 | Extend-unit command bytes | `extendUnitReadBytes`, `extendUnitWriteBytes` |
 | Extend-unit command words | `extendUnitReadWords`, `extendUnitWriteWords` |
+| Monitor registration/cycle | `registerMonitorDevices`, `registerMonitorDevicesExt`, `runMonitorCycle` |
 | Label array access | `readArrayLabels`, `writeArrayLabels` |
 | Label random access | `readRandomLabels`, `writeRandomLabels` |
 | Remote CPU control | `remoteRun`, `remoteStop`, `remotePause`, `remoteLatchClear`, `remoteReset` |
 | Remote password | `remotePasswordUnlock`, `remotePasswordLock` |
 | CPU operation state | `readCpuOperationState` |
+| Self-test loopback | `selfTestLoopback` |
+| Clear PLC error | `clearError` |
 
-Monitor registration/cycle APIs are not part of the current Node-RED
-low-level client surface.
+Remote RUN is `remoteRun({ force, clearMode })`, where `force` is Boolean and
+`clearMode` is one of `RemoteClearMode.NO_CLEAR`,
+`RemoteClearMode.CLEAR_EXCEPT_LATCH`, or `RemoteClearMode.CLEAR_ALL`. Remote PAUSE is
+`remotePause({ force })`. Both fields are required. Remote RESET accepts no
+subcommand or response-wait override.
+
+`remotePasswordUnlock` and `remotePasswordLock` are explicit low-level commands
+for a client constructed without managed `remotePassword`. They are rejected on
+a managed client so a manual lock cannot make its connection-generation state
+incorrect. Managed clients use only automatic connect/close authentication.
+
+Monitor registration and each `runMonitorCycle` call are separate one-request
+operations. The cycle requires explicit registered Word and DWord counts. It
+does not auto-register, retry, or infer them; the PLC defines the error when a
+cycle is requested before registration. `selfTestLoopback` accepts a 1–960 byte
+Buffer containing only ASCII `0-9/A-F` and verifies declared length, actual
+length, and exact echo. `clearError` always uses the fixed empty payload.
 
 ## High-Level Helpers
 
 | Operation | Public API |
 | --- | --- |
 | Address parsing and formatting | `parseDevice`, `deviceToString`, `normalizeAddress`, `parseAddress`, `formatParsedAddress` |
-| Extended-device helpers | `normalizeExtensionSpec`, `resolveExtendedDeviceAndExtension`, `encodeExtendedDeviceSpec` |
+| Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
 | Named mixed snapshots | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
+
+All public address-to-number and number-to-address helpers require the
+canonical `plcProfile`. `parseDevice` returns an immutable semantic object that
+contains that profile. Passing the object to a client configured for another
+profile is rejected before transport.
+
+The supported dtype vocabulary is `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`.
+Compatibility spellings `:I`, `:STRING`, and `DSTR...` are not accepted.
+
+The raw request API requires command, subcommand, and an explicit byte payload.
+Request `series` and 4E `serial` are not public options; both are derived or
+assigned by the client. PLC errors expose the numeric end code, stable
+`slmp_end_code_xxxx` key, and structured error information, not localized
+manual-derived messages.
 
 ## Profile Selection
 

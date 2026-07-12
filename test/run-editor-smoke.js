@@ -53,6 +53,10 @@ async function main() {
         throw new Error(`Imported flow is missing node type '${expectedType}'. See ${stdoutPath} and ${stderrPath}.`);
       }
     }
+    const savedConnection = collectFlows(savedFlows).find((node) => node && node.type === "slmp-connection");
+    if (!savedConnection || savedConnection.useRemotePassword !== false) {
+      throw new Error("Imported slmp-connection did not preserve the explicit disabled password setting.");
+    }
 
     keepArtifacts = false;
     console.log(`[OK] Editor smoke passed on port ${port}.`);
@@ -244,7 +248,7 @@ function request(port, requestPath, method, body = null, headers = {}) {
 }
 
 function collectNodeTypes(savedFlows) {
-  const flows = Array.isArray(savedFlows) ? savedFlows : savedFlows.flows;
+  const flows = collectFlows(savedFlows);
   const types = new Set();
   for (const node of flows ?? []) {
     if (node && typeof node.type === "string") {
@@ -252,6 +256,10 @@ function collectNodeTypes(savedFlows) {
     }
   }
   return types;
+}
+
+function collectFlows(savedFlows) {
+  return Array.isArray(savedFlows) ? savedFlows : savedFlows.flows ?? [];
 }
 
 function stopProcessTree(pid) {

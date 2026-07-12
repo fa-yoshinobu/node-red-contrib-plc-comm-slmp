@@ -45,15 +45,12 @@ catalog. Keep the PLC profile as an explicit human/configuration choice.
 | Port | `1025` | Use `1025` for TCP examples or `1035` for UDP examples. |
 | Transport | `tcp` | Select `tcp` or `udp`. |
 | PLC profile | `melsec:iq-r` | Select one exact canonical PLC profile from the table above. |
-| Strict profile | enabled | Rejects operations known unavailable on the selected PLC profile before sending. |
+The selected profile is always enforced by the public API. Operations known to
+be unavailable for that PLC are rejected before sending; there is no public
+profile-check bypass.
 
-## Strict profile
-
-Strict profile is enabled by default. With a selected profile, operations known to be unavailable for that PLC are rejected before sending. Leave this enabled for normal flows.
-
-Disable Strict profile only for deliberate verification where you want the PLC to answer directly.
-
-Keep the default route fields unless your network requires a different target:
+Every saved connection contains these route fields. The editor initializes a
+new connection with the following own-station values:
 
 | Field | Default-style value | Description |
 | --- | --- | --- |

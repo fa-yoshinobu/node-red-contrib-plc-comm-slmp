@@ -18,6 +18,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Added public monitor registration/cycle, self-test loopback, and fixed Clear Error semantic APIs to the low-level `SlmpClient`.
+- Library: Monitor cycle expected counts must total at least one and stay within the selected profile's monitor-registration limit.
+- Library: Monitor cycles require explicit registered counts and never auto-register or retry; self-test verifies declared length, actual length, and exact echo against the transmitted Buffer snapshot.
+- Docs: Clarified that `U3En\HG` never changes or retries the explicitly selected request target.
+- Tests: Removed vendored cross-repository vector JSON and its dedicated runner. Cross-implementation comparison is executed independently of this Node-RED package.
+### BREAKING
+
+- Library: `SlmpClient` now requires explicit `port`, `transport`, concrete `plcProfile`, and one complete `target` or `defaultTarget`; raw request `subcommand` and payload are required.
+- Node-RED editor: Port `1025` and TCP remain only required initial values for a new connection
+  node; saved/runtime port and transport are mandatory, and invalid values fail before client
+  creation without fallback or transport switching.
+- Node-RED editor: The four displayed own-station route values are initial values only. Saved
+  connections require all four route fields, and a request route may be omitted as a whole or must
+  provide all four fields; partial routes are never merged with defaults.
+- Library: Removed public `strictProfile`, `strict_profile`, `normalizeStrictProfile`, profile-helper bypass, user-selected request `series` and 4E `serial`, localized end-code message hooks, and the `:I`, `:STRING`, and `DSTR...` address aliases. Profile-guard bypass remains only as a Boolean maintainer-internal constructor input.
+- Node-RED: Removed the profile-guard checkbox. Old saved `strictProfile: true` is ignored safely, while false, aliases, null, blank, and unknown values fail with a migration error before client creation.
+- Library: `readDevices` and `writeDevices` require Boolean `bitUnit`; Remote RUN requires Boolean `force` plus a discoverable `RemoteClearMode` value, and Remote PAUSE requires Boolean `force`.
+- Library: Extended random APIs now derive route fields from qualified device text and accept only typed `SlmpExtendedDevice` Z/LZ/indirect modifiers. Raw extension objects, public raw extended encoders, and three-element write tuples are removed.
+- Node-RED: Read/write source types, output/metadata/error modes, output count, runtime override shapes, and single-write dtype are now explicit and strictly validated. Single-write dtype must appear exactly once, either in the address or as an exact uppercase `msg.dtype`; double, missing, invalid, or incomplete selector forms fail before a client call. A present invalid runtime read/write property never falls back to configured addresses or updates.
+- Node-RED: Connection/read/write `name` is optional display-only state. It is trimmed, non-string/blank input means no custom label, duplicates are allowed, and it never changes node identity, connection selection, routing, request bytes, or metadata.
+- Node-RED editor: `str` remains the initial source type for a new read/write node, but missing or
+  invalid saved `addressesType`/`updatesType` values are no longer silently repaired. Non-literal
+  sources fail if their reference cannot be evaluated and never fall back to a literal address or
+  update.
+- Node-RED: A request route override may be omitted as a whole, but a configured route requires an
+  explicit source type and one complete route object. Invalid message/configured routes no longer
+  fall back to another source or the connection route; metadata records `targetSource` alongside
+  the effective target.
+- Node-RED: Read output shapes are fixed: `object` is always address-keyed, `array` is always an
+  array, and `value` requires exactly one address; zero/multiple address values fail before the
+  client call.
+- Node-RED: Metadata modes are exact required values. Full/minimal output clears stale owned fields,
+  identifies the current read/write operation, and preserves custom fields; off leaves existing
+  `msg.slmp` untouched and does not represent it as current-result metadata.
+- Node-RED: Error mode now uniquely defines the route and terminal count: `throw` uses no message,
+  `msg` uses output 1, and `output2` uses output 2. Saved terminal counts must be exact integers and
+  coercible strings/Booleans are rejected as migration conflicts.
+- Node-RED: Removed `msg.slmpSkipUnsupported` and `msg.slmp.skipUnsupported`. Legacy occurrences emit
+  a migration warning but cannot turn a structured capability error into a successful skipped
+  message or override the configured error route.
+- Node-RED: Remote password use now requires the `Use remote password` checkbox; when enabled, the credential must be non-empty.
+- Library: `remotePassword` omission or explicit `undefined` disables managed authentication. Explicit null, empty, non-string, non-printable-ASCII, or profile-invalid credentials now fail during construction; the password is no longer retained as a public client property.
+- Library: Removed the public `skipRemotePasswordLifecycle` connection/request option. Managed unlock/lock uses a private command path and cannot be bypassed through normal or raw request options.
+- Library: Explicit `remotePasswordUnlock`/`remotePasswordLock` commands are rejected on a client configured for managed authentication; use an unconfigured maintainer client for deliberate manual password commands.
+- Library: Managed remote-password state is bound to the concrete TCP/UDP connection generation. A new connection unlocks before its first user command, transport failure invalidates authentication state without replaying the failed command, and an old TCP socket event cannot clear a newer connection.
+- Library: `close()` always attempts local transport closure and now reports password-lock failure. Simultaneous lock and local-close failures are preserved through an aggregate cause; Node-RED shutdown logs the sanitized failure and still completes its close callback.
+
+### Changed
+
+- Library: Random read keeps the unused word or DWord device list optional, rejects all-empty or invalid supplied collections before transport, and returns an explicit empty object for the unused result category.
+- Library: Random word write keeps the unused word or DWord value list optional while rejecting all-empty, malformed, duplicate, overlapping, or invalid values before transport; random bit write remains a separate required-input API.
+- Library: Block read/write keeps the unused word or bit block list optional, rejects all-empty or malformed inputs before transport, returns an explicit empty array for the unused read category, and rejects overlapping write ranges.
+- Library: Communication timeout defaults to 3000 ms only when omitted; explicitly supplied timeout values must be integers in `1..2147483647` and invalid values are rejected without fallback. The monitoring timer defaults to four seconds (`0x0010`) only when omitted, accepts exact integers in `0..65535`, and preserves explicit zero as PLC-side indefinite processing wait. It remains independent from the client communication timeout. TCP sockets enable keepalive after 30 seconds idle.
+- Library: TCP connection setup now fails closed if no-delay or required keepalive configuration throws. The socket is destroyed, the connect promise rejects, and the transport never retains the partially configured socket.
+- Library: `raiseOnError` now defaults to `true` only when absent and accepts actual Booleans only at connection and request scope. Strings, numbers, null, empty values, objects, and arrays are rejected before transport instead of being coerced.
+- Library: The complete connection target is immutable for the client lifetime. Each queued request now validates and snapshots its effective target, monitoring timer, end-code policy, and payload at call time, so later caller mutation cannot change the destination or request bytes.
+- Library: `readNamed` and `writeNamed` emit one protocol request or reject the complete operation before transport. Compatible random or multi-block word entries may share that request; mixed command families and bit-in-word writes no longer create hidden follow-up requests.
+- Library: Remote RESET uses fixed subcommand `0x0000` and payload `0x0001`, and completes after sending without waiting for a success response.
+- Library: 4E serials are assigned internally and requests sharing one client are serialized.
+- Library: UDP timeout detaches and closes the socket generation so delayed datagrams cannot satisfy a later request.
+
+### Fixed
+
+- Library: Random, extended-random, and block writes reject duplicate or overlapping destinations before transport.
+- Library: Direct, random, extended-random, block, memory, and extend-unit write paths reject coercible strings, fractional values, Boolean-as-word values, truthy bit values, and out-of-range integers instead of masking or converting them.
+- Library: `writeNamed` rejects overlapping word/DWord and normalized-address destinations; Extended Device random-read keys include Z/LZ/indirect modification so distinct operands cannot overwrite each other.
+- Library: Send-only remote reset closes its transport generation after the frame is written, TCP busy rejection occurs before socket write, unlock failure preserves the primary error even when local close also fails, and LZ modifiers accept only index 0 or 1.
+- Library: Removed inert end-code message properties; numeric end code, stable end-code key, structured error information, and password classification remain.
+- Node-RED: Removed unsupported-device skip overrides and made metadata ownership deterministic across full, minimal, and off modes.
+- Docs: Updated user pages and examples to the explicit overhaul contract.
+- Tests: Added transport-state, keepalive, overlap, required-option, and one-request-limit coverage.
+
 ## [3.1.0] - 2026-07-10
 
 ### Added
