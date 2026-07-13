@@ -18,13 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-13
+
 - Library: Added public monitor registration/cycle, self-test loopback, and fixed Clear Error semantic APIs to the low-level `SlmpClient`.
 - Library: Monitor cycle expected counts must total at least one and stay within the selected profile's monitor-registration limit.
 - Library: Monitor cycles require explicit registered counts and never auto-register or retry; self-test verifies declared length, actual length, and exact echo against the transmitted Buffer snapshot.
 - Docs: Clarified that `U3En\HG` never changes or retries the explicitly selected request target.
 - Tests: Removed vendored cross-repository vector JSON and its dedicated runner. Cross-implementation comparison is executed independently of this Node-RED package.
-### BREAKING
 
+### BREAKING
 - Library: `SlmpClient` now requires explicit `port`, `transport`, concrete `plcProfile`, and one complete `target` or `defaultTarget`; raw request `subcommand` and payload are required.
 - Node-RED editor: Port `1025` and TCP remain only required initial values for a new connection
   node; saved/runtime port and transport are mandatory, and invalid values fail before client
@@ -65,8 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Managed remote-password state is bound to the concrete TCP/UDP connection generation. A new connection unlocks before its first user command, transport failure invalidates authentication state without replaying the failed command, and an old TCP socket event cannot clear a newer connection.
 - Library: `close()` always attempts local transport closure and now reports password-lock failure. Simultaneous lock and local-close failures are preserved through an aggregate cause; Node-RED shutdown logs the sanitized failure and still completes its close callback.
 
-### Changed
+### Added
+- Library: Added `profileDescriptors()` for canonical SLMP profile metadata.
 
+### Changed
 - Library: Random read keeps the unused word or DWord device list optional, rejects all-empty or invalid supplied collections before transport, and returns an explicit empty object for the unused result category.
 - Library: Random word write keeps the unused word or DWord value list optional while rejecting all-empty, malformed, duplicate, overlapping, or invalid values before transport; random bit write remains a separate required-input API.
 - Library: Block read/write keeps the unused word or bit block list optional, rejects all-empty or malformed inputs before transport, returns an explicit empty array for the unused read category, and rejects overlapping write ranges.
@@ -79,8 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: 4E serials are assigned internally and requests sharing one client are serialized.
 - Library: UDP timeout detaches and closes the socket generation so delayed datagrams cannot satisfy a later request.
 
-### Fixed
+- Release: Bumped npm package and lockfile metadata to `3.1.0`.
+- Tooling: Pinned canonical SLMP profile imports to published profile tag `v2.0.0`.
 
+### Fixed
 - Library: Random, extended-random, and block writes reject duplicate or overlapping destinations before transport.
 - Library: Direct, random, extended-random, block, memory, and extend-unit write paths reject coercible strings, fractional values, Boolean-as-word values, truthy bit values, and out-of-range integers instead of masking or converting them.
 - Library: `writeNamed` rejects overlapping word/DWord and normalized-address destinations; Extended Device random-read keys include Z/LZ/indirect modification so distinct operands cannot overwrite each other.
@@ -90,16 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs: Updated user pages and examples to the explicit overhaul contract.
 - Tests: Added transport-state, keepalive, overlap, required-option, and one-request-limit coverage.
 
-## [3.1.0] - 2026-07-10
 
-### Added
-- Library: Added `profileDescriptors()` for canonical SLMP profile metadata.
-
-### Changed
-- Release: Bumped npm package and lockfile metadata to `3.1.0`.
-- Tooling: Pinned canonical SLMP profile imports to published profile tag `v2.0.0`.
-
-### Fixed
 - Library: Rejected unknown boolean tokens and non-finite, fractional, signed-width, or out-of-range integer writes before transport instead of coercing them.
 - Library: Required complete integer route values for message target overrides instead of accepting partial strings.
 - Node-RED editor: Preserved an explicit monitoring timer value of zero in the connection node.
