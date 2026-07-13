@@ -314,3 +314,8 @@ Older Function nodes may still add `msg.slmpSkipUnsupported` or
 migration warning. They never change the selected error route. To continue a
 flow after a specific capability error, select `msg.error` or the second output
 and make that decision explicitly in the application flow.
+## Traffic statistics
+
+The low-level `SlmpClient.trafficStats()` method returns a frozen client-lifetime snapshot with
+`requestCount`, `txBytes`, and `rxBytes`. Complete sends and complete received frames are counted;
+close and reconnect do not reset the snapshot.

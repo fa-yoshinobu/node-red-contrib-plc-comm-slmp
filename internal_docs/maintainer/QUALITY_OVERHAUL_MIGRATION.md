@@ -448,3 +448,21 @@ The user ran both authorized SLMP Claude batches. Codex accepted, corrected, and
 - [x] Claude review of this delta completed through `CLAUDE-SLMP-20260712-02`; all findings were dispositioned and affected checks rerun.
 - [x] New public-API verification completed through deterministic regression coverage and the approved live D-128/D-129/D-131 checks.
 - [x] D-132 Extend Unit versus HG physical-area classification completed and recorded in the closed cross-implementation comparison.
+
+## NR-006: Lifetime traffic statistics
+
+Scope: low-level `SlmpClient.trafficStats()`, next release.
+
+Target contract: the method returns a frozen client-lifetime snapshot. A request and its full frame
+bytes count only after the complete socket send callback succeeds. Every complete received frame or
+UDP datagram counts on receipt; both count before serial, end-code, or payload validation.
+Unrecognized TCP subheaders, partial/failed sends, and pre-send failures do not count.
+Close/reconnect does not reset counters; no reset API is exposed.
+
+Acceptance criteria:
+
+- [x] Implementation and deterministic boundary tests completed.
+- [x] API reference, usage guide, and Unreleased changelog agree.
+- [x] Live PLC verification is unnecessary because deterministic transports observe every boundary.
+- [ ] Claude source review completed and findings recorded for the next release batch.
+- [ ] Final next-release package and cross-language API comparison completed.

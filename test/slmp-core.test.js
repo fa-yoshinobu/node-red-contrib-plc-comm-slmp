@@ -819,6 +819,13 @@ test("4E TCP client waits for the first response before sending the second reque
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
     assert.deepEqual([...firstResponse.data], [0x11, 0x11]);
     assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+    const stats = client.trafficStats();
+    assert.deepEqual(stats, {
+      requestCount: 2,
+      txBytes: frames.reduce((total, frame) => total + frame.length, 0),
+      rxBytes: 34,
+    });
+    assert.ok(Object.isFrozen(stats));
   } finally {
     await client.close();
     await server.close();
@@ -841,6 +848,8 @@ test("4E TCP client preserves FIFO send order for concurrently issued requests",
     ]);
 
     assert.deepEqual(order, [0x01, 0x02, 0x03]);
+    assert.equal(client.trafficStats().requestCount, 3);
+    assert.equal(client.trafficStats().rxBytes, 48);
     assert.deepEqual(responses.map((response) => response.data[0]), [0x01, 0x02, 0x03]);
   } finally {
     await client.close();
@@ -868,10 +877,19 @@ test("4E TCP timeout destroys its generation and a separately queued request rec
     assert.equal(frames.length, 2);
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
     assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+    assert.equal(client.trafficStats().requestCount, 2);
+    assert.equal(client.trafficStats().rxBytes, 17);
   } finally {
     await client.close();
     await server.close();
   }
+});
+
+test("trafficStats starts at zero and pre-send validation does not increment it", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", port: 1025, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+  await assert.rejects(() => client.rawCommand(0x0401, { payload: null }), /data is required/);
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
 });
 
 test("4E TCP request gate releases after transport close and reconnects for the next queued request", async () => {
@@ -931,6 +949,8 @@ test("4E TCP request gate releases after a PLC end-code error", async () => {
     assert.equal(frames.length, 2);
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
     assert.deepEqual([...secondResponse.data], [0x44, 0x44]);
+    assert.equal(client.trafficStats().requestCount, 2);
+    assert.equal(client.trafficStats().rxBytes, 41);
   } finally {
     await client.close();
     await server.close();
@@ -955,6 +975,8 @@ test("expectResponse false requests keep FIFO send order in the shared request q
     ]);
 
     assert.deepEqual(order, [0x01, 0x02, 0x03]);
+    assert.equal(client.trafficStats().requestCount, 3);
+    assert.equal(client.trafficStats().rxBytes, 32);
   } finally {
     await client.close();
     await server.close();

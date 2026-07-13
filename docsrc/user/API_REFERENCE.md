@@ -138,3 +138,8 @@ field; omitted route targets still use the own-station route `0x03FF`.
 | `ModuleIONo.REMOTE_HEAD_1` / `ModuleIONo.REMOTE_HEAD_2` | `0x03E0` / `0x03E1` |
 | `ModuleIONo.CONTROL_SYSTEM_REMOTE_HEAD` / `ModuleIONo.STANDBY_SYSTEM_REMOTE_HEAD` | `0x03D0` / `0x03D1` |
 | `ModuleIONo.OWN_STATION` | `0x03FF` |
+
+## Traffic Statistics
+
+`SlmpClient.trafficStats()` returns a frozen `{ requestCount, txBytes, rxBytes }` snapshot.
+Counters are cumulative for the client lifetime and are not reset by close or reconnect.
