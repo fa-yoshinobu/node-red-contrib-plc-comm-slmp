@@ -179,6 +179,13 @@ test("resolveConnectionProfile derives fixed defaults from plcProfile", () => {
     addressProfile: "melsec:iq-r",
     rangeProfile: "melsec:iq-r:rj71en71",
   });
+  assert.deepEqual(resolveConnectionProfile({ plcProfile: "melsec:mx-r:rj71en71" }), {
+    plcProfile: "melsec:mx-r:rj71en71",
+    plcSeries: "iqr",
+    frameType: "4e",
+    addressProfile: "melsec:mx-r",
+    rangeProfile: "melsec:mx-r:rj71en71",
+  });
   assert.throws(
     () => resolveConnectionProfile({ plcProfile: "melsec:qcpu" }),
     /melsec:qcpu is a base profile; use melsec:qcpu:qj71e71-100/
@@ -819,6 +826,13 @@ test("4E TCP client waits for the first response before sending the second reque
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
     assert.deepEqual([...firstResponse.data], [0x11, 0x11]);
     assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+    const stats = client.trafficStats();
+    assert.deepEqual(stats, {
+      requestCount: 2,
+      txBytes: frames.reduce((total, frame) => total + frame.length, 0),
+      rxBytes: 34,
+    });
+    assert.ok(Object.isFrozen(stats));
   } finally {
     await client.close();
     await server.close();
@@ -841,6 +855,8 @@ test("4E TCP client preserves FIFO send order for concurrently issued requests",
     ]);
 
     assert.deepEqual(order, [0x01, 0x02, 0x03]);
+    assert.equal(client.trafficStats().requestCount, 3);
+    assert.equal(client.trafficStats().rxBytes, 48);
     assert.deepEqual(responses.map((response) => response.data[0]), [0x01, 0x02, 0x03]);
   } finally {
     await client.close();
@@ -868,10 +884,36 @@ test("4E TCP timeout destroys its generation and a separately queued request rec
     assert.equal(frames.length, 2);
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
     assert.deepEqual([...secondResponse.data], [0x22, 0x22]);
+    assert.equal(client.trafficStats().requestCount, 2);
+    assert.equal(client.trafficStats().rxBytes, 17);
   } finally {
     await client.close();
     await server.close();
   }
+});
+
+test("TCP data from a retired socket generation is ignored", () => {
+  const transport = new SlmpTransport({
+    host: "127.0.0.1",
+    port: 1025,
+    transportType: "tcp",
+    frameType: "4e",
+    timeout: 100,
+  });
+  const currentSocket = {};
+  transport._tcpSocket = currentSocket;
+
+  transport.handleTcpData(Buffer.from([0xd4, 0x00]), {});
+
+  assert.equal(transport._tcpBuffer.length, 0);
+  assert.equal(transport.trafficStats().rxBytes, 0);
+});
+
+test("trafficStats starts at zero and pre-send validation does not increment it", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", port: 1025, transport: "tcp", frameType: "4e", timeout: 200, _allowManualProfile: true });
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+  await assert.rejects(() => client.rawCommand(0x0401, { payload: null }), /data is required/);
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
 });
 
 test("4E TCP request gate releases after transport close and reconnects for the next queued request", async () => {
@@ -931,6 +973,8 @@ test("4E TCP request gate releases after a PLC end-code error", async () => {
     assert.equal(frames.length, 2);
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
     assert.deepEqual([...secondResponse.data], [0x44, 0x44]);
+    assert.equal(client.trafficStats().requestCount, 2);
+    assert.equal(client.trafficStats().rxBytes, 41);
   } finally {
     await client.close();
     await server.close();
@@ -955,6 +999,8 @@ test("expectResponse false requests keep FIFO send order in the shared request q
     ]);
 
     assert.deepEqual(order, [0x01, 0x02, 0x03]);
+    assert.equal(client.trafficStats().requestCount, 3);
+    assert.equal(client.trafficStats().rxBytes, 32);
   } finally {
     await client.close();
     await server.close();
@@ -1445,6 +1491,224 @@ test("4E TCP response matching discards unmatched serials", async () => {
   client._handleTcpData(make4EResponse(0x1002, [0x22, 0x22]));
 
   await assert.rejects(() => client._awaitTcpFrame(0x1002), /TCP communication timeout/);
+});
+
+test("every response route field must match before TCP or UDP 3E/4E resolves", async () => {
+  const routeFields = ["network", "station", "moduleIO", "multidrop"];
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      for (const routeField of routeFields) {
+        const harness = createResponseCorrelationHarness({ transportType, frameType, timeout: 200 });
+        const serial = 0x1234;
+        const request = makeRequest(frameType, serial, TEST_TARGET);
+        const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+        const foreignTarget = mutateTarget(TEST_TARGET, routeField);
+
+        harness.deliver(makeResponse(frameType, serial, [0x11, 0x11], foreignTarget));
+        await delay(2);
+        harness.deliver(makeResponse(frameType, serial, [0x22, 0x22], TEST_TARGET));
+
+        const response = decodeResponse(await pending, { frameType });
+        assert.deepEqual([...response.data], [0x22, 0x22], `${transportType}/${frameType}/${routeField}`);
+        assert.equal(harness.transport.trafficStats().rxBytes, response.raw.length * 2);
+      }
+    }
+  }
+});
+
+test("TCP chunk assembly consumes a complete foreign route before accepting a split matching response", async () => {
+  for (const frameType of ["3e", "4e"]) {
+    const harness = createResponseCorrelationHarness({ transportType: "tcp", frameType, timeout: 200 });
+    const serial = 0x1234;
+    const request = makeRequest(frameType, serial, TEST_TARGET);
+    const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+    const foreign = makeResponse(frameType, serial, [0x11, 0x11], mutateTarget(TEST_TARGET, "network"));
+    const matching = makeResponse(frameType, serial, [0x22, 0x22], TEST_TARGET);
+
+    harness.deliver(foreign.subarray(0, 3));
+    harness.deliver(foreign.subarray(3));
+    harness.deliver(matching.subarray(0, matching.length - 1));
+    harness.deliver(matching.subarray(matching.length - 1));
+
+    const response = decodeResponse(await pending, { frameType });
+    assert.deepEqual([...response.data], [0x22, 0x22], frameType);
+    assert.equal(harness.transport.trafficStats().rxBytes, foreign.length + matching.length);
+  }
+});
+
+test("foreign-route floods cannot restart the TCP or UDP 3E/4E absolute deadline", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const harness = createResponseCorrelationHarness({ transportType, frameType, timeout: 40 });
+      const serial = 0x1234;
+      const request = makeRequest(frameType, serial, TEST_TARGET);
+      const started = Date.now();
+      const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+      const flood = setInterval(() => {
+        harness.deliver(makeResponse(frameType, serial, [], mutateTarget(TEST_TARGET, "station")));
+      }, 5);
+
+      try {
+        await assert.rejects(() => pending, new RegExp(`${transportType.toUpperCase()} communication timeout`));
+      } finally {
+        clearInterval(flood);
+      }
+      const elapsed = Date.now() - started;
+      assert.ok(elapsed >= 30, `${transportType}/${frameType} failed before its configured deadline`);
+      assert.ok(elapsed < 150, `${transportType}/${frameType} exceeded its absolute deadline`);
+    }
+  }
+});
+
+test("wrong-serial floods cannot restart the TCP or UDP 4E absolute deadline", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    const harness = createResponseCorrelationHarness({ transportType, frameType: "4e", timeout: 40 });
+    const serial = 0x1234;
+    const request = makeRequest("4e", serial, TEST_TARGET);
+    const started = Date.now();
+    const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+    const flood = setInterval(() => {
+      harness.deliver(make4EResponse((serial + 1) & 0xffff, [], 0, TEST_TARGET));
+    }, 5);
+
+    try {
+      await assert.rejects(() => pending, new RegExp(`${transportType.toUpperCase()} communication timeout`));
+    } finally {
+      clearInterval(flood);
+    }
+    const elapsed = Date.now() - started;
+    assert.ok(elapsed >= 30, `${transportType}/4e failed before its configured deadline`);
+    assert.ok(elapsed < 150, `${transportType}/4e exceeded its absolute deadline`);
+  }
+});
+
+test("foreign-route timeout retires the generation and the next exchange ignores delayed old data", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const harness = createResponseCorrelationHarness({ transportType, frameType, timeout: 40 });
+      const serial = 0x1234;
+      const request = makeRequest(frameType, serial, TEST_TARGET);
+      const oldSocket = harness.currentSocket();
+      const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+      const flood = setInterval(() => {
+        harness.deliver(makeResponse(frameType, serial, [], mutateTarget(TEST_TARGET, "station")), oldSocket);
+      }, 5);
+
+      try {
+        await assert.rejects(() => pending, new RegExp(`${transportType.toUpperCase()} communication timeout`));
+      } finally {
+        clearInterval(flood);
+      }
+
+      assert.equal(harness.transport.hasOpenTransport(), false, `${transportType}/${frameType}`);
+      assert.equal(transportType === "tcp" ? oldSocket.destroyed : oldSocket.closed, true);
+      harness.installFreshSocket();
+      const nextSerial = 0x1235;
+      const nextRequest = makeRequest(frameType, nextSerial, TEST_TARGET);
+      const next = harness.transport.sendAndReceive(nextRequest, nextSerial, TEST_TARGET);
+      harness.deliver(makeResponse(frameType, nextSerial, [0x11], TEST_TARGET), oldSocket);
+      harness.deliver(makeResponse(frameType, nextSerial, [0x22], TEST_TARGET));
+
+      const response = decodeResponse(await next, { frameType });
+      assert.deepEqual([...response.data], [0x22], `${transportType}/${frameType}`);
+      assert.equal(harness.transport.hasOpenTransport(), true, `${transportType}/${frameType}`);
+    }
+  }
+});
+
+test("TCP and UDP 4E discard a wrong serial and accept the matching response within the deadline", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    const harness = createResponseCorrelationHarness({ transportType, frameType: "4e", timeout: 200 });
+    const serial = 0x1234;
+    const request = makeRequest("4e", serial, TEST_TARGET);
+    const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+
+    harness.deliver(make4EResponse((serial + 1) & 0xffff, [0x11, 0x11], 0, TEST_TARGET));
+    await delay(2);
+    harness.deliver(make4EResponse(serial, [0x22, 0x22], 0, TEST_TARGET));
+
+    const response = decodeResponse(await pending, { frameType: "4e" });
+    assert.deepEqual([...response.data], [0x22, 0x22]);
+    assert.equal(harness.transport.trafficStats().rxBytes, response.raw.length * 2);
+  }
+});
+
+test("recognized malformed TCP and UDP responses fail the exchange and invalidate transport", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const harness = createResponseCorrelationHarness({ transportType, frameType, timeout: 200 });
+      const serial = 0x1234;
+      const request = makeRequest(frameType, serial, TEST_TARGET);
+      const pending = harness.transport.sendAndReceive(request, serial, TEST_TARGET);
+
+      harness.deliver(makeMalformedResponse(frameType, serial, TEST_TARGET));
+
+      await assert.rejects(() => pending, /malformed response/);
+      assert.equal(harness.transport.hasOpenTransport(), false, `${transportType}/${frameType}`);
+    }
+  }
+});
+
+test("short UDP datagrams and non-zero 4E reserved bytes are malformed", async () => {
+  for (const frameType of ["3e", "4e"]) {
+    const shortHarness = createResponseCorrelationHarness({ transportType: "udp", frameType, timeout: 200 });
+    const serial = 0x1234;
+    const shortPending = shortHarness.transport.sendAndReceive(
+      makeRequest(frameType, serial, TEST_TARGET),
+      serial,
+      TEST_TARGET,
+    );
+    const valid = makeResponse(frameType, serial, [], TEST_TARGET);
+    const headerSize = frameType === "4e" ? 13 : 9;
+    shortHarness.deliver(valid.subarray(0, headerSize - 1));
+
+    await assert.rejects(() => shortPending, /malformed response/);
+    assert.equal(shortHarness.transport.hasOpenTransport(), false);
+  }
+
+  for (const transportType of ["tcp", "udp"]) {
+    const harness = createResponseCorrelationHarness({ transportType, frameType: "4e", timeout: 200 });
+    const serial = 0x1234;
+    const pending = harness.transport.sendAndReceive(
+      makeRequest("4e", serial, TEST_TARGET),
+      serial,
+      TEST_TARGET,
+    );
+    const response = makeResponse("4e", serial, [], TEST_TARGET);
+    response.writeUInt16LE(1, 4);
+    harness.deliver(response);
+
+    await assert.rejects(() => pending, /malformed response/);
+    assert.equal(harness.transport.hasOpenTransport(), false, transportType);
+  }
+});
+
+test("the public request path passes the snapshotted effective target into correlation", async () => {
+  const override = Object.freeze({ network: 2, station: 3, moduleIO: 0x4567, multidrop: 4 });
+  for (const plcProfile of ["melsec:iq-f", "melsec:iq-r"]) {
+    const client = new StrictSlmpClient({
+      host: "127.0.0.1",
+      port: 1025,
+      transport: "tcp",
+      plcProfile,
+      target: TEST_TARGET,
+    });
+    client.connect = async () => {};
+    let capturedTarget;
+    client._transport.sendAndReceive = async (frame, serial, expectedTarget) => {
+      capturedTarget = expectedTarget;
+      return responseForRequest(frame, client.frameType, []);
+    };
+
+    await client.rawCommand(0x0401, {
+      subcommand: 0,
+      payload: Buffer.alloc(0),
+      target: override,
+    });
+
+    assert.deepEqual(capturedTarget, override);
+    assert.notEqual(capturedTarget, override);
+  }
 });
 
 test("writeRandomBits uses 1402 bit subcommand and iQR two-byte states", async () => {
@@ -2707,10 +2971,11 @@ function startMockTcpServer(frameType, onFrame) {
 
 function responseForRequest(frame, frameType, data, endCode = 0) {
   const responseData = endCode === 0 ? data : errorDataForRequest(frame, frameType, data);
+  const target = readRequestTarget(frame, frameType);
   if (frameType === "4e") {
-    return make4EResponse(frame.readUInt16LE(2), responseData, endCode);
+    return make4EResponse(frame.readUInt16LE(2), responseData, endCode, target);
   }
-  return make3EResponse(responseData, endCode);
+  return make3EResponse(responseData, endCode, target);
 }
 
 function errorDataForRequest(frame, frameType, data) {
@@ -2729,41 +2994,127 @@ function requestPayload(frame, frameType) {
   return source.subarray(dataOffset);
 }
 
-function readRequestTarget(frame) {
+function readRequestTarget(frame, frameType = "4e") {
+  const routeOffset = frameType === "4e" ? 6 : 2;
   return {
-    network: frame.readUInt8(6),
-    station: frame.readUInt8(7),
-    moduleIO: frame.readUInt16LE(8),
-    multidrop: frame.readUInt8(10),
+    network: frame.readUInt8(routeOffset),
+    station: frame.readUInt8(routeOffset + 1),
+    moduleIO: frame.readUInt16LE(routeOffset + 2),
+    multidrop: frame.readUInt8(routeOffset + 4),
   };
 }
 
-function make4EResponse(serial, data, endCode = 0) {
+function make4EResponse(serial, data, endCode = 0, target = TEST_TARGET) {
   const payload = Buffer.from(data);
   const buffer = Buffer.alloc(15 + payload.length);
   buffer.writeUInt16LE(0x00d4, 0);
   buffer.writeUInt16LE(serial, 2);
   buffer.writeUInt16LE(0x0000, 4);
-  buffer.writeUInt8(0x00, 6);
-  buffer.writeUInt8(0xff, 7);
-  buffer.writeUInt16LE(0x03ff, 8);
-  buffer.writeUInt8(0x00, 10);
+  buffer.writeUInt8(target.network, 6);
+  buffer.writeUInt8(target.station, 7);
+  buffer.writeUInt16LE(target.moduleIO, 8);
+  buffer.writeUInt8(target.multidrop, 10);
   buffer.writeUInt16LE(2 + payload.length, 11);
   buffer.writeUInt16LE(endCode, 13);
   payload.copy(buffer, 15);
   return buffer;
 }
 
-function make3EResponse(data, endCode = 0) {
+function make3EResponse(data, endCode = 0, target = TEST_TARGET) {
   const payload = Buffer.from(data);
   const buffer = Buffer.alloc(11 + payload.length);
   buffer.writeUInt16LE(0x00d0, 0);
-  buffer.writeUInt8(0x00, 2);
-  buffer.writeUInt8(0xff, 3);
-  buffer.writeUInt16LE(0x03ff, 4);
-  buffer.writeUInt8(0x00, 6);
+  buffer.writeUInt8(target.network, 2);
+  buffer.writeUInt8(target.station, 3);
+  buffer.writeUInt16LE(target.moduleIO, 4);
+  buffer.writeUInt8(target.multidrop, 6);
   buffer.writeUInt16LE(2 + payload.length, 7);
   buffer.writeUInt16LE(endCode, 9);
   payload.copy(buffer, 11);
   return buffer;
+}
+
+function makeRequest(frameType, serial, target) {
+  return encodeRequest({
+    frameType,
+    serial,
+    target,
+    monitoringTimer: 16,
+    command: 0x0401,
+    subcommand: 0,
+    data: Buffer.alloc(0),
+  });
+}
+
+function makeResponse(frameType, serial, data, target) {
+  return frameType === "4e"
+    ? make4EResponse(serial, data, 0, target)
+    : make3EResponse(data, 0, target);
+}
+
+function makeMalformedResponse(frameType, serial, target) {
+  const valid = makeResponse(frameType, serial, [], target);
+  const headerSize = frameType === "4e" ? 13 : 9;
+  const malformed = Buffer.from(valid.subarray(0, headerSize + 1));
+  malformed.writeUInt16LE(1, headerSize - 2);
+  return malformed;
+}
+
+function mutateTarget(target, field) {
+  const result = { ...target };
+  result[field] = (result[field] + 1) & (field === "moduleIO" ? 0xffff : 0xff);
+  return result;
+}
+
+function createResponseCorrelationHarness({ transportType, frameType, timeout }) {
+  const transport = new SlmpTransport({
+    host: "127.0.0.1",
+    port: 1025,
+    transportType,
+    frameType,
+    timeout,
+  });
+  if (transportType === "tcp") {
+    let socket = makeHarnessTcpSocket();
+    transport._tcpSocket = socket;
+    return {
+      transport,
+      currentSocket: () => socket,
+      deliver: (response, sourceSocket = socket) => transport.handleTcpData(response, sourceSocket),
+      installFreshSocket() {
+        socket = makeHarnessTcpSocket();
+        transport._tcpSocket = socket;
+        return socket;
+      },
+    };
+  }
+
+  let socket = makeHarnessUdpSocket();
+  transport._udpSocket = socket;
+  return {
+    transport,
+    currentSocket: () => socket,
+    deliver: (response, sourceSocket = socket) => transport.handleUdpMessage(response, sourceSocket),
+    installFreshSocket() {
+      socket = makeHarnessUdpSocket();
+      transport._udpSocket = socket;
+      return socket;
+    },
+  };
+}
+
+function makeHarnessTcpSocket() {
+  return {
+    destroyed: false,
+    write(_frame, callback) { callback(); },
+    destroy() { this.destroyed = true; },
+  };
+}
+
+function makeHarnessUdpSocket() {
+  return {
+    closed: false,
+    send(_frame, callback) { callback(); },
+    close() { this.closed = true; },
+  };
 }
