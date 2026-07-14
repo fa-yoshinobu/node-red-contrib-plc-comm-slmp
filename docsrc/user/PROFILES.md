@@ -26,6 +26,7 @@ catalog. Keep the PLC profile as an explicit human/configuration choice.
 | `melsec:iq-l` | MELSEC iQ-L (built-in) | 4E | Use for MELSEC iQ-L targets. |
 | `melsec:mx-f` | MELSEC MX-F (built-in) | 4E | Use for MELSEC MX-F targets. |
 | `melsec:mx-r` | MELSEC MX-R (built-in) | 4E | Use for MELSEC MX-R targets. |
+| `melsec:mx-r:rj71en71` | MELSEC MX-R (RJ71EN71) | 4E | Ethernet-unit profile based on `melsec:mx-r`. |
 | `melsec:lcpu` | MELSEC-L (built-in) | 3E | Q/L-series profile. Use normal read/write flows for typical device access. |
 | `melsec:lcpu:lj71e71-100` | MELSEC-L (LJ71E71-100) | 4E | Ethernet unit profile using Q/L compatibility. |
 | `melsec:qcpu:qj71e71-100` | MELSEC-Q (QJ71E71-100) | 4E | Ethernet unit profile for QCPU connections. |

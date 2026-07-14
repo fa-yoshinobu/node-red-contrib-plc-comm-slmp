@@ -17,7 +17,7 @@
 | Port | TCP or UDP port. Use `1025` for TCP examples and `1035` for UDP examples. |
 | Transport | `tcp` or `udp`. |
 | Timeout ms | Communication timeout in milliseconds. |
-| PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-r:rj71en71`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:lcpu`, `melsec:lcpu:lj71e71-100`, `melsec:qcpu:qj71e71-100`, `melsec:qnu`, `melsec:qnu:qj71e71-100`, `melsec:qnudv`, and `melsec:qnudv:qj71e71-100`. |
+| PLC profile | Required canonical PLC profile. The current editor options are `melsec:iq-f`, `melsec:iq-r`, `melsec:iq-r:rj71en71`, `melsec:iq-l`, `melsec:mx-f`, `melsec:mx-r`, `melsec:mx-r:rj71en71`, `melsec:lcpu`, `melsec:lcpu:lj71e71-100`, `melsec:qcpu:qj71e71-100`, `melsec:qnu`, `melsec:qnu:qj71e71-100`, `melsec:qnudv`, and `melsec:qnudv:qj71e71-100`. |
 | Use remote password | Explicitly enables the remote-password lifecycle. Leave unchecked when the PLC route does not use it. |
 | Remote password | Required and non-empty when Use remote password is checked. Disabled otherwise. |
 | Monitor timer | SLMP monitoring timer field in 250 ms units, `0` to `65535`. A new node starts at `16` (four seconds). An explicit `0` requests an indefinite PLC-side processing wait. |

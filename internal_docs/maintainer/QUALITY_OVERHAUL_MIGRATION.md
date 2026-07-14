@@ -464,5 +464,90 @@ Acceptance criteria:
 - [x] Implementation and deterministic boundary tests completed.
 - [x] API reference, usage guide, and Unreleased changelog agree.
 - [x] Live PLC verification is unnecessary because deterministic transports observe every boundary.
-- [ ] Claude source review completed and findings recorded for the next release batch.
 - [ ] Final next-release package and cross-language API comparison completed.
+
+## QREV-20260714-002: Response target-route correlation
+
+Implementation scope: low-level `SlmpTransport` TCP and UDP receive paths for 3E and 4E responses,
+including per-request target overrides snapshotted by `SlmpClient`.
+
+Target contract: after complete-frame structural validation, a response is eligible for a pending
+request only when its network, station, module I/O, and multidrop fields exactly match that request's
+snapshotted target. A structurally valid foreign-route response is discarded while the pending
+request's original timer remains active. A malformed response is a protocol error and invalidates
+the transport generation.
+
+Compatibility impact: a gateway or peer that returns route fields different from the requested
+target no longer has its payload or PLC end code accepted; the request waits for a matching response
+and otherwise times out at its original deadline.
+
+Acceptance criteria:
+
+1. TCP and UDP, in both 3E and 4E, discard a response that differs in each individual route field and accept a subsequent exact match.
+2. A continuous foreign-route response stream cannot extend the request deadline.
+3. Recognized but structurally malformed responses reject pending work and close the transport generation.
+4. The public request path passes a copy of the effective target to transport correlation, and received-byte accounting remains before correlation filtering.
+
+- [x] Implementation completed in this repository.
+- [x] Tests added for every acceptance criterion.
+- [x] Full static checks, 186-test suite, editor smoke test, and package check passed.
+- [x] Codex source self-review completed against the target contract and cross-language field mapping.
+- [x] Claude source review completed in the user-authorized 2026-07-14 batch; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Codex dispositioned every applicable Claude finding and reran affected checks; details are recorded below.
+- [x] Live-PLC verification is not required because every correlation and invalidation boundary is deterministically observable with local/fake TCP and UDP peers.
+- [x] Changelog and maintainer contract agree with the implementation; no public API reference changed.
+- [x] Final acceptance verified and the item marked complete after family-wide comparison.
+
+## QREV-20260714-003: One absolute 4E response-correlation deadline
+
+Implementation scope: low-level `SlmpTransport` TCP and UDP 4E pending-response timers.
+
+Target contract: the timer created once when a request becomes pending remains the only
+communication deadline while wrong-serial and foreign-route responses are discarded. No discarded
+response may restart, replace, or extend that timer.
+
+Compatibility impact: none; this records and regression-locks the existing absolute-deadline
+behavior while extending it to route correlation.
+
+Acceptance criteria:
+
+1. Continuous wrong-serial responses cannot extend the configured TCP or UDP timeout.
+2. A matching serial and route received before the deadline completes normally.
+3. Route filtering leaves the original pending timer unchanged.
+
+- [x] Implementation behavior verified in this repository.
+- [x] Deterministic TCP and UDP deadline regression tests added.
+- [x] Full static checks, 186-test suite, editor smoke test, and package check passed.
+- [x] Codex source self-review confirmed one timer per pending exchange.
+- [x] Claude source review completed in the user-authorized 2026-07-14 batch; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Codex dispositioned every applicable Claude finding and reran affected checks; details are recorded below.
+- [x] Live-PLC verification is not required because the deadline is a local transport state-machine contract.
+- [x] Changelog and maintainer contract agree; no public API or migration action changed.
+- [x] Final acceptance verified and the item marked complete after family-wide comparison.
+
+### 2026-07-14 Claude finding disposition and re-verification
+
+| Finding | Disposition and evidence |
+|---|---|
+| N-1 / F-X1 | Accepted. The pinned import ref is `v2.1.0`; the root-only `-FailIfChanged` check downloaded that tag and reported all four runtime/test fixtures unchanged. |
+| N-2 / F-X2 | Accepted. `PROFILES.md` and the editor-option list in `USAGE_GUIDE.md` include `melsec:mx-r:rj71en71`. |
+| N-3 | Accepted. A direct resolver test locks frame `4e`, series `iqr`, MX-R address behavior, and the RJ71EN71 range profile. |
+| N-4 | Accepted. TCP/UDP and 3E/4E tests now run a foreign-route timeout, prove the old socket is retired, inject delayed matching data from that old socket, and accept only the response from a fresh generation. Self-review additionally found and fixed 4E UDP timeout retaining its old socket. |
+| N-5 | Accepted. The 40 ms deadline regressions require at least 30 ms elapsed and passed five consecutive focused runs. |
+| N-6 | Accepted. TCP tests split both the complete foreign response and the subsequent matching response across arbitrary chunk boundaries for 3E and 4E. |
+| N-7 | Accepted. Actual TCP data callbacks carry their socket identity; data from a retired socket is ignored before buffering or byte accounting. |
+| N-8 | Accepted as a documented private-transport consequence. A timeout retires the shared TCP generation and rejects every pending entry; the public client serializes requests, so normal callers have only one exchange in flight. |
+| N-9 | Accepted as the bounded 4E wire contract. Serial allocation never duplicates an active pending serial; reuse is possible only after the 16-bit space wraps and the earlier exchange has completed. |
+| N-10 | Accepted as architecture evidence. The distributed range-rules JSON is synchronized and package-tested but is not exposed as a runtime range-catalog API; runtime device-family decisions are covered against the pinned fixture. |
+| F-X5 | Not applicable. The profile addition was already classified as a `Library` change, not only fixture tooling. |
+
+Additional Codex self-review made short UDP datagrams and non-zero 4E reserved bytes explicit malformed-response cases for both transport implementations where applicable.
+
+Re-verification evidence on Node.js `v24.14.1` / npm `11.12.1`:
+
+- `scripts/update_slmp_profile_jsons.ps1 -FailIfChanged`: four files unchanged at `v2.1.0`.
+- `run_ci.bat`: dependency audit clean, 186/186 tests passed, and the 39-file npm package dry-run passed.
+- `npm run smoke:editor`: passed.
+- Deadline/chunk/reconnect focused tests: four tests passed in five consecutive runs.
+- `scripts/check_no_auto_publish.ps1` and `git diff --check`: passed.
+- No live PLC communication was required or performed; these are deterministic local state-machine boundaries.
