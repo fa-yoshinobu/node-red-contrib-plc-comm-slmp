@@ -225,7 +225,7 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are preserved in the archived workspace instruction records.
 - [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for this deterministic configuration/privacy contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
@@ -258,7 +258,7 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are preserved in the archived workspace instruction records.
 - [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for this API-boundary contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
@@ -290,7 +290,7 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are preserved in the archived workspace instruction records.
 - [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for the local state-machine and mock-frame contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
@@ -321,7 +321,7 @@ Acceptance criteria:
 - [x] Tests added or updated for every acceptance criterion.
 - [x] Full repository checks and package inspection passed.
 - [x] Codex self-review completed.
-- [x] Claude source review completed through the authorized SLMP review batches; findings are recorded under `D:\APP\Close\instructions`.
+- [x] Claude source review completed through the authorized SLMP review batches; findings are preserved in the archived workspace instruction records.
 - [x] Claude findings dispositioned and affected checks rerun.
 - [x] No live-PLC check is required for the deterministic close/error contract.
 - [x] User documentation, changelog, and migration notes agree with implementation.
@@ -402,7 +402,7 @@ Remote RUN requires an actual Boolean `force` and one `RemoteClearMode` value; R
 - [x] Codex resolved or dispositioned every Claude finding and reran affected checks.
 - [x] No new live-PLC result is required to decide these API/validation/transport-generation contracts; existing profile capability evidence was not changed to pass.
 - [x] Documentation, migration notes, changelog, examples, and API reference agree with implementation.
-- [x] Final acceptance completed; cross-library comparison is preserved in `D:\APP\Close\instructions\slmp_cross_implementation_final_comparison_20260712.md`.
+- [x] Final acceptance completed; the cross-library comparison is preserved in the archived workspace record `slmp_cross_implementation_final_comparison_20260712.md`.
 
 ## Live verification disposition
 
@@ -410,7 +410,7 @@ The changed acceptance criteria are fully observable through parser, mock transp
 
 ## Claude review status
 
-The user ran both authorized SLMP Claude batches. Codex accepted, corrected, and reverified every applicable finding; canonical results are preserved under `D:\APP\Close\instructions`.
+The user ran both authorized SLMP Claude batches. Codex accepted, corrected, and reverified every applicable finding; canonical results are preserved in the archived workspace instruction records.
 
 ## 2026-07-12 D-128, D-129, D-131, and D-132 delta
 
@@ -495,7 +495,7 @@ Acceptance criteria:
 - [x] Tests added for every acceptance criterion.
 - [x] Full static checks, 186-test suite, editor smoke test, and package check passed.
 - [x] Codex source self-review completed against the target contract and cross-language field mapping.
-- [x] Claude source review completed in the user-authorized 2026-07-14 batch; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Claude source review completed in the user-authorized 2026-07-14 batch; findings are preserved in the archived workspace record `claude_review_findings_20260714.md`.
 - [x] Codex dispositioned every applicable Claude finding and reran affected checks; details are recorded below.
 - [x] Live-PLC verification is not required because every correlation and invalidation boundary is deterministically observable with local/fake TCP and UDP peers.
 - [x] Changelog and maintainer contract agree with the implementation; no public API reference changed.
@@ -522,7 +522,7 @@ Acceptance criteria:
 - [x] Deterministic TCP and UDP deadline regression tests added.
 - [x] Full static checks, 186-test suite, editor smoke test, and package check passed.
 - [x] Codex source self-review confirmed one timer per pending exchange.
-- [x] Claude source review completed in the user-authorized 2026-07-14 batch; findings are recorded in `D:\APP\claude_review_findings_20260714.md`.
+- [x] Claude source review completed in the user-authorized 2026-07-14 batch; findings are preserved in the archived workspace record `claude_review_findings_20260714.md`.
 - [x] Codex dispositioned every applicable Claude finding and reran affected checks; details are recorded below.
 - [x] Live-PLC verification is not required because the deadline is a local transport state-machine contract.
 - [x] Changelog and maintainer contract agree; no public API or migration action changed.
