@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+- Library: Removed the undocumented `getProfileFeature` root export. Capability feature records remain internal implementation data.
+
+### Changed
+- Library: Simplified named-address dtype normalization by removing a redundant internal wrapper and its unused device argument.
+- Docs: Added the existing public `availablePlcProfiles()` connection-profile enumeration contract to the API reference.
+- Tests: Added coverage that `availablePlcProfiles()` excludes base-only profiles and returns an isolated array.
+
 ## [4.0.0] - 2026-07-17
 
 - Release: Bumped npm package and lockfile metadata to `4.0.0`.

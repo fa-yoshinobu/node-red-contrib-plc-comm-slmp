@@ -117,6 +117,10 @@ manual-derived messages.
 
 ## Profile Selection
 
+`availablePlcProfiles()` returns a new array of canonical, connection-selectable
+profile IDs. It excludes `Unspecified` and the base-only `melsec:qcpu` profile;
+modifying the returned array does not change the library's profile registry.
+
 `profileDescriptors()` returns canonical name, display name, connection
 availability, and base-profile metadata for every profile. The base-only
 `melsec:qcpu` entry is included with `connectable: false`; the editor filters

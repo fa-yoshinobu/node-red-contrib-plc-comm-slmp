@@ -21,6 +21,7 @@ const {
   SlmpIndirect,
   SlmpClient: StrictSlmpClient,
   ValueError,
+  availablePlcProfiles,
   decodeResponse,
   deviceToString,
   encodeDeviceSpec,
@@ -205,6 +206,17 @@ test("resolveConnectionProfile rejects missing plcProfile on the standard route"
     () => resolveConnectionProfile({ frameType: "4e", plcSeries: "iqr" }),
     /plcProfile is required for the standard client profile/
   );
+});
+
+test("availablePlcProfiles returns an isolated connection-selectable profile list", () => {
+  const profiles = availablePlcProfiles();
+  assert.ok(profiles.includes("melsec:iq-r"));
+  assert.ok(profiles.includes("melsec:qcpu:qj71e71-100"));
+  assert.ok(!profiles.includes("Unspecified"));
+  assert.ok(!profiles.includes("melsec:qcpu"));
+
+  profiles.pop();
+  assert.notDeepEqual(profiles, availablePlcProfiles());
 });
 
 test("SlmpClient requires explicit connection identity and defaults timeout only when absent", async () => {
