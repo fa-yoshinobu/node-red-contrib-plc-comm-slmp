@@ -664,6 +664,8 @@ test("queued requests snapshot the effective target before caller mutation", asy
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "ql" })], [100, 0, 0, 0xa8]);
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "iqr" })], [100, 0, 0, 0, 0xa8, 0x00]);
+  assert.equal(encodeDeviceSpec("R32768", { series: "ql" }).readUIntLE(0, 3), 32768);
+  assert.equal(encodeDeviceSpec("R32768", { series: "iqr" }).readUInt32LE(0), 32768);
 });
 
 test("Extended Device public model is semantic and raw wire encoders are hidden", () => {

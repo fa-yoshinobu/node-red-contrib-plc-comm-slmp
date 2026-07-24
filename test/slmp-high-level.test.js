@@ -30,6 +30,11 @@ test("parseAddress supports count and string forms", () => {
   assert.throws(() => parseAddress("DSTR200,8"), /explicit dtype/i);
 });
 
+test("parseAddress rejects repeated dtype and bit-index separators", () => {
+  assert.throws(() => parseAddress("D100:U:GARBAGE"), /more than one dtype separator/i);
+  assert.throws(() => parseAddress("D100.5.3"), /more than one bit-index separator/i);
+});
+
 test("normalizeAddress and formatParsedAddress keep one canonical spelling", () => {
   const options = { plcProfile: "melsec:iq-r" };
   assert.equal(normalizeAddress(" d200:f ", options), "D200:F");

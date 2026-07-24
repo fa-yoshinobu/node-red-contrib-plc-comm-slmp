@@ -59,6 +59,9 @@ module.exports = function registerSlmpWrite(RED) {
           itemCount: keys.length,
         });
         this.status({ fill: "green", shape: "dot", text: `${keys.length} item(s)` });
+        if (this.errorHandling === "msg") {
+          delete msg.error;
+        }
         send(msg);
         done();
       } catch (error) {
