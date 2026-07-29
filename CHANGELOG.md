@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-07-29
+
+- Release: Bumped npm package and lockfile metadata to `4.0.1`.
+
 ### BREAKING
 - Library: Removed the undocumented `getProfileFeature` root export. Capability feature records remain internal implementation data.
 - Library: Malformed qualified addresses with repeated separators are now rejected instead of being normalized implicitly.
