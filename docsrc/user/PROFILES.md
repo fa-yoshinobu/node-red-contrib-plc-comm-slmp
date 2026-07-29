@@ -16,6 +16,25 @@ text, or model code. Some PLCs or communication paths cannot return a reliable
 type name, and a wrong inference can select the wrong address grammar or range
 catalog. Keep the PLC profile as an explicit human/configuration choice.
 
+## Verified hardware available for validation
+
+The maintainer owns the hardware listed below. Communication has been verified
+on this hardware, and it is available for focused reproduction and validation
+when a problem is reported.
+
+"Verified" does not mean that every library feature has been tested on every
+listed PLC or module. Exhaustively testing every combination would require a prohibitive
+amount of work.
+
+| PLC family | Hardware owned by the maintainer |
+| --- | --- |
+| MELSEC iQ-R | `R120PCPU`, `R08PCPU`, `R16CPU`, `R08CPU`, `R00CPU`, `RJ71EN71` |
+| MELSEC MX controller | `MXR300-32` |
+| MELSEC iQ-L | `L16HCPU` |
+| MELSEC iQ-F | `FX5U-32MR/DS`, `FX5UC-32MT/D` |
+| MELSEC-L | `L02SCPU`, `L26CPU-BT`, `LJ71E71-100` |
+| MELSEC-Q | `Q06UDVCPU`, `Q26UDEHCPU`, `Q12HCPU`, `QJ71E71-100` |
+
 ## Supported PLC profiles
 
 | Canonical profile | Display name | Frame | Notes |
