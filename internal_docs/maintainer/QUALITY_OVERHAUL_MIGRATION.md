@@ -554,3 +554,23 @@ Re-verification evidence on Node.js `v24.14.1` / npm `11.12.1`:
 - Deadline/chunk/reconnect focused tests: four tests passed in five consecutive runs.
 - `scripts/check_no_auto_publish.ps1` and `git diff --check`: passed.
 - No live PLC communication was required or performed; these are deterministic local state-machine boundaries.
+
+## BH-LIVE-SLMP-20260729 — Supplemental bug-hunt live verification
+
+Scope: commit `00ff556cfefc438a17c51b6d2676f385e46ceeee`, profile `melsec:iq-r`, TCP
+`192.168.250.100:1025`.
+
+Target contract: the runtime client communicates with the selected profile and sends
+profile-catalog range exceedances that fit the wire format instead of imposing the catalog as a
+pre-send upper bound.
+
+Acceptance evidence:
+
+- [x] `D100` one-word read succeeded with value `0` through the current runtime client.
+- [x] `R32768` reached the PLC and surfaced `SlmpError` end code `0x4031` for command `0x0401`,
+  subcommand `0x0002`; no pre-send profile-range rejection occurred.
+- [x] The repository working tree was clean after the live probes.
+
+Disposition: all applicable supplemental live checks passed. J link-direct random/monitor layout
+was not part of this repository's bug-hunt delta. The `R32768` result remains PLC-side address
+evidence and does not authorize a communication-library profile-range guard.
