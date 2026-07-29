@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Library: Public validation failures now use the exported `ValueError`, and successful node processing clears a stale `msg.error` value.
+- Library: J link-direct extended random read/write and monitor registration now select Q/L subcommands and 11-byte entries; mixed Q/L and iQ-R extended layouts are rejected before transport.
+- Node-RED: Closing a connection node during connect or reinitialize now closes any newly opened socket and prevents the closed node from returning to connected state.
 
 ## [4.0.0] - 2026-07-17
 

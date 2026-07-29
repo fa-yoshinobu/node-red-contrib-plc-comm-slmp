@@ -1769,7 +1769,7 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
   });
 
   await client.writeRandomWordsExt({
-    wordValues: [[String.raw`J1\D10`, 0x1234]],
+    wordValues: [[String.raw`U1\D10`, 0x1234]],
     dwordValues: [[String.raw`U1\G20`, 0x89abcdef]],
   });
   await client.writeRandomBitsExt({
@@ -1785,7 +1785,7 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
 
   assert.equal(calls[1].command, Command.DEVICE_WRITE_RANDOM);
   assert.equal(calls[1].subcommand, 0x0082);
-  assert.equal(calls[1].data.toString("hex"), "010100000a0000a800000100f93412000014000000ab0000000100f8efcdab89");
+  assert.equal(calls[1].data.toString("hex"), "010100000a000000a80000000100003412000014000000ab0000000100f8efcdab89");
 
   assert.equal(calls[2].command, Command.DEVICE_WRITE_RANDOM);
   assert.equal(calls[2].subcommand, 0x0083);
@@ -1851,6 +1851,53 @@ test("extended random APIs derive QL payloads from qualified devices", async () 
     () => client.readRandomExt({ wordDevices: [new SlmpExtendedDevice("D0", new SlmpIndexLz(1))] }),
     /not available for Q\/L/
   );
+});
+
+test("iQR extended random and monitor APIs use QL layout for link-direct entries and reject mixed layouts", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push({ command, subcommand, data: Buffer.from(data) });
+    return {
+      endCode: 0,
+      data: command === Command.DEVICE_READ_RANDOM ? Buffer.from([0x34, 0x12]) : Buffer.alloc(0),
+    };
+  };
+
+  await client.readRandomExt({ wordDevices: [String.raw`J1\W0`] });
+  await client.writeRandomWordsExt({ wordValues: [[String.raw`J1\W0`, 0x1234]] });
+  await client.writeRandomBitsExt({ bitValues: [[String.raw`J1\M0`, true]] });
+  await client.registerMonitorDevicesExt({ wordDevices: [String.raw`J1\W0`] });
+
+  assert.deepEqual(calls.map(({ command, subcommand }) => ({ command, subcommand })), [
+    { command: Command.DEVICE_READ_RANDOM, subcommand: 0x0080 },
+    { command: Command.DEVICE_WRITE_RANDOM, subcommand: 0x0080 },
+    { command: Command.DEVICE_WRITE_RANDOM, subcommand: 0x0081 },
+    { command: Command.MONITOR_REGISTER, subcommand: 0x0080 },
+  ]);
+  assert.equal(calls[0].data.toString("hex"), "01000000000000b400000100f9");
+  assert.equal(calls[1].data.toString("hex"), "01000000000000b400000100f93412");
+  assert.equal(calls[2].data.toString("hex"), "0100000000009000000100f901");
+  assert.equal(calls[3].data.toString("hex"), "01000000000000b400000100f9");
+
+  const requestCount = calls.length;
+  await assert.rejects(
+    () => client.readRandomExt({ wordDevices: [String.raw`J1\W0`, String.raw`U1\D0`] }),
+    /cannot mix J link-direct/
+  );
+  await assert.rejects(
+    () => client.writeRandomWordsExt({ wordValues: [[String.raw`J1\W0`, 1], [String.raw`U1\D0`, 2]] }),
+    /cannot mix J link-direct/
+  );
+  await assert.rejects(
+    () => client.writeRandomBitsExt({ bitValues: [[String.raw`J1\M0`, true], [String.raw`U1\M1`, false]] }),
+    /cannot mix J link-direct/
+  );
+  await assert.rejects(
+    () => client.registerMonitorDevicesExt({ wordDevices: [String.raw`J1\W0`, String.raw`U1\D0`] }),
+    /cannot mix J link-direct/
+  );
+  assert.equal(calls.length, requestCount);
 });
 
 test("extended random APIs use profile ext limit keys before transport", async () => {
