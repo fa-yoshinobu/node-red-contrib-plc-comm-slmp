@@ -79,6 +79,7 @@ module.exports = function registerSlmpConnection(RED) {
     }
 
     this.client = new SlmpClient(clientOptions);
+    this._closing = false;
 
     this._setState = (fill, shape, text) => {
       this.status({ fill, shape, text });
@@ -95,8 +96,15 @@ module.exports = function registerSlmpConnection(RED) {
       remotePasswordConfigured: this.useRemotePassword,
     });
     this.connect = async () => {
+      if (this._closing) {
+        throw new Error("SLMP connection node is closing");
+      }
       this._setState("yellow", "ring", "connecting");
       await this.client.connect();
+      if (this._closing) {
+        await this.client.close();
+        throw new Error("SLMP connection node closed while connecting");
+      }
       this._setState("green", "dot", "connected");
     };
     this.disconnect = async () => {
@@ -108,6 +116,9 @@ module.exports = function registerSlmpConnection(RED) {
       }
     };
     this.reinitialize = async () => {
+      if (this._closing) {
+        throw new Error("SLMP connection node is closing");
+      }
       this._setState("yellow", "ring", "reinitializing");
       try {
         await this.client.close();
@@ -115,13 +126,21 @@ module.exports = function registerSlmpConnection(RED) {
         this._setState("red", "ring", "disconnected");
         throw error;
       }
+      if (this._closing) {
+        throw new Error("SLMP connection node closed while reinitializing");
+      }
       await this.client.connect();
+      if (this._closing) {
+        await this.client.close();
+        throw new Error("SLMP connection node closed while reinitializing");
+      }
       this._setState("green", "dot", "connected");
     };
 
     this._setState("grey", "ring", "ready");
 
     this.on("close", (_removed, done) => {
+      this._closing = true;
       this.client
         .close()
         .catch((error) => {

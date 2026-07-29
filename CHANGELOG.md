@@ -20,11 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 - Library: Removed the undocumented `getProfileFeature` root export. Capability feature records remain internal implementation data.
+- Library: Malformed qualified addresses with repeated separators are now rejected instead of being normalized implicitly.
 
 ### Changed
 - Library: Simplified named-address dtype normalization by removing a redundant internal wrapper and its unused device argument.
+- Library: Device profile upper bounds no longer reject sends in the communication library; syntax, supported-family, command-limit, and wire-width checks remain.
 - Docs: Added the existing public `availablePlcProfiles()` connection-profile enumeration contract to the API reference.
 - Tests: Added coverage that `availablePlcProfiles()` excludes base-only profiles and returns an isolated array.
+
+### Fixed
+- Library: Public validation failures now use the exported `ValueError`, and successful node processing clears a stale `msg.error` value.
+- Library: J link-direct extended random read/write and monitor registration now select Q/L subcommands and 11-byte entries; mixed Q/L and iQ-R extended layouts are rejected before transport.
+- Node-RED: Closing a connection node during connect or reinitialize now closes any newly opened socket and prevents the closed node from returning to connected state.
 
 ## [4.0.0] - 2026-07-17
 

@@ -30,6 +30,11 @@ test("parseAddress supports count and string forms", () => {
   assert.throws(() => parseAddress("DSTR200,8"), /explicit dtype/i);
 });
 
+test("parseAddress rejects repeated dtype and bit-index separators", () => {
+  assert.throws(() => parseAddress("D100:U:GARBAGE"), /more than one dtype separator/i);
+  assert.throws(() => parseAddress("D100.5.3"), /more than one bit-index separator/i);
+});
+
 test("normalizeAddress and formatParsedAddress keep one canonical spelling", () => {
   const options = { plcProfile: "melsec:iq-r" };
   assert.equal(normalizeAddress(" d200:f ", options), "D200:F");
@@ -863,6 +868,74 @@ test("slmp-connection creates a client and closes it with the node", async () =>
     assert.equal(closeCalls, 3);
     assert.equal(doneCalled, true);
     assert.deepEqual(node.statusCalls.at(-1), { fill: "grey", shape: "ring", text: "closed" });
+  });
+});
+
+test("slmp-connection close prevents in-flight connect and reinitialize from leaking sockets", async () => {
+  class FakeSlmpClient {
+    constructor(options) {
+      this.plcProfile = options.plcProfile;
+      this.frameType = "4e";
+      this.plcSeries = "iqr";
+      this.defaultTarget = slmp.normalizeTarget(options.defaultTarget);
+    }
+    async connect() {}
+    async close() {}
+  }
+  const config = {
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    timeout: 3000,
+    plcProfile: "melsec:iq-r",
+    monitoringTimer: 16,
+    network: 0,
+    station: 255,
+    moduleIO: 0x03ff,
+    multidrop: 0,
+    useRemotePassword: false,
+  };
+
+  await withMockedSlmp({ SlmpClient: FakeSlmpClient }, async () => {
+    const { RED, create } = createMockRed();
+    require("../nodes/slmp-connection")(RED);
+
+    for (const operation of ["connect", "reinitialize"]) {
+      const node = create("slmp-connection", { ...config, id: `closing-${operation}` });
+      let releaseConnect;
+      let open = false;
+      let connectCalls = 0;
+      let closeCalls = 0;
+      node.client = {
+        plcProfile: "melsec:iq-r",
+        frameType: "4e",
+        plcSeries: "iqr",
+        defaultTarget: slmp.normalizeTarget({ network: 0, station: 255, moduleIO: 0x03ff, multidrop: 0 }),
+        async connect() {
+          connectCalls += 1;
+          await new Promise((resolve) => { releaseConnect = resolve; });
+          open = true;
+        },
+        async close() {
+          closeCalls += 1;
+          open = false;
+        },
+      };
+
+      const inFlight = node[operation]();
+      while (!releaseConnect) {
+        await Promise.resolve();
+      }
+      await new Promise((resolve) => node.emit("close", false, resolve));
+      releaseConnect();
+      await assert.rejects(inFlight, /closed while (connecting|reinitializing)/);
+
+      assert.equal(connectCalls, 1);
+      assert.equal(closeCalls, operation === "connect" ? 2 : 3);
+      assert.equal(open, false);
+      await assert.rejects(() => node[operation](), /is closing/);
+      assert.equal(connectCalls, 1);
+    }
   });
 });
 
