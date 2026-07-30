@@ -22,7 +22,8 @@
     "slmp",
     "melsec",
     "mitsubishi",
-    "plc"
+    "plc",
+    "industrial-automation"
   ],
   "repository": {
     "type": "git",
@@ -31,7 +32,7 @@
   "bugs": {
     "url": "https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/issues"
   },
-  "homepage": "https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp#readme",
+  "homepage": "https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/GETTING_STARTED/",
   "publishConfig": {
     "access": "public"
   },
