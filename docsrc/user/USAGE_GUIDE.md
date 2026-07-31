@@ -314,6 +314,17 @@ Older Function nodes may still add `msg.slmpSkipUnsupported` or
 migration warning. They never change the selected error route. To continue a
 flow after a specific capability error, select `msg.error` or the second output
 and make that decision explicitly in the application flow.
+## Request payload limits
+
+One SLMP request can carry at most 65,529 command-payload bytes over TCP. UDP must also fit one
+complete datagram, so the command-payload maximum is 65,492 bytes for 3E and 65,488 bytes for 4E.
+Array and random label requests use even-sized payloads and therefore have a largest
+protocol-representable payload of 65,528 bytes before the lower UDP limit is applied.
+
+An oversized request raises `ValueError` before connection, send, traffic counters, trace state,
+or 4E serial allocation. The client never truncates or automatically splits it; applications that
+need several requests must define ordering, partial-success, and write-atomicity behavior explicitly.
+
 ## Traffic statistics
 
 The low-level `SlmpClient.trafficStats()` method returns a frozen client-lifetime snapshot with

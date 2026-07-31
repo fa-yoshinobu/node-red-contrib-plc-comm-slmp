@@ -73,6 +73,15 @@ request; hidden follow-up and bit-in-word read-modify-write are not performed.
 | Self-test loopback | `selfTestLoopback` |
 | Clear PLC error | `clearError` |
 
+Array label `unitSpecification` is `0` for a logical bit count and `1` for a
+logical byte count. Both forms occupy whole two-byte wire units: bit counts use
+`ceil(arrayDataLength / 16) * 2` bytes and byte counts use
+`ceil(arrayDataLength / 2) * 2` bytes. The logical length must be positive, and
+`writeArrayLabels` requires the exact padded buffer length. Random label read
+and write data lengths must also be positive and even. Read responses must
+match the requested count and, for array labels, each requested unit and
+logical length; malformed or trailing data raises `SlmpError`.
+
 Remote RUN is `remoteRun({ force, clearMode })`, where `force` is Boolean and
 `clearMode` is one of `RemoteClearMode.NO_CLEAR`,
 `RemoteClearMode.CLEAR_EXCEPT_LATCH`, or `RemoteClearMode.CLEAR_ALL`. Remote PAUSE is
@@ -114,6 +123,13 @@ Request `series` and 4E `serial` are not public options; both are derived or
 assigned by the client. PLC errors expose the numeric end code, stable
 `slmp_end_code_xxxx` key, and structured error information, not localized
 manual-derived messages.
+
+TCP command payloads are limited to 65,529 bytes. UDP command payloads are
+limited to 65,492 bytes for 3E and 65,488 bytes for 4E so the complete frame
+fits one datagram. Oversized inputs fail before transport or serial allocation
+and are never truncated or split automatically. Label builders additionally
+enforce their aggregate payload size; their largest protocol-representable
+even payload is 65,528 bytes.
 
 ## Profile Selection
 

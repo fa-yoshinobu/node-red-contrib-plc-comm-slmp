@@ -2471,6 +2471,208 @@ test("label helpers build payloads and parse responses", async () => {
   );
 });
 
+test("label array lengths use padded two-byte wire units", async () => {
+  const points = [
+    [0, 1, 2],
+    [0, 6, 2],
+    [0, 16, 2],
+    [0, 17, 4],
+    [0, 32, 4],
+    [1, 1, 2],
+    [1, 2, 2],
+    [1, 3, 4],
+    [1, 4, 4],
+  ].map(([unitSpecification, arrayDataLength, wireBytes], index) => ({
+    label: `Label${index}`,
+    unitSpecification,
+    arrayDataLength,
+    wireBytes,
+  }));
+  const responseData = Buffer.concat([
+    Buffer.from([points.length, 0x00]),
+    ...points.map((point) => Buffer.concat([
+      Buffer.from([0xfe, point.unitSpecification, point.arrayDataLength & 0xff, point.arrayDataLength >> 8]),
+      Buffer.alloc(point.wireBytes, 0xa5),
+    ])),
+  ]);
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  let requestCount = 0;
+  client._request = async (command) => {
+    requestCount += 1;
+    return { endCode: 0, data: command === Command.LABEL_ARRAY_READ ? responseData : Buffer.alloc(0) };
+  };
+
+  const values = await client.readArrayLabels(points);
+  assert.deepEqual(values.map((value) => value.data.length), points.map((point) => point.wireBytes));
+  assert.ok(values.every((value) => value.dataTypeId === 0xfe));
+  for (const point of points) {
+    await client.writeArrayLabels([{ ...point, data: Buffer.alloc(point.wireBytes) }]);
+  }
+  assert.equal(requestCount, 1 + points.length);
+
+  await assert.rejects(
+    () => client.writeArrayLabels([{ label: "Bit6", unitSpecification: 0, arrayDataLength: 6, data: Buffer.alloc(12) }]),
+    ValueError
+  );
+  await assert.rejects(
+    () => client.writeArrayLabels([{ label: "Byte3", unitSpecification: 1, arrayDataLength: 3, data: Buffer.alloc(3) }]),
+    ValueError
+  );
+  await assert.rejects(
+    () => client.readArrayLabels([{ label: "Zero", unitSpecification: 0, arrayDataLength: 0 }]),
+    ValueError
+  );
+  await assert.rejects(
+    () => client.readArrayLabels([{ label: "BadUnit", unitSpecification: 2, arrayDataLength: 1 }]),
+    ValueError
+  );
+  await assert.rejects(
+    () => client.writeArrayLabels([{ label: "BadUnit", unitSpecification: 2, arrayDataLength: 1, data: Buffer.alloc(2) }]),
+    ValueError
+  );
+  await assert.rejects(
+    () => client.writeRandomLabels([{ label: "Empty", data: Buffer.alloc(0) }]),
+    ValueError
+  );
+  await assert.rejects(
+    () => client.writeRandomLabels([{ label: "Odd", data: Buffer.alloc(3) }]),
+    ValueError
+  );
+  assert.equal(requestCount, 1 + points.length);
+});
+
+test("request payload boundaries are enforced before transport or 4E serial consumption", async () => {
+  for (const { transport, frameType, maximum, frameLength } of [
+    { transport: "tcp", frameType: "3e", maximum: 65529, frameLength: 65544 },
+    { transport: "tcp", frameType: "4e", maximum: 65529, frameLength: 65548 },
+    { transport: "udp", frameType: "3e", maximum: 65492, frameLength: 65507 },
+    { transport: "udp", frameType: "4e", maximum: 65488, frameLength: 65507 },
+  ]) {
+    const client = new SlmpClient({
+      host: "127.0.0.1",
+      transport,
+      frameType,
+      plcSeries: "iqr",
+      _allowManualProfile: true,
+    });
+    let sentFrame;
+    client._sendAndReceive = async (frame) => {
+      sentFrame = Buffer.from(frame);
+      return frameType === "4e"
+        ? make4EResponse(frame.readUInt16LE(2), Buffer.alloc(0))
+        : make3EResponse(Buffer.alloc(0));
+    };
+
+    await client.rawCommand(Command.CLEAR_ERROR, { subcommand: 0, payload: Buffer.alloc(maximum) });
+    assert.equal(sentFrame.length, frameLength);
+    const lengthOffset = frameType === "4e" ? 11 : 7;
+    assert.equal(sentFrame.readUInt16LE(lengthOffset), maximum + 6);
+
+    const serialBefore = client._transport._serial;
+    const statsBefore = client.trafficStats();
+    await assert.rejects(
+      () => client.rawCommand(Command.CLEAR_ERROR, { subcommand: 0, payload: Buffer.alloc(maximum + 1) }),
+      (error) => error instanceof ValueError && error.message.includes(`actual=${maximum + 1}`)
+        && error.message.includes(`maximum=${maximum}`)
+    );
+    assert.equal(client._transport._serial, serialBefore);
+    assert.deepEqual(client.trafficStats(), statsBefore);
+  }
+});
+
+test("all label payload builders enforce the aggregate protocol boundary", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", plcSeries: "iqr", _allowManualProfile: true });
+  const payloads = [];
+  client._request = async (command, _subcommand, payload) => {
+    payloads.push(Buffer.from(payload));
+    return {
+      endCode: 0,
+      data: command === Command.LABEL_ARRAY_READ
+        ? Buffer.from([0x01, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00])
+        : Buffer.from([0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00]),
+    };
+  };
+
+  await client.readArrayLabels([{ label: "A".repeat(32759), unitSpecification: 1, arrayDataLength: 1 }]);
+  await client.writeArrayLabels([{
+    label: "A",
+    unitSpecification: 1,
+    arrayDataLength: 65516,
+    data: Buffer.alloc(65516),
+  }]);
+  await client.readRandomLabels(["A".repeat(32761)]);
+  await client.writeRandomLabels([{ label: "A", data: Buffer.alloc(65518) }]);
+  assert.deepEqual(payloads.map((payload) => payload.length), [65528, 65528, 65528, 65528]);
+
+  const oversized = [
+    () => client.readArrayLabels([{ label: "A".repeat(32760), unitSpecification: 1, arrayDataLength: 1 }]),
+    () => client.writeArrayLabels([{
+      label: "A",
+      unitSpecification: 1,
+      arrayDataLength: 65518,
+      data: Buffer.alloc(65518),
+    }]),
+    () => client.readRandomLabels(["A".repeat(32762)]),
+    () => client.writeRandomLabels([{ label: "A", data: Buffer.alloc(65520) }]),
+    () => client.readRandomLabels(["A", "B"], { abbreviationLabels: ["R".repeat(32761)] }),
+  ];
+  for (const invoke of oversized) {
+    await assert.rejects(
+      invoke,
+      (error) => error instanceof ValueError && /actual=6553\d, maximum=65529/.test(error.message)
+    );
+  }
+  for (const length of [65536, 65537]) {
+    await assert.rejects(
+      () => client.writeRandomLabels([{ label: "A", data: Buffer.alloc(length) }]),
+      (error) => error instanceof ValueError && /write data length/.test(error.message)
+    );
+  }
+  assert.equal(payloads.length, 4);
+});
+
+test("label response parsers reject uncorrelated or malformed payloads", async () => {
+  const point = { label: "Bit6", unitSpecification: 0, arrayDataLength: 6 };
+  const arrayCases = [
+    Buffer.from([0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x02, 0x06, 0x00, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x06]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x02]),
+    Buffer.from([0x01, 0x00, 0x01, 0x01, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x05, 0x00, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x06, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x06, 0x00, 0x00, 0x00, 0xff]),
+  ];
+  for (const responseData of arrayCases) {
+    const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+    client._request = async () => ({ endCode: 0, data: responseData });
+    await assert.rejects(() => client.readArrayLabels([point]), SlmpError);
+  }
+
+  const randomCases = [
+    Buffer.from([0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00]),
+    Buffer.from([0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0xff]),
+  ];
+  for (const responseData of randomCases) {
+    const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+    client._request = async () => ({ endCode: 0, data: responseData });
+    await assert.rejects(() => client.readRandomLabels(["LabelW"]), SlmpError);
+  }
+
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
+  client._request = async () => ({
+    endCode: 0,
+    data: Buffer.from([0x01, 0x00, 0xfe, 0xff, 0x02, 0x00, 0x31, 0x00]),
+  });
+  const [value] = await client.readRandomLabels(["LabelW"]);
+  assert.equal(value.dataTypeId, 0xfe);
+  assert.equal(value.spare, 0xff);
+});
+
 test("remoteReset closes the send-only transport generation", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   let sent = 0;
@@ -2495,7 +2697,7 @@ test("label abbreviation omission and references are validated before transport"
   const calls = [];
   client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
-    return { endCode: 0, data: Buffer.from([0x01, 0x00, 0x09, 0x00, 0x00, 0x00]) };
+    return { endCode: 0, data: Buffer.from([0x01, 0x00, 0x09, 0x00, 0x02, 0x00, 0x00, 0x00]) };
   };
 
   await client.readRandomLabels(["%2.Member"], { abbreviationLabels: ["RootA", "RootB"] });
@@ -2508,11 +2710,11 @@ test("label abbreviation omission and references are validated before transport"
       { abbreviationLabels: ["Root"] }
     ),
     () => client.writeArrayLabels(
-      [{ label: "%0.Member", unitSpecification: 1, arrayDataLength: 1, data: Buffer.from([0]) }],
+      [{ label: "%0.Member", unitSpecification: 1, arrayDataLength: 1, data: Buffer.from([0, 0]) }],
       { abbreviationLabels: ["Root"] }
     ),
     () => client.writeRandomLabels(
-      [{ label: "%x.Member", data: Buffer.from([0]) }],
+      [{ label: "%x.Member", data: Buffer.from([0, 0]) }],
       { abbreviationLabels: ["Root"] }
     ),
   ];

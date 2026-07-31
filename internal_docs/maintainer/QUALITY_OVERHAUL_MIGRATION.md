@@ -574,3 +574,92 @@ Acceptance evidence:
 Disposition: all applicable supplemental live checks passed. J link-direct random/monitor layout
 was not part of this repository's bug-hunt delta. The `R32768` result remains PLC-side address
 evidence and does not authorize a communication-library profile-range guard.
+
+## NODERED-LABEL-001 — Deterministic label-command wire contract
+
+Scope: `readArrayLabels`, `writeArrayLabels`, `readRandomLabels`, and `writeRandomLabels`.
+
+Target contract: implement `GOAL-SLMP-LABEL-001` from the workspace decision record. Unit `0` is a
+logical bit count padded per 16 bits, unit `1` is a logical byte count padded per two bytes, caller
+write buffers are exact and even, and response count/metadata/length/trailing data are validated.
+
+Compatibility impact: zero lengths, odd random-label data, unpadded array data, and malformed or
+uncorrelated responses that were previously tolerated now fail before transport or as `SlmpError`.
+
+Acceptance criteria:
+
+1. The shared boundary vectors produce `2,2,2,4,4` bytes for bit lengths `1,6,16,17,32` and
+   `2,2,4,4` bytes for byte lengths `1,2,3,4`.
+2. Invalid caller data produces no request.
+3. Response count, array metadata, positive/even length, truncation, and full consumption are checked.
+4. Unknown data type IDs and random spare values remain observable.
+
+- [x] Implementation completed in this repository.
+- [x] Tests added for every local acceptance criterion.
+- [x] Full static, test, editor-smoke, and package checks passed.
+- [x] Codex self-review completed and accepted findings corrected.
+- [x] Live PLC verification is not required for deterministic arithmetic and injected response vectors.
+- [x] Documentation, migration note, changelog, and package contents agree.
+- [x] Final acceptance verified.
+
+Verification evidence:
+
+- `run_ci.bat` passed 192 tests and the npm package-content check; the tests were rerun directly
+  after the final source edit and again passed 192/192.
+- The Node-RED editor smoke check and no-auto-publish guard passed.
+- Boundary, official six-bit, invalid-input/no-transport, correlation, truncation, trailing-data,
+  unknown-type, and nonzero-spare vectors passed.
+- `git diff --check` passed.
+
+Self-review disposition:
+
+- Accepted: request and response code duplicated the same wire-length arithmetic. One pure
+  calculator now owns the formula and both paths use it.
+- Accepted: invalid request-unit and truncated item-header cases were missing from the first test
+  draft. Those cases were added and reverified.
+- No rejected, duplicate, or deferred finding changes this contract.
+
+## NODERED-REQUEST-001 — Representable and transport-safe request payloads
+
+Scope: low-level request submission plus Array/Random Label Read/Write payload construction.
+
+Target contract: implement `GOAL-SLMP-REQUEST-001` from the workspace decision record. TCP command
+payloads are limited to 65,529 bytes. UDP 3E/4E payloads are limited to 65,492/65,488 bytes so the
+complete frame is at most 65,507 bytes. Rejection precedes connection, send, counters, trace state,
+and 4E serial allocation. Label aggregate length is validated before `Buffer.concat`.
+
+Compatibility impact: oversized inputs now raise `ValueError` deterministically and are never
+truncated or split automatically.
+
+Acceptance criteria:
+
+1. TCP 3E/4E and UDP 3E/4E boundary frames encode the exact request-data length and UDP datagram size.
+2. Boundary-plus-one rejection preserves serial and traffic state and performs no transport action.
+3. All four label builders accept 65,528 bytes and reject 65,530-byte aggregates, including
+   abbreviation, multiple-point, and write-data cases.
+4. Random Label Write rejects individual data lengths above the 16-bit field before encoding.
+
+- [x] Implementation completed in this repository.
+- [x] Tests added for every local acceptance criterion.
+- [x] Relevant static, test, editor-smoke, and package checks passed.
+- [x] Codex self-review completed and accepted findings corrected.
+- [x] Live PLC verification is not required for deterministic field/datagram arithmetic.
+- [x] Documentation, migration note, changelog, and generated API agree.
+- [x] Final acceptance verified.
+
+Verification evidence:
+
+- `run_ci.bat` passed 194/194 tests, the Node-RED editor smoke, and npm package inspection.
+- Canonical profile drift, the no-auto-publish guard, and `git diff --check` passed.
+- Exact TCP 3E/4E and UDP 3E/4E limits, rejected-state invariants, all four label builders,
+  abbreviation, multiple-point, write-data, and individual random-data limits passed.
+
+Self-review disposition:
+
+- Accepted: validation is required both before request queueing and inside the internal request path
+  so neither public nor internal callers can consume serial/state before rejection. Both guards are
+  retained and share one limit calculator.
+- Rejected: selecting a larger IPv6-only UDP ceiling would make the pre-connect contract depend on
+  deferred hostname resolution. The uniform 65,507-byte UDP frame ceiling is conservative for IPv6
+  and preserves one predictable no-connect validation boundary.
+- No duplicate or deferred finding changes this contract.
