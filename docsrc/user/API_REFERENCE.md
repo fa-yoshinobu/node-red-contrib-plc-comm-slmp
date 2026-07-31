@@ -7,12 +7,15 @@ family.
 
 The main low-level client type is `SlmpClient` from `lib/slmp/client.js`.
 
-Construction requires `host`, `port`, `transport`, a concrete canonical
+Construction requires an IPv4 literal or hostname that resolves to IPv4 in
+`host`, plus `port`, `transport`, a concrete canonical
 `plcProfile`, and exactly one complete `target` or `defaultTarget`. Timeout is
 optional with a 3000 ms default. Monitoring timer is optional with a four-second
 default (`16` in 250 ms units), accepts exact integers in `0..65535`, and uses
 explicit `0` for PLC-side indefinite processing wait. It is independent from
 the local communication timeout. TCP enables keepalive after 30 seconds idle.
+IPv6 literals and hostnames without an IPv4 result are rejected; the client
+never selects or falls back to IPv6.
 
 `remotePassword` is optional. Omit it (or use explicit `undefined`) to disable
 managed authentication. When present it must be a printable ASCII string with
@@ -24,8 +27,21 @@ state and is not returned by metadata or serialization.
 `connect()` accepts no options. If managed authentication is configured, every
 new transport generation is unlocked before its first user command. The removed
 authentication-bypass option is not part of the public surface; normal, raw,
-and password request paths cannot skip the lifecycle. `close()` tries to lock the active authenticated generation,
-always closes locally, and rejects when lock or local close fails.
+and password request paths cannot skip the lifecycle. Ordinary client operations
+are admitted in FIFO order and only one wire transaction is active at a time.
+`close()` invalidates the active queue generation, rejects active and queued
+work, and closes the exact transport generation. If the client is idle it first
+tries to lock an authenticated generation. If work is active or queued, local
+close takes priority and the PLC lock state must be treated as unknown. In that
+case `close()` reports `SLMP_OPERATION_OUTCOME_UNKNOWN` with reason `closed`;
+the local transport is still closed.
+
+Each activated transaction has one monotonic absolute deadline covering lazy
+connect, managed unlock, send completion, response framing/correlation, and
+response decoding. Partial frames, wrong serials, and foreign routes do not
+restart it. An explicit `connect()` has its own connection deadline. A timeout
+retires the current transport generation; no timed-out operation is retried or
+resent automatically.
 
 ## Direct And Random Device Operations
 
@@ -52,10 +68,22 @@ The current Node-RED low-level client does not expose separate extended direct
 device helpers. Use the extended random APIs for routed random access.
 
 `readDevices` and `writeDevices` require a Boolean `bitUnit`. Random and block
-writes reject duplicate or overlapping destinations. `readNamed` and
-`writeNamed` emit one protocol request or reject the complete operation before
-transport. Compatible random or multi-block word entries may share one
-request; hidden follow-up and bit-in-word read-modify-write are not performed.
+writes reject duplicate or overlapping destinations. Every bit write value is
+a native JavaScript Boolean; numeric and string spellings such as `0`, `1`,
+`"ON"`, and `"OFF"` are rejected before transport.
+Every object-form DeviceRef used by direct, typed, random, block, or monitor
+helpers must carry the exact client `plcProfile`; a missing or different
+identity is rejected before serial allocation or transport.
+
+`readNamed` is an explicitly aggregate, read-only API. It may issue multiple
+sequential requests, split only between independent declared entries, and keeps
+one exclusive FIFO client turn until all requests finish. Requests follow the
+declared entry order; entries separated by another read route are not moved
+earlier merely to batch them. It never splits a
+multiword scalar, string, counted array, or other logical entry. The result is
+non-atomic: separate requests may observe different PLC scan times. The first
+failure rejects the call and no partial result is returned. `writeNamed` must
+fit exactly one request and rejects the complete update before I/O otherwise.
 
 ## Specialized Operations
 
@@ -107,29 +135,54 @@ length, and exact echo. `clearError` always uses the fixed empty payload.
 | Address parsing and formatting | `parseDevice`, `deviceToString`, `normalizeAddress`, `parseAddress`, `formatParsedAddress` |
 | Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
-| Named mixed snapshots | `compileReadPlan`, `readNamed`, `writeNamed` |
+| Named mixed aggregate reads and writes | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
+
+`writeBitInWord` validates and snapshots the complete operation before it enters
+the client queue. It then holds one ordinary-client FIFO turn while it sends one
+word read followed by one word write. This prevents another operation on the
+same client from interleaving between those requests, but it is not an atomic
+PLC operation: another connection or PLC program logic can change the word in
+the race window, and the read and write can occur in different PLC scans. A
+failure after the write may have been sent is outcome-unknown. The helper never
+retries automatically; verify PLC state before deciding whether to issue a new
+operation.
 
 All public address-to-number and number-to-address helpers require the
 canonical `plcProfile`. `parseDevice` returns an immutable semantic object that
 contains that profile. Passing the object to a client configured for another
-profile is rejected before transport.
+profile is rejected before serial allocation, counters, or transport. This exact
+match also applies inside direct, random, block, monitor-registration, and
+unit-specific word/bit collections.
 
 The supported dtype vocabulary is `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`.
 Compatibility spellings `:I`, `:STRING`, and `DSTR...` are not accepted.
 
 The raw request API requires command, subcommand, and an explicit byte payload.
+Known commands have a fixed read-only/state-changing classification. Unknown
+vendor commands are conservatively state-changing unless the caller supplies
+the Boolean `stateChanging: false` assertion.
 Request `series` and 4E `serial` are not public options; both are derived or
 assigned by the client. PLC errors expose the numeric end code, stable
 `slmp_end_code_xxxx` key, and structured error information, not localized
 manual-derived messages.
 
+Timeout and lifecycle errors are machine-readable: `SlmpTimeoutError`
+(`SLMP_TIMEOUT`), `SlmpClosedError` (`SLMP_CLOSED`), and
+`SlmpNotConnectedError` (`SLMP_NOT_CONNECTED`). If a state-changing request may
+have been sent before timeout, close, or transport failure, the result is
+`SlmpOperationOutcomeUnknownError` (`SLMP_OPERATION_OUTCOME_UNKNOWN`). Its
+`reason` is `timeout`, `closed`, or `transport`, and `cause` retains the original
+error. Do not automatically retry outcome-unknown operations; first verify PLC
+state.
+
 TCP command payloads are limited to 65,529 bytes. UDP command payloads are
 limited to 65,492 bytes for 3E and 65,488 bytes for 4E so the complete frame
-fits one datagram. Oversized inputs fail before transport or serial allocation
-and are never truncated or split automatically. Label builders additionally
-enforce their aggregate payload size; their largest protocol-representable
-even payload is 65,528 bytes.
+fits one datagram. Single-request command builders reject oversized inputs
+before transport or serial allocation and never truncate or split them. Label
+builders additionally enforce their aggregate payload size; their largest
+protocol-representable even payload is 65,528 bytes. Read-only aggregate
+splitting is limited to the documented `readNamed` entry-boundary contract.
 
 ## Profile Selection
 

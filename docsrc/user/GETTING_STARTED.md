@@ -8,6 +8,7 @@ Use this page to make your first MELSEC SLMP read from Node-RED. Start with one 
 
 | Requirement | Value |
 | --- | --- |
+| Node.js | 18 or later |
 | Node-RED | 3.0 or later |
 | PLC | MELSEC PLC reachable from your Node-RED host |
 | First TCP target | `192.168.250.100:1025` |

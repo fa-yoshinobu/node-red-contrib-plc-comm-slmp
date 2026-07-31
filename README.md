@@ -20,7 +20,7 @@ Every `slmp-connection` requires one concrete PLC profile. Operations known to b
 
 ## Request serialization
 
-Requests sent through the same `slmp-connection` are serialized on that client connection. A queued request is not sent until the previous request has completed, timed out, or failed. This applies to 3E/4E and TCP/UDP requests, including send-only requests.
+Requests sent through the same `slmp-connection` are serialized in FIFO order on that client connection. A queued request is not sent until the previous request has completed, timed out, or failed. Closing rejects active and queued work and prevents the old queue generation from reconnecting. This applies to 3E/4E and TCP/UDP requests, including send-only requests.
 
 If a flow needs real parallel PLC communication, create separate `slmp-connection` config nodes so each path uses its own PLC connection.
 

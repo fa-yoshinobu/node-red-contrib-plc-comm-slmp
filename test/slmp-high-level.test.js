@@ -5,10 +5,74 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const path = require("node:path");
+const vm = require("node:vm");
 
 const slmp = require("../lib/slmp");
-const { formatParsedAddress, normalizeAddress, normalizeAddressList, parseAddress, readNamed, readTyped, writeNamed, writeTyped } = slmp;
+const {
+  formatParsedAddress,
+  normalizeAddress,
+  normalizeAddressList,
+  parseAddress,
+  readBits,
+  readNamed,
+  readTyped,
+  writeBitInWord,
+  writeBits,
+  writeNamed,
+  writeTyped,
+} = slmp;
 const TEST_TARGET = Object.freeze({ network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 });
+
+function loadEditorValidators(fileName, expression) {
+  const html = fs.readFileSync(path.join(__dirname, "..", "nodes", fileName), "utf8");
+  const script = /<script type="text\/javascript">([\s\S]*?)<\/script>/.exec(html);
+  assert.ok(script, `${fileName} must contain an editor script`);
+  const context = vm.createContext({
+    RED: {
+      nodes: {
+        node: () => ({ plcProfile: "melsec:iq-r" }),
+        registerType: () => {},
+      },
+    },
+  });
+  vm.runInContext(script[1], context, { filename: fileName });
+  return vm.runInContext(expression, context);
+}
+
+test("Node-RED editor validators match runtime dtype and route-target contracts", () => {
+  const read = loadEditorValidators(
+    "slmp-read.html",
+    "({ address: slmpValidateAddressToken, target: slmpValidateTargetLiteral })"
+  );
+  const write = loadEditorValidators(
+    "slmp-write.html",
+    "({ address: slmpValidateWriteAddressToken, target: slmpValidateWriteTargetLiteral })"
+  );
+
+  for (const validators of [read, write]) {
+    assert.equal(validators.address("D100:STR,2", "melsec:iq-r"), true);
+    assert.equal(validators.address("D100:I", "melsec:iq-r"), false);
+    assert.equal(validators.address("D100:STRING,2", "melsec:iq-r"), false);
+    assert.equal(validators.address("DSTR200,8", "melsec:iq-r"), false);
+
+    assert.equal(validators.target(""), true);
+    assert.equal(validators.target(JSON.stringify(TEST_TARGET)), true);
+    assert.equal(
+      validators.target(JSON.stringify({ network: 0, station: 255, module_io: "03FF", multidrop: 0 })),
+      true
+    );
+    assert.equal(validators.target("{}"), false);
+    assert.equal(validators.target(JSON.stringify({ network: 0 })), false);
+    assert.equal(
+      validators.target(JSON.stringify({ ...TEST_TARGET, module_io: "03FF" })),
+      false
+    );
+    assert.equal(
+      validators.target(JSON.stringify({ ...TEST_TARGET, unexpected: 1 })),
+      false
+    );
+  }
+});
 
 test("parseAddress supports count and string forms", () => {
   assert.deepEqual(parseAddress("D100:U,10"), {
@@ -99,6 +163,29 @@ test("readNamed and writeNamed reject unknown dtype suffixes", async () => {
   await assert.rejects(() => writeTyped(fakeClient, "D100", "BOGUS", 7), /unsupported dtype/i);
 });
 
+test("all typed DeviceRef helpers reject a mismatched plcProfile before client I/O", async () => {
+  let calls = 0;
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async readDevices() { calls += 1; return [0]; },
+    async writeDevices() { calls += 1; },
+  };
+  const wrongWord = Object.freeze({ code: "D", number: 0, plcProfile: "melsec:iq-f" });
+  const wrongBit = Object.freeze({ code: "M", number: 0, plcProfile: "melsec:iq-f" });
+  const cases = [
+    () => readTyped(fakeClient, wrongWord, "U"),
+    () => writeTyped(fakeClient, wrongWord, "U", 1),
+    () => readBits(fakeClient, wrongBit, 1),
+    () => writeBits(fakeClient, wrongBit, [true]),
+    () => writeBitInWord(fakeClient, wrongWord, 0, true),
+  ];
+
+  for (const invoke of cases) {
+    await assert.rejects(invoke, /does not match requested plcProfile/);
+  }
+  assert.equal(calls, 0);
+});
+
 test("normalizeAddressList keeps count suffixes in comma-separated input", () => {
   assert.deepEqual(normalizeAddressList("D100:U,10,D200:F,M1000:BIT"), ["D100:U,10", "D200:F", "M1000:BIT"]);
   assert.deepEqual(normalizeAddressList("D100:STR,10 D200:U,2"), ["D100:STR,10", "D200:U,2"]);
@@ -154,7 +241,7 @@ test("readNamed batches word and dword requests like the Python helper layer", a
   assert.equal(calls.length, 1);
 });
 
-test("readNamed rejects random reads that exceed the one-request limit before transport", async () => {
+test("readNamed splits random reads only between independent entries", async () => {
   const calls = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -172,8 +259,29 @@ test("readNamed rejects random reads that exceed the one-request limit before tr
   };
 
   const addresses = Array.from({ length: 97 }, (_, index) => `D${index * 2}:U`);
-  await assert.rejects(() => readNamed(fakeClient, addresses), /must fit one request/i);
-  assert.equal(calls.length, 0);
+  const result = await readNamed(fakeClient, addresses);
+  assert.equal(Object.keys(result).length, 97);
+  assert.deepEqual(calls.map((call) => call.wordDevices.length), [96, 1]);
+});
+
+test("readNamed does not split a Q/L random read that still fits one request", async () => {
+  const calls = [];
+  const fakeClient = {
+    plcProfile: "melsec:qcpu:qj71e71-100",
+    plcSeries: "ql",
+    async readRandom({ wordDevices }) {
+      calls.push(wordDevices.length);
+      return {
+        word: Object.fromEntries(wordDevices.map((device) => [`${device.code}${device.number}`, device.number])),
+        dword: {},
+      };
+    },
+  };
+  const addresses = Array.from({ length: 97 }, (_, index) => `D${index * 2}:U`);
+
+  await readNamed(fakeClient, addresses);
+
+  assert.deepEqual(calls, [97]);
 });
 
 test("writeNamed rejects mixed families and bit-in-word before transport", async () => {
@@ -239,12 +347,13 @@ test("writeNamed rejects overlapping normalized destinations before transport", 
   assert.equal(calls.length, 0);
 });
 
-test("readNamed rejects block-read fallback routes before transport", async () => {
+test("readNamed splits independent direct-bit and random routes", async () => {
   const calls = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
-    async readRandom() {
-      throw new Error("unexpected random read");
+    async readRandom({ wordDevices }) {
+      calls.push({ kind: "random", devices: wordDevices.map((device) => `${device.code}${device.number}`) });
+      return { word: { TS1000: 1, D100: 11 }, dword: {} };
     },
     async readDevices(device, points, options) {
       calls.push({
@@ -262,14 +371,52 @@ test("readNamed rejects block-read fallback routes before transport", async () =
     },
   };
 
-  await assert.rejects(
-    () => readNamed(fakeClient, ["TS1000:BIT", "D100:U"]),
-    /exactly one protocol request/
-  );
-  assert.deepEqual(calls, []);
+  assert.deepEqual(await readNamed(fakeClient, ["TS1000:BIT", "D100:U"]), {
+    "TS1000:BIT": true,
+    "D100:U": 11,
+  });
+  assert.deepEqual(calls, [
+    { device: "TS1000", points: 1, bitUnit: true },
+    { kind: "random", devices: ["D100"] },
+  ]);
 });
 
-test("readNamed rejects count arrays and strings that require block reads", async () => {
+test("readNamed preserves declared timing order across interleaved read routes", async () => {
+  const calls = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async readRandom({ wordDevices }) {
+      const devices = wordDevices.map((device) => `${device.code}${device.number}`);
+      calls.push({ kind: "random", devices });
+      return {
+        word: Object.fromEntries(devices.map((device) => [device, device === "D100" ? 11 : 22])),
+        dword: {},
+      };
+    },
+    async readDevices(device, points, options) {
+      calls.push({
+        kind: "direct",
+        device: `${device.code}${device.number}`,
+        points,
+        bitUnit: Boolean(options.bitUnit),
+      });
+      return [true, false];
+    },
+  };
+
+  assert.deepEqual(await readNamed(fakeClient, ["D100:U", "TS0:BIT,2", "D200:U"]), {
+    "D100:U": 11,
+    "TS0:BIT,2": [true, false],
+    "D200:U": 22,
+  });
+  assert.deepEqual(calls, [
+    { kind: "random", devices: ["D100"] },
+    { kind: "direct", device: "TS0", points: 2, bitUnit: true },
+    { kind: "random", devices: ["D200"] },
+  ]);
+});
+
+test("readNamed splits independent bit and string entries without tearing either entry", async () => {
   const calls = [];
   const floatWords = [];
   for (const value of [1.5, -2.25]) {
@@ -310,11 +457,14 @@ test("readNamed rejects count arrays and strings that require block reads", asyn
     },
   };
 
-  await assert.rejects(
-    () => readNamed(fakeClient, ["M1000:BIT,3", "D300:STR,5"]),
-    /exactly one protocol request/
-  );
-  assert.deepEqual(calls, []);
+  assert.deepEqual(await readNamed(fakeClient, ["M1000:BIT,3", "D300:STR,5"]), {
+    "M1000:BIT,3": [true, false, true],
+    "D300:STR,5": "HELLO",
+  });
+  assert.deepEqual(calls, [
+    { device: "M1000", points: 3, bitUnit: true },
+    { device: "D300", points: 3, bitUnit: false },
+  ]);
 });
 
 test("readNamed permits one long-timer cluster as one request", async () => {
@@ -401,7 +551,7 @@ test("readTyped resolves long-family values through supported routes", async () 
   ]);
 });
 
-test("readNamed rejects mixed long-counter random and direct routes", async () => {
+test("readNamed executes mixed long-counter routes sequentially", async () => {
   const calls = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -432,8 +582,154 @@ test("readNamed rejects mixed long-counter random and direct routes", async () =
     },
   };
 
-  await assert.rejects(() => readNamed(fakeClient, ["LCN0:D", "LCC0:BIT"]), /exactly one protocol request/);
-  assert.deepEqual(calls, []);
+  assert.deepEqual(await readNamed(fakeClient, ["LCN0:D", "LCC0:BIT"]), {
+    "LCN0:D": 0x00010002,
+    "LCC0:BIT": true,
+  });
+  assert.deepEqual(calls, [
+    { kind: "readRandom", dwordDevices: ["LCN0"] },
+    { kind: "readDevices", device: "LCC0", points: 1, bitUnit: true },
+  ]);
+});
+
+test("readNamed rejects an oversized indivisible logical value before transport", async () => {
+  let calls = 0;
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    plcSeries: "iqr",
+    async readDevices() {
+      calls += 1;
+      return [];
+    },
+  };
+
+  await assert.rejects(
+    () => readNamed(fakeClient, ["D0:STR,1921"]),
+    /logical entry.*cannot fit one request/i,
+  );
+  assert.equal(calls, 0);
+});
+
+test("readNamed retains one FIFO client turn across all internal requests", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const commands = [];
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  client._requestInternal = async (command, subcommand) => {
+    commands.push(command);
+    if (commands.length === 1) await firstGate;
+    if (command === slmp.Command.DEVICE_READ) {
+      return {
+        endCode: 0,
+        data: subcommand & 0x0001
+          ? slmp.packBitValues([true, false])
+          : Buffer.from([0x11, 0x11, 0x22, 0x22]),
+      };
+    }
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  const aggregate = readNamed(client, ["D100:U,2", "M0:BIT,2"]);
+  await new Promise((resolve) => setImmediate(resolve));
+  const later = client.rawCommand(slmp.Command.READ_TYPE_NAME, {
+    subcommand: 0,
+    payload: Buffer.alloc(0),
+  });
+  releaseFirst();
+
+  assert.deepEqual(await aggregate, {
+    "D100:U,2": [0x1111, 0x2222],
+    "M0:BIT,2": [true, false],
+  });
+  await later;
+  assert.deepEqual(commands, [
+    slmp.Command.DEVICE_READ,
+    slmp.Command.DEVICE_READ,
+    slmp.Command.READ_TYPE_NAME,
+  ]);
+});
+
+test("writeBitInWord preflights the complete read/write operation before transport", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let calls = 0;
+  client._requestInternal = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.from([0, 0]) };
+  };
+
+  await assert.rejects(() => writeBitInWord(client, "M0", 0, true), /only valid for word devices/i);
+  await assert.rejects(() => writeBitInWord(client, "LTN0", 0, true), /requires 4-word blocks/i);
+  await assert.rejects(
+    () => writeBitInWord(client, "D0", 0, true, { stateChanging: false }),
+    /state-changing.*cannot be classified as read-only/i,
+  );
+  await assert.rejects(
+    () => writeBitInWord(client, "D0", 0, true, { expectResponse: false }),
+    /both read and write responses are required/i,
+  );
+  await assert.rejects(() => writeBitInWord(client, "D0", true, true), /bitIndex must be 0-15/i);
+  await assert.rejects(() => writeBitInWord(client, "D0", 0, 1), /expects boolean/i);
+  assert.equal(calls, 0);
+});
+
+test("writeBitInWord snapshots options and retains one FIFO turn across read and write", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const commands = [];
+  const targets = [];
+  let releaseBlocker;
+  const blockerGate = new Promise((resolve) => {
+    releaseBlocker = resolve;
+  });
+  client._requestInternal = async (command, _subcommand, _payload, requestOptions) => {
+    commands.push(command);
+    targets.push(requestOptions.target);
+    return command === slmp.Command.DEVICE_READ
+      ? { endCode: 0, data: Buffer.from([0x00, 0x00]) }
+      : { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  const blocker = client._runExclusive(() => blockerGate);
+  const target = { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 };
+  const rmw = writeBitInWord(client, "D0", 3, true, { target });
+  target.network = 7;
+  const later = client.rawCommand(slmp.Command.READ_TYPE_NAME, {
+    subcommand: 0,
+    payload: Buffer.alloc(0),
+  });
+  releaseBlocker();
+  await blocker;
+  await rmw;
+  await later;
+
+  assert.deepEqual(commands, [
+    slmp.Command.DEVICE_READ,
+    slmp.Command.DEVICE_WRITE,
+    slmp.Command.READ_TYPE_NAME,
+  ]);
+  assert.deepEqual(targets.slice(0, 2), [
+    { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 },
+    { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 },
+  ]);
 });
 
 test("named count and string entries share one multi-block request", async () => {
@@ -463,6 +759,24 @@ test("named count and string entries share one multi-block request", async () =>
   assert.equal(calls.filter((call) => call.kind === "writeBlock").length, 1);
   assert.equal(calls[0].blocks.length, 2);
   assert.equal(calls[1].blocks.length, 2);
+});
+
+test("readNamed does not hide unexpected block capability-check failures", async () => {
+  let reads = 0;
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    _ensureProfileFeatureAllowed(feature) {
+      if (feature === "block") throw new Error("synthetic capability failure");
+    },
+    async readBlock() { reads += 1; },
+    async readDevices() { reads += 1; },
+  };
+
+  await assert.rejects(
+    () => readNamed(fakeClient, ["D0:U,2", "D10:U,2"]),
+    /synthetic capability failure/,
+  );
+  assert.equal(reads, 0);
 });
 
 test("one contiguous named word cluster uses one direct request on block-disabled profiles", async () => {
@@ -533,7 +847,10 @@ test("readNamed forwards per-request target overrides to client calls", async ()
   assert.equal(snapshot["D100:U"], 42);
   assert.equal(snapshot["D200:F"], 1.5);
   assert.equal(snapshot["M1000:BIT"], true);
-  assert.deepEqual(calls, [{ kind: "readRandom", target }]);
+  assert.deepEqual(calls, [{
+    kind: "readRandom",
+    target: { network: 2, station: 3, moduleIO: 0x03ff, multidrop: 1 },
+  }]);
 });
 
 test("writeNamed rejects bit-in-word mixed with direct bits", async () => {
@@ -684,7 +1001,7 @@ test("writes validate boolean and numeric values before any client call", async 
   for (const value of ["not-a-number", Number.NaN, Number.POSITIVE_INFINITY, 1.5, -1, 0x10000]) {
     await assert.rejects(() => writeTyped(fakeClient, "D100", "U", value), /numeric|finite|integer|range/i);
   }
-  for (const value of ["yes", "", 2, -1, Number.NaN, null]) {
+  for (const value of [0, 1, "0", "1", "ON", "OFF", "TRUE", "FALSE", "yes", "", 2, -1, Number.NaN, null]) {
     await assert.rejects(() => writeTyped(fakeClient, "M1000", "BIT", value), /expects boolean/i);
   }
   await assert.rejects(
@@ -694,7 +1011,7 @@ test("writes validate boolean and numeric values before any client call", async 
   assert.equal(calls, 0);
 });
 
-test("writes accept only documented boolean tokens and integer widths", async () => {
+test("writes accept only native booleans for bit values and exact integer widths", async () => {
   const writes = [];
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -703,16 +1020,7 @@ test("writes accept only documented boolean tokens and integer widths", async ()
     },
   };
 
-  for (const [value, expected] of [
-    [true, true],
-    [false, false],
-    [1, true],
-    [0, false],
-    ["ON", true],
-    ["off", false],
-    ["TRUE", true],
-    ["false", false],
-  ]) {
+  for (const [value, expected] of [[true, true], [false, false]]) {
     await writeTyped(fakeClient, "M1000", "BIT", value);
     assert.equal(writes.at(-1).values[0], expected);
   }

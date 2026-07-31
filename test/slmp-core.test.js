@@ -2,9 +2,12 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const dgram = require("node:dgram");
+const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
+const { performance } = require("node:perf_hooks");
 const { SlmpTransport } = require("../lib/slmp/transport");
 
 const slmpApi = require("../lib/slmp");
@@ -15,6 +18,7 @@ const {
   getEndCodeName,
   isRemotePasswordEndCode,
   SlmpError,
+  SlmpClosedError,
   SlmpExtendedDevice,
   SlmpIndexLz,
   SlmpIndexZ,
@@ -37,10 +41,48 @@ const {
   parseSlmpErrorInfo,
   resolveConnectionProfile,
   SlmpProfileFeatureError,
+  SlmpOperationOutcomeUnknownError,
+  SlmpNotConnectedError,
+  SlmpTimeoutError,
   unpackBitValues,
 } = slmpApi;
 
 const TEST_TARGET = Object.freeze({ network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 });
+
+class FakeConnectingTcpSocket extends EventEmitter {
+  constructor() {
+    super();
+    this.destroyed = false;
+  }
+
+  setNoDelay() {}
+
+  setKeepAlive() {}
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    queueMicrotask(() => this.emit("close"));
+  }
+}
+
+class FakeConnectingUdpSocket extends EventEmitter {
+  constructor() {
+    super();
+    this.closed = false;
+    this.connectCallback = null;
+  }
+
+  connect(_port, _host, callback) {
+    this.connectCallback = callback;
+  }
+
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    queueMicrotask(() => this.emit("close"));
+  }
+}
 
 function SlmpClient(options) {
   const client = new StrictSlmpClient({ port: 1025, transport: "tcp", target: TEST_TARGET, ...options });
@@ -56,6 +98,220 @@ function SlmpClient(options) {
 function loadDeviceRangeRulesFixture() {
   return JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "slmp_device_range_rules.json"), "utf8"));
 }
+
+test("TCP and UDP reject IPv6 literals before socket creation", () => {
+  for (const transport of ["tcp", "udp"]) {
+    for (const host of ["::1", "[::1]", "::ffff:127.0.0.1"]) {
+      assert.throws(
+        () => new StrictSlmpClient({
+          host,
+          port: 1025,
+          transport,
+          target: TEST_TARGET,
+          plcProfile: "melsec:iq-r",
+        }),
+        /IPv6 is unsupported/
+      );
+      assert.throws(
+        () => new SlmpTransport({ host, port: 1025, transportType: transport, frameType: "4e", timeout: 100 }),
+        /IPv6 is unsupported/
+      );
+    }
+  }
+});
+
+test("close deterministically cancels connecting TCP and ignores late success", async () => {
+  class FakeTcpTransport extends SlmpTransport {
+    _createTcpSocket() {
+      this.createdSocket = new FakeConnectingTcpSocket();
+      return this.createdSocket;
+    }
+  }
+
+  const transport = new FakeTcpTransport({
+    host: "127.0.0.1", port: 1025, transportType: "tcp", frameType: "4e", timeout: 1000,
+  });
+  const firstConnect = transport.connect();
+  const firstSocket = transport.createdSocket;
+  const rejected = assert.rejects(
+    firstConnect,
+    (error) => error instanceof SlmpClosedError && error.code === "SLMP_CLOSED",
+  );
+  await transport.close();
+  await rejected;
+  firstSocket.emit("connect");
+  assert.equal(transport.hasOpenTransport(), false);
+
+  const secondConnect = transport.connect();
+  const secondSocket = transport.createdSocket;
+  secondSocket.emit("connect");
+  await secondConnect;
+  assert.equal(transport.hasOpenTransport(), true);
+  await transport.close();
+});
+
+test("close deterministically cancels connecting UDP and ignores late callback", async () => {
+  class FakeUdpTransport extends SlmpTransport {
+    _createUdpSocket() {
+      this.createdSocket = new FakeConnectingUdpSocket();
+      return this.createdSocket;
+    }
+  }
+
+  const transport = new FakeUdpTransport({
+    host: "127.0.0.1", port: 1025, transportType: "udp", frameType: "4e", timeout: 1000,
+  });
+  const firstConnect = transport.connect();
+  const firstSocket = transport.createdSocket;
+  const rejected = assert.rejects(
+    firstConnect,
+    (error) => error instanceof SlmpClosedError && error.code === "SLMP_CLOSED",
+  );
+  await transport.close();
+  await rejected;
+  firstSocket.connectCallback();
+  assert.equal(transport.hasOpenTransport(), false);
+
+  const secondConnect = transport.connect();
+  const secondSocket = transport.createdSocket;
+  secondSocket.connectCallback();
+  await secondConnect;
+  assert.equal(transport.hasOpenTransport(), true);
+  await transport.close();
+});
+
+test("TCP and UDP connect deadlines expose the dedicated timeout classification", async () => {
+  class FakeTcpTransport extends SlmpTransport {
+    _createTcpSocket() {
+      this.createdSocket = new FakeConnectingTcpSocket();
+      return this.createdSocket;
+    }
+  }
+  class FakeUdpTransport extends SlmpTransport {
+    _createUdpSocket() {
+      this.createdSocket = new FakeConnectingUdpSocket();
+      return this.createdSocket;
+    }
+  }
+  const transports = [
+    new FakeTcpTransport({
+      host: "127.0.0.1", port: 1025, transportType: "tcp", frameType: "4e", timeout: 5,
+    }),
+    new FakeUdpTransport({
+      host: "127.0.0.1", port: 1025, transportType: "udp", frameType: "4e", timeout: 5,
+    }),
+  ];
+
+  for (const transport of transports) {
+    await assert.rejects(
+      () => transport.connect(),
+      (error) => error instanceof SlmpTimeoutError && error.code === "SLMP_TIMEOUT",
+    );
+    assert.equal(transport.hasOpenTransport(), false);
+  }
+});
+
+test("transport use before connect exposes the dedicated not-connected classification", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    const transport = new SlmpTransport({
+      host: "127.0.0.1",
+      port: 1025,
+      transportType,
+      frameType: "4e",
+      timeout: 50,
+    });
+    await assert.rejects(
+      () => transport.sendOnly(Buffer.from([0x01])),
+      (error) => error instanceof SlmpNotConnectedError && error.code === "SLMP_NOT_CONNECTED",
+    );
+  }
+});
+
+test("one deadline also bounds blocked TCP write and UDP send completion", async () => {
+  const tcpTransport = new SlmpTransport({
+    host: "127.0.0.1",
+    port: 1025,
+    transportType: "tcp",
+    frameType: "4e",
+    timeout: 1000,
+  });
+  const tcpSocket = new EventEmitter();
+  tcpSocket.destroyed = false;
+  tcpSocket.write = () => {};
+  tcpSocket.destroy = () => { tcpSocket.destroyed = true; };
+  tcpTransport._tcpSocket = tcpSocket;
+
+  const tcpStarted = performance.now();
+  await assert.rejects(
+    () => tcpTransport.sendAndReceive(Buffer.from([0x01]), 7, null, tcpStarted + 15),
+    (error) => error instanceof SlmpTimeoutError && error.code === "SLMP_TIMEOUT",
+  );
+  assert.ok(performance.now() - tcpStarted < 250);
+  assert.equal(tcpSocket.destroyed, true);
+  assert.equal(tcpTransport.hasOpenTransport(), false);
+
+  const udpTransport = new SlmpTransport({
+    host: "127.0.0.1",
+    port: 1025,
+    transportType: "udp",
+    frameType: "4e",
+    timeout: 1000,
+  });
+  const udpSocket = new EventEmitter();
+  udpSocket.send = () => {};
+  udpSocket.close = () => {};
+  udpTransport._udpSocket = udpSocket;
+
+  const udpStarted = performance.now();
+  await assert.rejects(
+    () => udpTransport.sendOnly(Buffer.from([0x01]), udpStarted + 15),
+    (error) => error instanceof SlmpTimeoutError && error.code === "SLMP_TIMEOUT",
+  );
+  assert.ok(performance.now() - udpStarted < 250);
+  assert.equal(udpTransport.hasOpenTransport(), false);
+});
+
+test("hostname connections select IPv4 for TCP and UDP", async () => {
+  const tcpServer = net.createServer();
+  await new Promise((resolve, reject) => {
+    tcpServer.once("error", reject);
+    tcpServer.listen(0, "127.0.0.1", resolve);
+  });
+  const tcpTransport = new SlmpTransport({
+    host: "localhost",
+    port: tcpServer.address().port,
+    transportType: "tcp",
+    frameType: "4e",
+    timeout: 1000,
+  });
+  try {
+    await tcpTransport._connectTcp();
+    assert.equal(tcpTransport._tcpSocket.remoteFamily, "IPv4");
+  } finally {
+    await tcpTransport.close();
+    await new Promise((resolve) => tcpServer.close(resolve));
+  }
+
+  const udpServer = dgram.createSocket("udp4");
+  await new Promise((resolve, reject) => {
+    udpServer.once("error", reject);
+    udpServer.bind(0, "127.0.0.1", resolve);
+  });
+  const udpTransport = new SlmpTransport({
+    host: "localhost",
+    port: udpServer.address().port,
+    transportType: "udp",
+    frameType: "4e",
+    timeout: 1000,
+  });
+  try {
+    await udpTransport._connectUdp();
+    assert.equal(udpTransport._udpSocket.remoteAddress().family, "IPv4");
+  } finally {
+    await udpTransport.close();
+    udpServer.close();
+  }
+});
 
 test("parseDevice handles decimal and hex devices", () => {
   const options = { plcProfile: "melsec:iq-r" };
@@ -114,6 +370,40 @@ test("profile-free or mismatched semantic device objects cannot bypass the clien
     /does not match requested plcProfile/
   );
   assert.equal(requests, 0);
+});
+
+test("every DeviceRef-taking API rejects profile mismatch before serial or transport state changes", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const wrongWord = Object.freeze({ code: "D", number: 0, plcProfile: "melsec:iq-f" });
+  const wrongBit = Object.freeze({ code: "M", number: 0, plcProfile: "melsec:iq-f" });
+  const cases = [
+    () => client.readDevices(wrongWord, 1, { bitUnit: false }),
+    () => client.writeDevices(wrongWord, [1], { bitUnit: false }),
+    () => client.readRandom({ wordDevices: [wrongWord] }),
+    () => client.readRandom({ dwordDevices: [wrongWord] }),
+    () => client.writeRandomWords({ wordValues: [[wrongWord, 1]] }),
+    () => client.writeRandomWords({ dwordValues: [[wrongWord, 1]] }),
+    () => client.writeRandomBits({ bitValues: [[wrongBit, true]] }),
+    () => client.readBlock({ wordBlocks: [[wrongWord, 1]] }),
+    () => client.readBlock({ bitBlocks: [[wrongBit, 1]] }),
+    () => client.writeBlock({ wordBlocks: [[wrongWord, [1]]] }),
+    () => client.writeBlock({ bitBlocks: [[wrongBit, [true]]] }),
+    () => client.registerMonitorDevices({ wordDevices: [wrongWord] }),
+    () => client.registerMonitorDevices({ dwordDevices: [wrongWord] }),
+  ];
+
+  for (const invoke of cases) {
+    await assert.rejects(invoke, /does not match requested plcProfile/);
+  }
+  assert.equal(client._transport._serial, 0);
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+  assert.equal(client._transport.hasOpenTransport(), false);
 });
 
 test("parseDevice rejects device codes that are unsupported by the explicit PLC profile", () => {
@@ -443,6 +733,39 @@ test("block access allows one block kind and rejects empty or invalid collection
   assert.equal(payloads.length, 4);
 });
 
+test("block access rejects device categories that do not match the block kind", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    target: TEST_TARGET,
+    plcProfile: "melsec:iq-r",
+  });
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    return { data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.readBlock({ wordBlocks: [["M0", 1]] }),
+    /wordBlocks requires a word device/
+  );
+  await assert.rejects(
+    () => client.readBlock({ bitBlocks: [["D0", 1]] }),
+    /bitBlocks requires a bit device/
+  );
+  await assert.rejects(
+    () => client.writeBlock({ wordBlocks: [["M0", [1]]] }),
+    /wordBlocks requires a word device/
+  );
+  await assert.rejects(
+    () => client.writeBlock({ bitBlocks: [["D0", [1]]] }),
+    /bitBlocks requires a bit device/
+  );
+  assert.equal(calls, 0);
+});
+
 test("raiseOnError defaults to true and accepts only explicit booleans", async () => {
   const base = {
     host: "127.0.0.1",
@@ -511,6 +834,7 @@ test("normalizeTarget rejects partial, fractional, and non-finite route values",
   }
   assert.throws(() => normalizeTarget({ network: 0 }), /required/i);
   assert.throws(() => normalizeTarget({ ...TEST_TARGET, module_io: 0x03ff }), /both moduleIO and module_io/i);
+  assert.throws(() => normalizeTarget({ ...TEST_TARGET, unexpected: 1 }), /unexpected field/i);
   assert.deepEqual(normalizeTarget({ network: 0, station: 0, module_io: 0, multidrop: 0 }), {
     network: 0,
     station: 0,
@@ -661,6 +985,215 @@ test("queued requests snapshot the effective target before caller mutation", asy
   assert.equal(observed[1].raiseOnError, false);
 });
 
+test("lazy connect and response wait share one absolute transaction deadline", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+    timeout: 35,
+  });
+  const deadlines = [];
+  let open = false;
+  client._transport = {
+    async connect(deadline) {
+      deadlines.push(deadline);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      open = true;
+    },
+    hasOpenTransport() { return open; },
+    connectionGeneration() { return 1; },
+    nextSerial() { return 0; },
+    async sendAndReceive(_frame, _serial, _target, deadline) {
+      deadlines.push(deadline);
+      await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.ceil(deadline - performance.now()))));
+      open = false;
+      throw new SlmpTimeoutError("synthetic absolute deadline");
+    },
+    async close() { open = false; },
+  };
+
+  const started = performance.now();
+  await assert.rejects(
+    () => client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) }),
+    SlmpTimeoutError,
+  );
+  const elapsed = performance.now() - started;
+  assert.equal(deadlines.length, 2);
+  assert.equal(deadlines[0], deadlines[1]);
+  assert.ok(elapsed < 60, `transaction took ${elapsed}ms`);
+});
+
+test("an expired lazy-connect deadline retires the generation before any request send", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+    timeout: 5,
+  });
+  let open = false;
+  let sends = 0;
+  let closes = 0;
+  client._transport = {
+    async connect() {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      open = true;
+    },
+    hasOpenTransport() { return open; },
+    connectionGeneration() { return 1; },
+    nextSerial() { return 0; },
+    async sendAndReceive() { sends += 1; },
+    async close() {
+      closes += 1;
+      open = false;
+    },
+  };
+
+  await assert.rejects(
+    () => client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) }),
+    (error) => error instanceof SlmpTimeoutError && error.code === "SLMP_TIMEOUT",
+  );
+  assert.equal(sends, 0);
+  assert.equal(closes, 1);
+  assert.equal(open, false);
+});
+
+test("read timeout stays timeout while a post-send write timeout is outcome unknown", async () => {
+  function makeClient() {
+    const client = new StrictSlmpClient({
+      host: "127.0.0.1",
+      port: 1025,
+      transport: "tcp",
+      plcProfile: "melsec:iq-r",
+      target: TEST_TARGET,
+    });
+    client._transport = {
+      async connect() {},
+      hasOpenTransport() { return true; },
+      connectionGeneration() { return 1; },
+      nextSerial() { return 0; },
+      async sendAndReceive() { throw new SlmpTimeoutError("synthetic response timeout"); },
+      async close() {},
+    };
+    return client;
+  }
+
+  await assert.rejects(
+    () => makeClient().rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) }),
+    SlmpTimeoutError,
+  );
+  await assert.rejects(
+    () => makeClient().clearError(),
+    (error) => error instanceof SlmpOperationOutcomeUnknownError
+      && error.reason === "timeout"
+      && error.cause instanceof SlmpTimeoutError,
+  );
+  await assert.rejects(
+    () => makeClient().rawCommand(0x7f01, { subcommand: 0, payload: Buffer.alloc(0) }),
+    SlmpOperationOutcomeUnknownError,
+  );
+  await assert.rejects(
+    () => makeClient().rawCommand(0x7f01, {
+      subcommand: 0,
+      payload: Buffer.alloc(0),
+      stateChanging: false,
+    }),
+    SlmpTimeoutError,
+  );
+  await assert.rejects(
+    () => makeClient().rawCommand(Command.CLEAR_ERROR, {
+      subcommand: 0,
+      payload: Buffer.alloc(0),
+      stateChanging: false,
+    }),
+    /cannot be classified as read-only/,
+  );
+});
+
+test("close rejects active and queued work and old queue generations never reconnect", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let open = false;
+  let activeReject = null;
+  let connects = 0;
+  let sends = 0;
+  client._transport = {
+    async connect() { open = true; connects += 1; },
+    hasOpenTransport() { return open; },
+    connectionGeneration() { return connects; },
+    nextSerial() { return sends; },
+    sendAndReceive(frame) {
+      sends += 1;
+      if (sends > 1) return Promise.resolve(responseForRequest(frame, client.frameType, []));
+      return new Promise((_resolve, reject) => { activeReject = reject; });
+    },
+    async close() {
+      open = false;
+      if (activeReject) {
+        const reject = activeReject;
+        activeReject = null;
+        reject(new SlmpClosedError("closed by lifecycle"));
+      }
+    },
+  };
+
+  const first = client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) });
+  const queued = client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) });
+  const firstClosed = assert.rejects(() => first, SlmpClosedError);
+  const queuedClosed = assert.rejects(() => queued, SlmpClosedError);
+  await waitFor(() => activeReject !== null);
+  await client.close();
+  await Promise.all([firstClosed, queuedClosed]);
+  assert.equal(connects, 1);
+  assert.equal(sends, 1);
+
+  await client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) });
+  assert.equal(connects, 2);
+  assert.equal(sends, 2);
+});
+
+test("close during a possibly sent state-changing request reports outcome unknown", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let rejectActive = null;
+  client._transport = {
+    async connect() {},
+    hasOpenTransport() { return true; },
+    connectionGeneration() { return 1; },
+    nextSerial() { return 0; },
+    sendAndReceive() {
+      return new Promise((_resolve, reject) => { rejectActive = reject; });
+    },
+    async close() {
+      if (rejectActive) rejectActive(new SlmpClosedError("closed by lifecycle"));
+    },
+  };
+
+  const operation = client.clearError();
+  const rejected = assert.rejects(
+    () => operation,
+    (error) => error instanceof SlmpOperationOutcomeUnknownError
+      && error.reason === "closed"
+      && error.cause instanceof SlmpClosedError,
+  );
+  await waitFor(() => rejectActive !== null);
+  await client.close();
+  await rejected;
+});
+
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "ql" })], [100, 0, 0, 0xa8]);
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "iqr" })], [100, 0, 0, 0, 0xa8, 0x00]);
@@ -731,6 +1264,12 @@ test("packBitValues and unpackBitValues round-trip", () => {
   const packed = packBitValues([true, false, true, true, false]);
   assert.deepEqual([...packed], [0x10, 0x11, 0x00]);
   assert.deepEqual(unpackBitValues(packed, 5), [true, false, true, true, false]);
+  for (const invalid of [0, 1, -1, 2, "false", "true", null, undefined, {}, []]) {
+    assert.throws(() => packBitValues([invalid]), /must be boolean/);
+  }
+  assert.throws(() => unpackBitValues(Buffer.from([0x10, 0x10]), 1), /length mismatch/);
+  assert.throws(() => unpackBitValues(Buffer.from([0x20]), 1), /invalid nibble/);
+  assert.throws(() => unpackBitValues(Buffer.from([0x12]), 2), /invalid nibble/);
 });
 
 test("encodeRequest and decodeResponse work for 4E frames", () => {
@@ -762,6 +1301,13 @@ test("encodeRequest and decodeResponse work for 4E frames", () => {
   assert.equal(decoded.serial, 0x1234);
   assert.equal(decoded.endCode, 0);
   assert.deepEqual([...decoded.data], [0x78, 0x56]);
+
+  const invalidReserved = Buffer.from(response);
+  invalidReserved.writeUInt16LE(1, 4);
+  assert.throws(
+    () => decodeResponse(invalidReserved, { frameType: "4e" }),
+    /reserved bytes/
+  );
 });
 
 test("ModuleIONo exposes named target module I/O constants", () => {
@@ -1282,7 +1828,7 @@ test("managed remote password state follows the transport generation and is neve
       const isPasswordCommand = command === Command.REMOTE_PASSWORD_UNLOCK || command === Command.REMOTE_PASSWORD_LOCK;
       if (!isPasswordCommand && this.failNextUserCommand) {
         this.failNextUserCommand = false;
-        throw new SlmpError("UDP communication timeout");
+        throw new SlmpTimeoutError("UDP communication timeout");
       }
       return responseForRequest(frame, client.frameType, []);
     },
@@ -1295,7 +1841,12 @@ test("managed remote password state follows the transport generation and is neve
   await client.remoteStop();
   await client.remotePause({ force: false });
   fakeTransport.failNextUserCommand = true;
-  await assert.rejects(() => client.remoteStop(), /UDP communication timeout/);
+  await assert.rejects(
+    () => client.remoteStop(),
+    (error) => error instanceof SlmpOperationOutcomeUnknownError
+      && error.reason === "timeout"
+      && error.cause instanceof SlmpTimeoutError,
+  );
   await client.remotePause({ force: false });
   fakeTransport.open = false;
   await client.remoteStop();
@@ -1468,7 +2019,10 @@ test("3E UDP timeout closes its socket generation and rejects a delayed response
   };
   client._transport._udpSocket = oldSocket;
 
-  await assert.rejects(() => client._transport.sendUdp(Buffer.from([1]), 0), /UDP communication timeout/);
+  await assert.rejects(
+    () => client._transport.sendUdp(Buffer.from([1]), 0),
+    (error) => error instanceof SlmpTimeoutError && error.code === "SLMP_TIMEOUT",
+  );
   assert.equal(oldClosed, true);
   assert.equal(client._transport._udpSocket, null);
 
@@ -1484,10 +2038,13 @@ test("3E UDP timeout closes its socket generation and rejects a delayed response
   assert.deepEqual([...decodeResponse(frame, { frameType: "3e" }).data], [0x22]);
 });
 
-test("TCP frame wait reports the existing timeout message", async () => {
+test("TCP frame wait exposes the dedicated timeout classification", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", timeout: 5, _allowManualProfile: true });
 
-  await assert.rejects(() => client._awaitTcpFrame(0), /TCP communication timeout/);
+  await assert.rejects(
+    () => client._awaitTcpFrame(0),
+    (error) => error instanceof SlmpTimeoutError && error.code === "SLMP_TIMEOUT",
+  );
 });
 
 test("TCP failure rejects pending waits with the provided error", async () => {
@@ -1707,8 +2264,9 @@ test("the public request path passes the snapshotted effective target into corre
       plcProfile,
       target: TEST_TARGET,
     });
-    client.connect = async () => {};
     let capturedTarget;
+    client._transport.connect = async () => {};
+    client._transport.hasOpenTransport = () => true;
     client._transport.sendAndReceive = async (frame, serial, expectedTarget) => {
       capturedTarget = expectedTarget;
       return responseForRequest(frame, client.frameType, []);
@@ -2053,9 +2611,10 @@ test("write APIs reject duplicate and overlapping destinations before transport"
     await assert.rejects(() => client.writeDevices("D0", [value], { bitUnit: false }), /integer in range/);
     await assert.rejects(() => client.writeRandomWords({ wordValues: [["D0", value]] }), /integer in range/);
   }
-  for (const value of ["false", "0", 2, -1, 0.5, {}]) {
-    await assert.rejects(() => client.writeDevices("M0", [value], { bitUnit: true }), /boolean|number 0 or 1/);
-    await assert.rejects(() => client.writeRandomBits({ bitValues: [["M0", value]] }), /boolean|number 0 or 1/);
+  for (const value of [0, 1, "false", "0", 2, -1, 0.5, null, {}]) {
+    await assert.rejects(() => client.writeDevices("M0", [value], { bitUnit: true }), /must be boolean/);
+    await assert.rejects(() => client.writeRandomBits({ bitValues: [["M0", value]] }), /must be boolean/);
+    await assert.rejects(() => client.writeRandomBitsExt({ bitValues: [[String.raw`U1\M0`, value]] }), /must be boolean/);
   }
   await assert.rejects(
     () => client.writeRandomWords({ wordValues: [["D100", 1]], dwordValues: [["D99", 2]] }),
@@ -2073,7 +2632,14 @@ test("write APIs reject duplicate and overlapping destinations before transport"
     () => client.writeBlock({ wordBlocks: [["D100", [1, 2]], ["D101", [3]]] }),
     /overlapping destinations/
   );
+  await assert.rejects(
+    () => client.writeBlock({ bitBlocks: [["M0", [1, 2]], ["M16", [3]]] }),
+    /overlapping destinations/
+  );
   assert.equal(calls, 0);
+
+  await client.writeBlock({ bitBlocks: [["M0", [1, 2]], ["M32", [3]]] });
+  assert.equal(calls, 1);
 
   const extClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
   extClient._request = client._request;
@@ -2090,7 +2656,7 @@ test("write APIs reject duplicate and overlapping destinations before transport"
     }),
     /duplicate bit destinations/
   );
-  assert.equal(calls, 0);
+  assert.equal(calls, 1);
 });
 
 test("direct access does not use device-range upper bounds as a send guard", async () => {
@@ -2220,9 +2786,17 @@ test("configured remote password unlocks before lazy requests and locks on close
     calls.push({ kind: "close" });
     transportOpen = false;
   };
-  client._sendAndReceive = async (frame, _serial, options = {}, internalContext = null) => {
+  client._sendAndReceive = async (
+    frame,
+    _serial,
+    options = {},
+    internalContext = null,
+    _expectedTarget = null,
+    deadline = null,
+  ) => {
     if (!internalContext) {
-      await client.connect();
+      await client._connectTransport(deadline);
+      await client._unlockRemotePasswordIfConfigured(deadline);
     }
     calls.push({
       kind: "request",
@@ -2264,6 +2838,56 @@ test("configured remote password unlocks before lazy requests and locks on close
   ]);
 });
 
+test("close with active managed-password work skips lock and reports both close and command outcome unknown", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+    remotePassword: "secret1",
+  });
+  const commands = [];
+  let rejectActive = null;
+  let open = false;
+  client._transport = {
+    async connect() { open = true; },
+    hasOpenTransport() { return open; },
+    connectionGeneration() { return 1; },
+    nextSerial() { return commands.length; },
+    sendAndReceive(frame) {
+      const command = frame.readUInt16LE(15);
+      commands.push(command);
+      if (command === Command.REMOTE_PASSWORD_UNLOCK) {
+        return Promise.resolve(responseForRequest(frame, client.frameType, []));
+      }
+      return new Promise((_resolve, reject) => { rejectActive = reject; });
+    },
+    async close() {
+      open = false;
+      if (rejectActive) rejectActive(new SlmpClosedError("closed by lifecycle"));
+    },
+  };
+
+  const operation = client.remoteStop();
+  const rejected = assert.rejects(
+    () => operation,
+    (error) => error instanceof SlmpOperationOutcomeUnknownError && error.reason === "closed",
+  );
+  await waitFor(() => rejectActive !== null);
+  await assert.rejects(
+    () => client.close(),
+    (error) => error instanceof SlmpOperationOutcomeUnknownError
+      && error.reason === "closed"
+      && error.cause instanceof SlmpClosedError,
+  );
+  await rejected;
+
+  assert.deepEqual(commands, [Command.REMOTE_PASSWORD_UNLOCK, Command.REMOTE_STOP]);
+  assert.equal(commands.includes(Command.REMOTE_PASSWORD_LOCK), false);
+  assert.equal(open, false);
+});
+
 test("concurrent remote password requests wait for the same unlock", async () => {
   const client = new SlmpClient({
     host: "127.0.0.1",
@@ -2282,9 +2906,17 @@ test("concurrent remote password requests wait for the same unlock", async () =>
   client._closeTransport = async () => {
     transportOpen = false;
   };
-  client._sendAndReceive = async (frame, serial, options = {}, internalContext = null) => {
+  client._sendAndReceive = async (
+    frame,
+    serial,
+    options = {},
+    internalContext = null,
+    _expectedTarget = null,
+    deadline = null,
+  ) => {
     if (!internalContext) {
-      await client.connect();
+      await client._connectTransport(deadline);
+      await client._unlockRemotePasswordIfConfigured(deadline);
     }
     const command = frame.readUInt16LE(15);
     commands.push(command);
@@ -2324,9 +2956,17 @@ test("configured remote password unlock reports password errors clearly", async 
     closed = true;
     transportOpen = false;
   };
-  client._sendAndReceive = async (frame, _serial, options = {}, internalContext = null) => {
+  client._sendAndReceive = async (
+    frame,
+    _serial,
+    options = {},
+    internalContext = null,
+    _expectedTarget = null,
+    deadline = null,
+  ) => {
     if (!internalContext) {
-      await client.connect();
+      await client._connectTransport(deadline);
+      await client._unlockRemotePasswordIfConfigured(deadline);
     }
     assert.equal(frame.readUInt16LE(11), Command.REMOTE_PASSWORD_UNLOCK);
     return Buffer.from("d00000ffff0300020010c8", "hex");
@@ -2677,9 +3317,9 @@ test("remoteReset closes the send-only transport generation", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   let sent = 0;
   let closed = 0;
-  client.connect = async () => undefined;
   client._transport = {
     nextSerial() { return 0; },
+    async connect() {},
     async sendOnly() { sent += 1; },
     async close() { closed += 1; },
     hasOpenTransport() { return true; },

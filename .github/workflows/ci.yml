@@ -51,7 +51,14 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test
+        run: node test/run-tests.js
 
       - name: Validate package contents
-        run: npm pack --dry-run
+        if: matrix.node-version == 22
+        shell: pwsh
+        run: ./scripts/check_package_contents.ps1
+
+      - name: Verify self-contained source archive
+        if: matrix.node-version == 22
+        shell: pwsh
+        run: ./scripts/check_source_archive.ps1 -IncludeWorktree

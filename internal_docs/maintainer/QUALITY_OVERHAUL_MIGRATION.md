@@ -374,6 +374,71 @@ Remote RUN requires an actual Boolean `force` and one `RemoteClearMode` value; R
 - [x] Acceptance tests completed.
 - [x] User API reference, changelog, and migration note updated.
 
+### NR-SLMP-RMW-001 — Explicit bit-in-word read-modify-write turn
+
+Scope: `writeBitInWord`, ordinary `SlmpClient` FIFO admission, public usage/API
+documentation, and package-consumer behavior.
+
+Target contract: validate and snapshot the complete word target, bit index,
+Boolean value, route, request policy, and both direct requests before queue
+admission. Hold one ordinary-client FIFO turn across the word read and word
+write, without deadlocking on the re-entrant request path. This prevents another
+operation on the same client from interleaving, but does not make the two SLMP
+requests atomic at the PLC. Other connections and PLC program logic can race,
+the requests can occur in different PLC scans, a possibly-sent write remains
+outcome-unknown, and no automatic retry is allowed.
+
+Compatibility impact: the public helper remains available with the same call
+shape. Invalid write-side arguments now fail before the read, and concurrent
+operations on the same client wait until both requests finish.
+
+Acceptance criteria:
+
+1. Invalid bit index/value, non-word targets, unsupported direct routes, write
+   policy, response-wait override, and request options fail before transport.
+2. The normal-client request order is read, write, then any later queued
+   operation; caller option mutation after invocation cannot change either RMW
+   request.
+3. Read and write keep their normal timeout/error classification, with a
+   possibly-sent write using `SlmpOperationOutcomeUnknownError` and no retry.
+4. Public API/usage docs and changelog state the two-request/non-atomic race and
+   same-client-only exclusion.
+5. The Node.js 18 source gate and installed npm-tarball consumer reproduce the
+   FIFO ordering contract.
+
+- [x] Implementation completed in this repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC checks are not required for this deterministic queue/validation contract; existing direct read/write protocol behavior is unchanged.
+- [x] Documentation, migration notes, changelog, and generated API reference agree.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+Verification evidence:
+
+- Node.js 18.20.8 and the current Node.js environment passed all 218 tests.
+- The consumer-only npm package contract passed with 34 files, and an installed
+  Node.js 18 tarball consumer reproduced read/write/later-request FIFO ordering.
+- A synthetic Git tree containing the complete uncommitted worktree passed the
+  64-file source-archive gate, including archive extraction, dependency install,
+  all tests, and package dry-run.
+- The no-auto-publish guard and `git diff --check` passed.
+
+Self-review disposition:
+
+- Accepted: public RMW previously used two independently queued operations, so a
+  same-client request could run between read and write. One re-entrant exclusive
+  turn now owns both requests.
+- Accepted: write-side request-policy and response-wait validation initially
+  remained after the read boundary. Complete preflight now rejects those inputs
+  before queue admission or transport.
+- Accepted: the first documentation wording claimed all oversized calls never
+  split, contradicting the approved read-only aggregate exception. The wording
+  now applies to single-request and label builders only.
+- Accepted: diff review found and corrected an accidental neighboring
+  `writeBits` variable reference before final verification.
+- No rejected, duplicate, or deferred finding changes this contract.
+
 ## Verification checklist
 
 - [x] Implementation completed for NR-SLMP-OH-001 through NR-SLMP-OH-011 in this repository.
@@ -663,3 +728,98 @@ Self-review disposition:
   deferred hostname resolution. The uniform 65,507-byte UDP frame ceiling is conservative for IPv6
   and preserves one predictable no-connect validation boundary.
 - No duplicate or deferred finding changes this contract.
+
+## NR-SLMP-PACKAGE-001 — Consumer-real package and worktree source gates
+
+Scope: npm package construction/inspection, isolated consumer validation,
+Node-RED flow validation, and self-contained source-archive validation.
+
+Target contract: package evidence must come from a real npm tarball installed
+into an isolated consumer and imported only by the declared package name. The
+source-archive script must be able to construct its own synthetic Git tree from
+the current worktree, including modified, untracked, and deleted paths, and the
+extracted result must pass both the full repository gate and the installed
+package-consumer gate.
+
+Compatibility impact: no runtime or public API behavior changes. Maintainer and
+CI failures are stricter because a checkout-relative import, dry-run-only pack,
+invalid packaged flow, or incomplete current-worktree archive can no longer
+serve as release evidence.
+
+Acceptance criteria:
+
+1. `npm pack` creates one real tarball whose consumer-only inventory is checked,
+   including negative guards for root maintainer/runner files, credential-like
+   files, caches, and build/release output without excluding intended examples.
+2. A fresh isolated project installs that tarball, imports it by
+   `@fa_yoshinobu/node-red-contrib-plc-comm-slmp`, validates the installed flow
+   JSON, and reproduces public read/write/later-operation FIFO ordering from a
+   generated UTF-8 JavaScript smoke file.
+3. `check_source_archive.ps1 -IncludeWorktree` internally creates a synthetic
+   tree covering modified, untracked, and deleted Git worktree paths without
+   changing the real index.
+4. The extracted source runs the full repository gate and real package-consumer
+   gate under supported Node versions.
+
+- [x] Implementation completed in this repository.
+- [x] Tests and gates cover every acceptance criterion.
+- [x] Node 18/current repository, package, and source-archive gates passed.
+- [x] Codex self-review completed against artifact boundaries and the actual diff.
+- [x] Live PLC verification is not required for deterministic packaging and archive mechanics.
+- [x] Maintainer notes, changelog, CI, and gate behavior agree.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+Verification evidence:
+
+- Node.js 18.20.8 and 24.14.1 each passed the 64-file current-worktree
+  source-archive gate after extraction, including all 218 tests and the real
+  installed-tarball consumer gate.
+- The tarball contained 34 consumer files; the isolated consumer imported the
+  scoped package from its own `node_modules`, reproduced read/write/later-call
+  FIFO ordering, and parsed all eight installed Node-RED flow JSON files.
+- The no-auto-publish guard, `git diff --check`, temporary-index cleanup, and
+  overhaul-branch check passed.
+
+Self-review disposition:
+
+- Accepted: `npm pack --dry-run` plus `require('./')` only proved checkout
+  behavior. The gate now installs the produced tarball and resolves only the
+  package name from an isolated consumer.
+- Accepted: example-flow validation previously read checkout files. It now
+  parses every installed package flow.
+- Accepted: caller-built synthetic tree state was not an enforceable archive
+  mode. The archive script now creates and removes its own temporary index.
+- Accepted: extracted-source validation did not execute the installed-package
+  contract. It now runs the package gate after the full source gate.
+- Accepted: passing a here-string directly to native `node -e` on Windows did
+  not preserve the JavaScript quoting, so process success did not prove the
+  intended assertions ran. The gate now writes UTF-8 JavaScript under its
+  disposable work root, executes that file, and emits an assertion-end marker.
+- Accepted: the package inventory guard covered tests and maintainer tooling but
+  did not cover all AC9/DIST AC7 negative categories. It now also rejects root
+  maintainer/runner files, credential-like files, caches, and build/release
+  output while retaining intended Node-RED examples.
+- No rejected, duplicate, or deferred finding remains for this item.
+
+## NR-SLMP-LIVE-001 — Completed interrupted managed-password close disposition
+
+Scope: managed-password clients closed while active or queued work exists.
+
+Target contract: `close()` retires the local generation immediately, performs no automatic
+reconnect, resend, or managed-lock command, returns `SlmpOperationOutcomeUnknownError`, and
+does not record an unconfirmed PLC lock state as locked.
+
+Compatibility impact: none beyond the approved outcome-unknown contract.
+
+Acceptance criteria:
+
+1. Deterministic mock and local-socket tests verify local retirement and outcome-unknown behavior.
+2. Controlled `melsec:iq-r` CPU built-in-Ethernet evidence verifies the tested path and restoration.
+3. No PLC-specific result is claimed for another profile, and profile-by-profile live confirmation is not a publication requirement.
+4. The release disposition is final and creates no open implementation or verification task.
+
+- [x] Implementation and deterministic tests completed.
+- [x] `melsec:iq-r` evidence completed at `192.168.250.100:1025` using a read-only `D0` probe; the final authentication state was verified locked.
+- [x] Additional profile-by-profile live confirmation classified as not required.
+- [x] Documentation and release-scope records agree.
+- [x] Final acceptance verified; no follow-up TODO remains.

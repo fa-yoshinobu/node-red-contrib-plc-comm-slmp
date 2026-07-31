@@ -12,6 +12,9 @@ page.
 
 | Area | Symptom | Guidance |
 | --- | --- | --- |
+| IPv6 endpoint | The connection node rejects an IPv6 literal, or a hostname has no usable address. | TCP and UDP are IPv4-only. Use an IPv4 literal or a hostname with an IPv4 result; connections never select or fall back to IPv6. |
 | Editor/runtime status | `slmp-read` produces no useful payload. | Open the `slmp-connection` config node, confirm the endpoint, and check the node status/debug sidebar. Use the shared end-code page when the PLC returns an SLMP end code. |
 | Starter workflow | The first imported flow produces many failed entries. | Import `slmp-basic-read-write.json` first and verify a simple `D300:U` read before using the matrix flow. Unsupported profile/device combinations follow the selected error route rather than becoming successful skipped messages. |
 | Remote-password disconnect | Disconnect reports an error even though the local socket is closed. | The final PLC lock failed or its result is unknown. Treat the local client as closed, but do not assume the PLC is locked; verify configuration before reconnecting. |
+| Outcome unknown | A write fails with `SLMP_OPERATION_OUTCOME_UNKNOWN`. | Bytes may have reached the PLC before timeout, close, or transport failure. Do not retry automatically; verify PLC state first and inspect `reason` and `cause`. |
+| Aggregate read timing | Values returned by one `readNamed` call appear to come from different PLC scans. | A mixed aggregate may use several sequential requests in listed order and is intentionally non-atomic. Use a one-request read or PLC-side snapshot/handshake for coherent data. |

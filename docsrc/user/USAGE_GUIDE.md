@@ -30,12 +30,17 @@ Requests that share one `slmp-connection` are sent in FIFO order. The next
 request waits until the previous request has received a response, timed out, or
 failed. This is intentional for SLMP compatibility because PLCs have
 model-dependent limits for commands sent before earlier responses arrive.
+Disconnect rejects both active and queued work and prevents queued work from
+reconnecting after that close. A later, newly admitted operation may open a new
+transport generation.
 
 TCP connections enable keepalive after 30 seconds idle. UDP timeouts discard
 the timed-out socket generation before a later request can open a new one.
 
 The monitor timer and `Timeout ms` control different waits. The monitor timer
-is sent to the PLC. `Timeout ms` is the local communication deadline. Therefore,
+is sent to the PLC. `Timeout ms` is one local absolute transaction deadline
+covering lazy connection, send completion, response framing/correlation, and
+decode. Therefore,
 even when the monitor timer is explicitly `0`, the client can still end the
 request when its communication timeout expires. Missing monitor timer settings
 use `16`; null, blank, Boolean, fractional, negative, non-finite, and
@@ -48,7 +53,10 @@ config node owns its own client connection and therefore its own request queue.
 
 Node-RED is the only SLMP package here with a connection-field remote password lifecycle.
 When `Use remote password` is checked and a non-empty credential is set, the node unlocks after opening
-and tries to lock before disconnecting. The field is disabled and not forwarded when the checkbox is
+and, when idle, tries to lock before disconnecting. If work is active or queued,
+disconnect prioritizes deterministic cancellation and local close, so the PLC
+lock state is unknown and disconnect reports `SLMP_OPERATION_OUTCOME_UNKNOWN`
+with reason `closed`. The local transport is still closed. The field is disabled and not forwarded when the checkbox is
 off. When it is on, iQ-R credentials must be 6–32 printable ASCII characters and Q/L credentials must
 be exactly 4 printable ASCII characters.
 
@@ -213,14 +221,26 @@ an incomplete or conflicting selector is not completed from `msg.dtype`.
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
 Use only `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`. The removed compatibility
-spellings `:I`, `:STRING`, and `DSTR...` are rejected. `readNamed` and
-`writeNamed` accept only update sets that compile to one protocol request.
-Compatible word blocks, including counted and string entries, may share one
-block request. Mixed command families and bit-in-word read-modify-write are
-rejected before transport. Use explicit APIs when multiple commands are required.
+spellings `:I`, `:STRING`, and `DSTR...` are rejected. `readNamed` may split an
+aggregate read into sequential requests only between independent listed
+entries. Those requests preserve listed timing order, keep one FIFO turn, stop
+on the first failure, return no partial
+result, and never split one scalar, string, or counted array. A split result is
+not one simultaneous snapshot; use a single-request read or PLC-side
+snapshot/handshake when values must represent one instant. `writeNamed` must fit
+one protocol request and rejects mixed command families before transport.
+Bit-in-word read-modify-write is not hidden inside `writeNamed`. The explicit
+`writeBitInWord` helper snapshots and validates its arguments before queue
+admission, then holds one ordinary-client FIFO turn across its word read and
+word write. That prevents same-client interleaving only. The two requests are
+not atomic at the PLC: another connection or PLC program logic can update the
+word between them, and they can observe different PLC scans. If the write may
+have been sent, its outcome is unknown after timeout, close, or transport
+failure. The helper does not retry automatically; verify PLC state first.
 
 Direct write values are not coerced: word/DWord values must be exact in-range
-integers and bits must be Boolean or numeric 0/1. Named writes also reject
+integers and bits must be native JavaScript Booleans. Numeric/string forms such
+as `0`, `1`, `"ON"`, and `"OFF"` are rejected. Named writes also reject
 overlapping destinations. Extended random-read result keys append `+Zn`,
 `+LZn`, or `+INDIRECT` when a modifier is present.
 

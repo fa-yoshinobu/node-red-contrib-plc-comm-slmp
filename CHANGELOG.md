@@ -18,22 +18,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- CI: The package gate now creates and installs the real npm tarball in an isolated consumer, runs the package-name/FIFO RMW assertions from a generated UTF-8 JavaScript file without checkout fallback, validates packaged Node-RED flows, and rejects root maintainer/runner files, credentials, caches, and build/release output from the artifact.
+- Tooling: The source-archive gate can synthesize a Git tree from the complete current worktree, including modified, untracked, and deleted paths, then runs both the full extracted-source gate and installed-package consumer gate.
+- Docs: Documented Node.js 18 as the package's minimum supported runtime so the getting-started requirements agree with package metadata and CI.
+- Release: Made the npm artifact consumer-only while retaining Node-RED example flows, removed the packaged `test`, `check`, and `smoke:editor` developer commands whose runners are excluded, and made the GitHub source archive retain tracked tests, CI, and maintainer validation inputs.
 - Docs: README documentation links now include the shared Performance and Choosing a Language pages, and package registry metadata was expanded for discoverability. No functional change.
 
 ### BREAKING
 
+- Library: Client operations now use one FIFO admission queue and one absolute
+  transaction deadline across lazy connect, managed unlock, send, response
+  correlation, and decode. `close()` rejects active and queued work; continuations
+  admitted before close cannot reconnect or send afterward. When managed
+  password work is active or queued, local close skips the unsafe lock request
+  and reports the PLC lock outcome as unknown.
+- Library: Added public machine-readable `SlmpTimeoutError`,
+  `SlmpClosedError`, `SlmpNotConnectedError`, and
+  `SlmpOperationOutcomeUnknownError`. A state-changing operation interrupted
+  after possible send reports outcome unknown instead of a plain retryable
+  timeout or transport error.
+- Library: `readNamed` is now an explicitly non-atomic read aggregate. It may
+  split only between independent entries while retaining one exclusive client
+  turn. `writeNamed` still rejects any update requiring more than one request
+  before I/O.
+- Library: `writeBitInWord` now preflights and snapshots the complete operation,
+  then holds one ordinary-client FIFO turn across its read and write. The helper
+  remains a two-request, non-atomic PLC operation, never retries automatically,
+  and reports a possibly-sent write through the outcome-unknown error contract.
+- Library: All bit-write APIs accept native Boolean values only. Numeric and
+  string Boolean spellings are no longer coerced.
+- Library: TCP and UDP connections are now IPv4-only. IPv6 literals are rejected before socket creation, hostnames are constrained to IPv4 resolution, and callers using IPv6 must migrate to IPv4.
 - Library: Array label lengths now use the SLMP bit/byte logical-length contract and two-byte wire padding. Zero logical lengths, non-exact array write buffers, and zero or odd random-label write buffers are rejected before transport.
 - Library: Requests that exceed the 16-bit SLMP data-length field or one complete UDP datagram are rejected before transport and before 4E serial allocation. Oversized label aggregates are rejected instead of relying on a later frame/send failure.
+- Library: Block APIs now require word devices in `wordBlocks` and bit devices in `bitBlocks`.
+  Bit-block overlap detection treats each block point as 16 bit-device destinations, preventing
+  overlapping writes such as `M0` for two points plus `M16` for one point.
+- Library: Bit response decoding now requires exactly `ceil(points / 2)` bytes and rejects used
+  nibbles other than `0` or `1`. The public 4E response decoder rejects non-zero reserved bytes.
+- Node-RED editor: Removed the unsupported `I`, `STRING`, and legacy `DSTR...` dtype spellings.
+  Literal route overrides must now contain exactly `network`, `station`, `multidrop`, and one of
+  `moduleIO` or `module_io`, matching runtime route validation.
 
 ### Fixed
 
+- Library: Transaction timeout now retires the exact TCP/UDP generation, and
+  delayed callbacks from a retired generation cannot update counters or satisfy
+  later work. Read timeouts remain `SLMP_TIMEOUT`; ambiguous post-send writes
+  preserve the timeout/closed/transport reason as structured outcome-unknown data.
+- Library: Every DeviceRef-taking direct, typed, random, block, and monitor API
+  enforces exact `plcProfile` identity before serial allocation, counters, or
+  transport.
+- Library: Multi-request named reads validate and snapshot the complete plan,
+  preserve declared entry order/result mapping, stop at the first error, and
+  never split a scalar, string, or counted array across requests.
 - Library: Array label reads now accept the documented six-bit/two-byte response shape and reject count, unit, logical-length, truncation, and trailing-data mismatches. Random label reads reject zero or odd result lengths while preserving unknown data type IDs and spare values.
 - Library: Enforced command-payload limits of 65,529 bytes over TCP, 65,492 bytes for UDP 3E, and 65,488 bytes for UDP 4E; oversized requests are never truncated or split automatically.
+- Library: Corrected bit-block destination span calculation and block device-category validation.
+- Node-RED editor: Dtype and target literal validation now agrees with the runtime contract.
 
 ### Tests
 
+- Tests: Added absolute lazy-connect deadline, timeout/outcome-unknown error,
+  active/queued close, stale-generation reconnect prevention, aggregate-read
+  exclusivity/splitting/declared timing order, indivisible-value boundary,
+  blocked-send deadline, and complete DeviceRef profile-mismatch coverage.
+- Tests: Added IPv6-literal rejection and local TCP/UDP hostname checks that prove IPv4 socket selection.
 - Tests: Added bit and byte boundary vectors plus malformed label-response coverage.
 - Tests: Added TCP/UDP 3E/4E payload boundaries, no-serial/no-stat rejection checks, and aggregate limits for all four label builders.
+- Tests: Added block overlap/category, bit response, public 4E reserved-field, and editor/runtime
+  contract regressions.
 
 ## [4.0.1] - 2026-07-29
 

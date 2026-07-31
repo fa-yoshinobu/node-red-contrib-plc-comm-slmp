@@ -174,6 +174,7 @@
 
 <script type="text/html" data-help-name="slmp-connection">
   <p>Reusable SLMP connection profile for MELSEC PLC access over binary 3E or 4E frames.</p>
+  <p><b>Host</b> must be an IPv4 address or a hostname that resolves to IPv4. IPv6 is unsupported.</p>
   <p><b>Name</b> is an optional display-only label. Empty, whitespace, or non-string values mean no custom label; duplicate labels are allowed. It never selects the connection, endpoint, profile, route, or request content.</p>
   <p>Select one explicit PLC type. The node derives the frame type, access profile, and string address rules from that type.</p>
   <p>The selected profile always rejects features known unavailable on that PLC before sending.</p>

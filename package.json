@@ -9,7 +9,6 @@
     "CHANGELOG.md",
     "LICENSE",
     "README.md",
-    "docsrc/user/",
     "examples/",
     "lib/",
     "nodes/"
@@ -40,10 +39,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "check": "node test/run-tests.js",
-    "test": "node test/run-tests.js",
-    "pack:dry-run": "npm pack --dry-run",
-    "smoke:editor": "node test/run-editor-smoke.js"
+    "pack:dry-run": "npm pack --dry-run"
   },
   "node-red": {
     "version": ">=3.0.0",
@@ -52,5 +48,11 @@
       "slmp-read": "nodes/slmp-read.js",
       "slmp-write": "nodes/slmp-write.js"
     }
-  }
+  },
+  "directories": {
+    "example": "examples",
+    "lib": "lib",
+    "test": "test"
+  },
+  "type": "commonjs"
 }

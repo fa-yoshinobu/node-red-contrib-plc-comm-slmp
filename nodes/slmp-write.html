@@ -26,7 +26,7 @@
     return right.length - left.length || left.localeCompare(right);
   });
   // Profile-specific device policy is enforced by the runtime client.
-  const SLMP_WRITE_DTYPE_SUFFIXES = new Set(["BIT", "U", "S", "I", "D", "L", "F", "STR", "STRING"]);
+  const SLMP_WRITE_DTYPE_SUFFIXES = new Set(["BIT", "U", "S", "D", "L", "F", "STR"]);
   function slmpGetWriteCurrentType(typeSelector, fallback) {
     const field = $(typeSelector);
     if (field.length > 0 && field.val()) {
@@ -55,11 +55,6 @@
     if (!text) {
       return false;
     }
-    const legacy = slmpParseWriteLegacyStringAddress(text, plcProfile);
-    if (legacy !== null) {
-      return legacy;
-    }
-
     const countMatch = /^(.*?),\s*(\d+)$/.exec(text);
     if (countMatch) {
       text = countMatch[1].trim();
@@ -76,7 +71,7 @@
       if (!SLMP_WRITE_DTYPE_SUFFIXES.has(suffix)) {
         return false;
       }
-      if ((suffix === "STR" || suffix === "STRING") && !countMatch) {
+      if (suffix === "STR" && !countMatch) {
         return false;
       }
     }
@@ -104,26 +99,10 @@
     if (suffix === "BIT") {
       return false;
     }
-    if ((suffix === "STR" || suffix === "STRING") && parsed.unit !== "word") {
+    if (suffix === "STR" && parsed.unit !== "word") {
       return false;
     }
     return true;
-  }
-
-  function slmpParseWriteLegacyStringAddress(text, plcProfile) {
-    for (const code of SLMP_WRITE_DEVICE_CODES) {
-      const prefix = code + "STR";
-      if (!text.startsWith(prefix)) {
-        continue;
-      }
-      const match = /^([0-9A-F]+)\s*,\s*(\d+)$/.exec(text.slice(prefix.length));
-      if (!match || Number.parseInt(match[2], 10) <= 0) {
-        return false;
-      }
-      const parsed = slmpParseWriteDeviceToken(code + match[1], plcProfile);
-      return Boolean(parsed && parsed.unit === "word");
-    }
-    return null;
   }
 
   function slmpParseWriteDeviceToken(text, plcProfile) {
@@ -181,6 +160,12 @@
   }
 
   function slmpValidateWriteIntegerString(value, min, max, base) {
+    if (typeof value === "number") {
+      return Number.isInteger(value) && value >= min && value <= max;
+    }
+    if (typeof value === "boolean" || value === null || value === undefined) {
+      return false;
+    }
     const text = String(value == null ? "" : value).trim();
     if (base === 16 && !/^(?:0x)?[0-9a-f]+$/i.test(text)) {
       return false;
@@ -203,26 +188,33 @@
         return false;
       }
       const keys = Object.keys(parsed);
-      if (keys.length === 0) {
-        return true;
-      }
       const allowed = new Set(["network", "station", "moduleIO", "module_io", "multidrop"]);
       for (const key of keys) {
         if (!allowed.has(key)) {
           return false;
         }
       }
-      if (parsed.network !== undefined && !slmpValidateWriteIntegerString(parsed.network, 0, 255)) {
+      const hasModuleIO = Object.prototype.hasOwnProperty.call(parsed, "moduleIO");
+      const hasModuleIOAlias = Object.prototype.hasOwnProperty.call(parsed, "module_io");
+      if (keys.length !== 4 || hasModuleIO === hasModuleIOAlias) {
         return false;
       }
-      if (parsed.station !== undefined && !slmpValidateWriteIntegerString(parsed.station, 0, 255)) {
+      for (const required of ["network", "station", "multidrop"]) {
+        if (!Object.prototype.hasOwnProperty.call(parsed, required)) {
+          return false;
+        }
+      }
+      if (!slmpValidateWriteIntegerString(parsed.network, 0, 255)) {
         return false;
       }
-      const moduleIO = parsed.moduleIO !== undefined ? parsed.moduleIO : parsed.module_io;
-      if (moduleIO !== undefined && !slmpValidateWriteIntegerString(moduleIO, 0, 65535, 16)) {
+      if (!slmpValidateWriteIntegerString(parsed.station, 0, 255)) {
         return false;
       }
-      if (parsed.multidrop !== undefined && !slmpValidateWriteIntegerString(parsed.multidrop, 0, 255)) {
+      const moduleIO = hasModuleIO ? parsed.moduleIO : parsed.module_io;
+      if (!slmpValidateWriteIntegerString(moduleIO, 0, 65535, 16)) {
+        return false;
+      }
+      if (!slmpValidateWriteIntegerString(parsed.multidrop, 0, 255)) {
         return false;
       }
       return true;
