@@ -34,8 +34,22 @@ Disconnect rejects both active and queued work and prevents queued work from
 reconnecting after that close. A later, newly admitted operation may open a new
 transport generation.
 
+Concurrent disconnect/`close()` callers share one close flight. Managed
+password locking and local transport close run at most once for that flight,
+all callers observe the same result, and new connects or operations remain
+blocked until the complete close has settled. A later sequential close remains
+safe and idempotent.
+
 TCP connections enable keepalive after 30 seconds idle. UDP timeouts discard
-the timed-out socket generation before a later request can open a new one.
+the timed-out socket generation before a later request can open a new one. A
+UDP socket error also detaches and closes that generation so its local port and
+listeners are released; late events from it cannot affect a replacement
+socket. A UDP request completes only after both the socket send callback has
+succeeded and the matching response has arrived. A response received first is
+held provisionally. A later send failure discards it and invalidates the
+transport; request and byte counters are not published while the response is
+provisional. A missing callback or response remains bounded by the same
+absolute deadline.
 
 The monitor timer and `Timeout ms` control different waits. The monitor timer
 is sent to the PLC. `Timeout ms` is one local absolute transaction deadline
@@ -234,6 +248,16 @@ an incomplete or conflicting selector is not completed from `msg.dtype`.
 
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
+A textual `,count` suffix contains ASCII decimal digits only and must represent
+an exact positive JavaScript safe integer. Signs, embedded whitespace,
+fractions, exponent notation, non-ASCII digits, suffix junk, zero, and values
+above `Number.MAX_SAFE_INTEGER` are rejected instead of being rounded or
+partially parsed. This syntax rule is separate from the lower command/profile
+point limit, which is applied afterward. Code calling `formatParsedAddress`
+with a hand-built parsed object must likewise provide a primitive positive
+safe-integer Number when `hasCount` is true; numeric strings and coercible
+objects are not accepted.
+
 The complete accessed span must fit the selected SLMP device-number field:
 24 bits for Q/L or 32 bits for ordinary iQ-R entries. A link-direct
 `J`-qualified device always uses the 24-bit Q/L device specification, including
@@ -272,10 +296,14 @@ have been sent, its outcome is unknown after timeout, close, or transport
 failure. The helper does not retry automatically; verify PLC state first.
 
 Direct write values are not coerced: word/DWord values must be exact in-range
-integers and bits must be native JavaScript Booleans. Numeric/string forms such
-as `0`, `1`, `"ON"`, and `"OFF"` are rejected. Named writes also reject
-overlapping destinations. Extended random-read result keys append `+Zn`,
-`+LZn`, or `+INDIRECT` when a modifier is present.
+native JavaScript Numbers, float values must be finite and remain finite after
+Float32 conversion, and bits must be native JavaScript Booleans. Numeric
+strings such as `"123"`, `"1.5"`, and `"1e3"`, boxed Numbers, `BigInt`,
+Booleans, null, arrays, and coercible objects are rejected before queue
+admission. `STR` still requires a string and `BIT` still requires a Boolean.
+Convert configuration text explicitly before calling a numeric write helper.
+Named writes also reject overlapping destinations. Extended random-read result
+keys append `+Zn`, `+LZn`, or `+INDIRECT` when a modifier is present.
 
 `remoteReset` confirms that the request frame was transmitted, closes the
 current transport generation, and does not confirm PLC execution. Reconnect
@@ -386,7 +414,23 @@ with the selected mode is rejected for migration review.
 | `msg.error` | Adds the error object to `msg.error` and sends the message on the normal output. |
 | Second output | Sends the failed message with `msg.error` on output 2. |
 
-For PLC response errors, read `msg.error.endCode`. When the PLC returned the structured error-information block, `msg.error.errorInfo` includes `command` and `subcommand`.
+For PLC response errors, read `msg.error.endCode`. When the PLC returned the
+structured error-information block, `msg.error.errorInfo` includes `command`
+and `subcommand`. Present structured error information must identify the active
+request's route, command, and subcommand. A mismatch is
+reported as a malformed `SlmpError`, invalidates the connection, and is never reported as
+a definite PLC rejection. If the affected operation may have changed PLC state,
+the public result is `SLMP_OPERATION_OUTCOME_UNKNOWN` with reason
+`malformed-response`; verify state before considering another write. Additional
+PLC data following a matching nine-byte error-information prefix remains
+available on the structured PLC error.
+
+Standard write, monitor-registration, remote-control, clear-error, password,
+memory, extend-unit, and label APIs require an empty successful
+acknowledgement. Any data after end code zero is malformed and produces the
+same outcome-unknown classification and connection invalidation. The
+maintainer-level `rawCommand()` API remains the explicit surface for commands
+whose successful response may contain arbitrary data.
 
 ```javascript
 if (msg.error && msg.error.endCode !== undefined) {

@@ -3339,7 +3339,12 @@ test("remote and memory helpers build expected commands", async () => {
   const calls = [];
   client._request = async (command, subcommand, data, options = {}) => {
     calls.push({ command, subcommand, data: Buffer.from(data), expectResponse: options.expectResponse });
-    return { endCode: 0, data: Buffer.from([0x64, 0x00, 0xc8, 0x00]) };
+    return {
+      endCode: 0,
+      data: command === Command.MEMORY_READ
+        ? Buffer.from([0x64, 0x00, 0xc8, 0x00])
+        : Buffer.alloc(0),
+    };
   };
 
   await client.remoteRun({ force: false, clearMode: RemoteClearMode.NO_CLEAR });
@@ -3722,7 +3727,12 @@ test("extend unit helpers build expected commands", async () => {
   const calls = [];
   client._request = async (command, subcommand, data) => {
     calls.push({ command, subcommand, data: Buffer.from(data) });
-    return { endCode: 0, data: Buffer.from([0x6f, 0x00, 0xde, 0x00]) };
+    return {
+      endCode: 0,
+      data: command === Command.EXTEND_UNIT_READ
+        ? Buffer.from([0x6f, 0x00, 0xde, 0x00])
+        : Buffer.alloc(0),
+    };
   };
 
   const values = await client.extendUnitReadWords(0x10, 2, 0x03e0);
@@ -3890,7 +3900,9 @@ test("all label payload builders enforce the aggregate protocol boundary", async
       endCode: 0,
       data: command === Command.LABEL_ARRAY_READ
         ? Buffer.from([0x01, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00])
-        : Buffer.from([0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00]),
+        : command === Command.LABEL_READ_RANDOM
+          ? Buffer.from([0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00])
+          : Buffer.alloc(0),
     };
   };
 
@@ -4531,6 +4543,475 @@ function startMockTcpServer(frameType, onFrame) {
       });
     });
   });
+}
+
+test("PLC error information must match every active request identity field", async () => {
+  const mutations = [
+    ["network", (data) => data.writeUInt8((data.readUInt8(0) + 1) & 0xff, 0)],
+    ["station", (data) => data.writeUInt8((data.readUInt8(1) + 1) & 0xff, 1)],
+    ["moduleIO", (data) => data.writeUInt16LE((data.readUInt16LE(2) + 1) & 0xffff, 2)],
+    ["multidrop", (data) => data.writeUInt8((data.readUInt8(4) + 1) & 0xff, 4)],
+    ["command", (data) => data.writeUInt16LE((data.readUInt16LE(5) + 1) & 0xffff, 5)],
+    ["subcommand", (data) => data.writeUInt16LE((data.readUInt16LE(7) + 1) & 0xffff, 7)],
+  ];
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      for (const [field, mutate] of mutations) {
+        const client = makeImmediateResponseClient({ transportType, frameType }, (frame) => {
+          const data = errorDataForRequest(frame, frameType, [0xaa]);
+          mutate(data);
+          return responseWithPayloadForRequest(frame, frameType, data, 0xc051);
+        });
+        await assert.rejects(
+          () => client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) }),
+          (error) => error instanceof SlmpError
+            && !(error instanceof SlmpOperationOutcomeUnknownError)
+            && /Malformed SLMP response/.test(error.message),
+          `${transportType}/${frameType}/${field}`,
+        );
+        assert.equal(client._testTransportState.closeCount, 1, `${transportType}/${frameType}/${field}`);
+        assert.equal(client._testTransportState.open, false, `${transportType}/${frameType}/${field}`);
+      }
+    }
+  }
+});
+
+test("mismatched PLC error information makes a state-changing outcome unknown", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const client = makeImmediateResponseClient({ transportType, frameType }, (frame) => {
+        const data = errorDataForRequest(frame, frameType, []);
+        data.writeUInt16LE(Command.DEVICE_READ, 5);
+        return responseWithPayloadForRequest(frame, frameType, data, 0xc051);
+      });
+      await assert.rejects(
+        () => client.writeDevices("D0", [1], { bitUnit: false }),
+        (error) => error instanceof SlmpOperationOutcomeUnknownError
+          && error.reason === "malformed-response"
+          && /Malformed SLMP response/.test(error.cause?.message),
+        `${transportType}/${frameType}`,
+      );
+      assert.equal(client._testTransportState.closeCount, 1);
+    }
+  }
+});
+
+test("matching PLC error information retains structured additional data", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const client = makeImmediateResponseClient({ transportType, frameType }, (frame) =>
+        responseForRequest(frame, frameType, [0xaa, 0xbb, 0xcc], 0xc051));
+      await assert.rejects(
+        () => client.rawCommand(Command.DEVICE_READ, { subcommand: 0, payload: Buffer.alloc(0) }),
+        (error) => error instanceof SlmpError
+          && error.endCode === 0xc051
+          && error.errorInfo?.command === Command.DEVICE_READ
+          && error.errorInfo?.subcommand === 0
+          && error.data.length === 12
+          && error.data.subarray(9).equals(Buffer.from([0xaa, 0xbb, 0xcc])),
+      );
+      assert.equal(client._testTransportState.closeCount, 0);
+    }
+  }
+});
+
+test("standard acknowledgement APIs reject successful response data while rawCommand preserves it", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  client._request = async () => ({ endCode: 0, data: Buffer.from([0xaa]) });
+  const acknowledgementCalls = [
+    () => client.writeDevices("D0", [1], { bitUnit: false }),
+    () => client.writeRandomWords({ wordValues: [["D0", 1]] }),
+    () => client.writeRandomWordsExt({ wordValues: [[String.raw`J1\W0`, 1]] }),
+    () => client.writeRandomBits({ bitValues: [["M0", true]] }),
+    () => client.writeRandomBitsExt({ bitValues: [[String.raw`J1\M0`, true]] }),
+    () => client.writeBlock({ wordBlocks: [{ device: "D0", values: [1] }] }),
+    () => client.registerMonitorDevices({ wordDevices: ["D0"] }),
+    () => client.registerMonitorDevicesExt({ wordDevices: [String.raw`J1\W0`] }),
+    () => client.remoteRun({ force: false, clearMode: RemoteClearMode.NO_CLEAR }),
+    () => client.remoteStop(),
+    () => client.remotePause({ force: false }),
+    () => client.remoteLatchClear(),
+    () => client.clearError(),
+    () => client.memoryWriteWords(0, [1]),
+    () => client.extendUnitWriteBytes(0, 0, Buffer.from([1, 2])),
+    () => client.writeArrayLabels([{ label: "A", unitSpecification: 1, arrayDataLength: 2, data: Buffer.from([1, 2]) }]),
+    () => client.writeRandomLabels([{ label: "A", data: Buffer.from([1, 2]) }]),
+    () => client.remotePasswordUnlock("secret1"),
+    () => client.remotePasswordLock("secret1"),
+  ];
+  for (const invoke of acknowledgementCalls) {
+    await assert.rejects(
+      invoke,
+      (error) => error instanceof SlmpError && /Malformed SLMP response/.test(error.message),
+    );
+  }
+  const raw = await client.rawCommand(Command.CLEAR_ERROR, { subcommand: 0, payload: Buffer.alloc(0) });
+  assert.deepEqual([...raw.data], [0xaa]);
+});
+
+test("non-empty acknowledgements invalidate every frame and transport and report malformed outcome unknown", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const client = makeImmediateResponseClient({ transportType, frameType }, (frame) =>
+        responseForRequest(frame, frameType, [0xaa]));
+      await assert.rejects(
+        () => client.writeDevices("D0", [1], { bitUnit: false }),
+        (error) => error instanceof SlmpOperationOutcomeUnknownError
+          && error.reason === "malformed-response"
+          && /Malformed SLMP response/.test(error.cause?.message),
+      );
+      assert.equal(client._testTransportState.closeCount, 1);
+      assert.equal(client._testTransportState.open, false);
+    }
+  }
+});
+
+test("empty acknowledgements remain successful and nonzero end codes bypass empty-ack validation", async () => {
+  for (const transportType of ["tcp", "udp"]) {
+    for (const frameType of ["3e", "4e"]) {
+      const success = makeImmediateResponseClient({ transportType, frameType }, (frame) =>
+        responseForRequest(frame, frameType, []));
+      await success.writeDevices("D0", [1], { bitUnit: false });
+      assert.equal(success._testTransportState.closeCount, 0);
+
+      const plcError = makeImmediateResponseClient({ transportType, frameType }, (frame) =>
+        responseForRequest(frame, frameType, [0xde, 0xad], 0xc051));
+      await assert.rejects(
+        () => plcError.writeDevices("D0", [1], { bitUnit: false }),
+        (error) => error instanceof SlmpError
+          && !(error instanceof SlmpOperationOutcomeUnknownError)
+          && error.endCode === 0xc051,
+      );
+      assert.equal(plcError._testTransportState.closeCount, 0);
+    }
+  }
+});
+
+test("UDP completion is gated by both send callback and matching response in either order", async () => {
+  for (const frameType of ["3e", "4e"]) {
+    for (const order of ["response-first", "send-first"]) {
+      const serial = 0x1234;
+      let sendCallback;
+      const socket = {
+        send(_frame, callback) { sendCallback = callback; },
+        close() {},
+      };
+      const transport = new SlmpTransport({
+        host: "127.0.0.1",
+        port: 1025,
+        transportType: "udp",
+        frameType,
+        timeout: 200,
+      });
+      transport._udpSocket = socket;
+      const request = makeRequest(frameType, serial, TEST_TARGET);
+      const response = makeResponse(frameType, serial, [0x22], TEST_TARGET);
+      let settled = false;
+      const pending = transport.sendUdp(request, serial, TEST_TARGET).then((value) => {
+        settled = true;
+        return value;
+      });
+      if (order === "response-first") {
+        transport.handleUdpMessage(response, socket);
+        await delay(2);
+        assert.equal(settled, false);
+        assert.deepEqual(transport.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+        sendCallback();
+      } else {
+        sendCallback();
+        await delay(2);
+        assert.equal(settled, false);
+        transport.handleUdpMessage(response, socket);
+      }
+      assert.deepEqual(await pending, response);
+      assert.deepEqual(transport.trafficStats(), {
+        requestCount: 1,
+        txBytes: request.length,
+        rxBytes: response.length,
+      });
+      sendCallback();
+      assert.equal(transport.trafficStats().requestCount, 1);
+    }
+  }
+});
+
+test("UDP send failure discards a provisional response and preserves read/write classification", async () => {
+  for (const stateChanging of [false, true]) {
+    let sendCallback;
+    let closeCount = 0;
+    const client = new StrictSlmpClient({
+      host: "127.0.0.1",
+      port: 1025,
+      transport: "udp",
+      plcProfile: "melsec:iq-r",
+      target: TEST_TARGET,
+    });
+    const socket = {
+      send(_frame, callback) { sendCallback = callback; },
+      close() { closeCount += 1; },
+    };
+    client._transport._udpSocket = socket;
+    const operation = stateChanging
+      ? client.writeDevices("D0", [1], { bitUnit: false })
+      : client.readDevices("D0", 1, { bitUnit: false });
+    await delay(0);
+    client._transport.handleUdpMessage(make4EResponse(0, stateChanging ? [] : [1, 0]), socket);
+    sendCallback(new Error("synthetic send failure"));
+    await assert.rejects(
+      () => operation,
+      (error) => stateChanging
+        ? error instanceof SlmpOperationOutcomeUnknownError && error.reason === "transport"
+        : error instanceof SlmpError && !(error instanceof SlmpOperationOutcomeUnknownError),
+    );
+    assert.equal(closeCount, 1);
+    assert.equal(client._transport.hasOpenTransport(), false);
+    assert.deepEqual(client.trafficStats(), {
+      requestCount: 0,
+      txBytes: 0,
+      rxBytes: 0,
+    });
+  }
+});
+
+test("UDP gate keeps one absolute deadline when either send completion or response is missing", async () => {
+  for (const missing of ["send-callback", "response"]) {
+    let sendCallback;
+    let closeCount = 0;
+    const socket = {
+      send(_frame, callback) {
+        sendCallback = callback;
+        if (missing === "response") callback();
+      },
+      close() { closeCount += 1; },
+    };
+    const transport = new SlmpTransport({
+      host: "127.0.0.1",
+      port: 1025,
+      transportType: "udp",
+      frameType: "4e",
+      timeout: 20,
+    });
+    transport._udpSocket = socket;
+    const request = makeRequest("4e", 1, TEST_TARGET);
+    if (missing === "send-callback") {
+      const response = make4EResponse(1, [0x22], 0, TEST_TARGET);
+      const pending = transport.sendUdp(request, 1, TEST_TARGET);
+      transport.handleUdpMessage(response, socket);
+      await assert.rejects(() => pending, SlmpTimeoutError);
+      assert.deepEqual(transport.trafficStats(), {
+        requestCount: 0,
+        txBytes: 0,
+        rxBytes: 0,
+      });
+    } else {
+      await assert.rejects(() => transport.sendUdp(request, 1, TEST_TARGET), SlmpTimeoutError);
+      assert.deepEqual(transport.trafficStats(), {
+        requestCount: 1,
+        txBytes: request.length,
+        rxBytes: 0,
+      });
+    }
+    assert.equal(typeof sendCallback, "function");
+    assert.equal(closeCount, 1);
+    assert.equal(transport.hasOpenTransport(), false);
+  }
+});
+
+test("UDP socket errors close one retired generation and late events cannot affect the next", async () => {
+  const transport = new SlmpTransport({
+    host: "127.0.0.1",
+    port: 1025,
+    transportType: "udp",
+    frameType: "4e",
+    timeout: 200,
+  });
+  let oldSendCallback;
+  let oldCloseCount = 0;
+  const oldSocket = {
+    send(_frame, callback) { oldSendCallback = callback; },
+    close() { oldCloseCount += 1; throw new Error("local close failure"); },
+  };
+  transport._udpSocket = oldSocket;
+  transport._udpConnectPromise = Promise.resolve();
+  const oldRequest = makeRequest("4e", 1, TEST_TARGET);
+  const oldPending = transport.sendUdp(oldRequest, 1, TEST_TARGET);
+  transport.handleUdpMessage(make4EResponse(1, [0x11], 0, TEST_TARGET), oldSocket);
+  transport.handleUdpFailure(new Error("socket failed"), oldSocket);
+  await assert.rejects(() => oldPending, /UDP transport failure: socket failed/);
+  assert.equal(oldCloseCount, 1);
+  assert.equal(transport._udpConnectPromise, null);
+
+  let newSendCallback;
+  let newCloseCount = 0;
+  const newSocket = new EventEmitter();
+  newSocket.send = (_frame, callback) => { newSendCallback = callback; };
+  newSocket.close = () => {
+    newCloseCount += 1;
+    queueMicrotask(() => newSocket.emit("close"));
+  };
+  transport._udpSocket = newSocket;
+  const nextRequest = makeRequest("4e", 2, TEST_TARGET);
+  const nextPending = transport.sendUdp(nextRequest, 2, TEST_TARGET);
+  oldSendCallback();
+  transport.handleUdpFailure(new Error("late old error"), oldSocket);
+  transport.handleUdpMessage(make4EResponse(2, [0x11], 0, TEST_TARGET), oldSocket);
+  newSendCallback();
+  transport.handleUdpMessage(make4EResponse(2, [0x22], 0, TEST_TARGET), newSocket);
+  assert.deepEqual([...decodeResponse(await nextPending, { frameType: "4e" }).data], [0x22]);
+  assert.equal(oldCloseCount, 1);
+  assert.equal(newCloseCount, 0);
+  await transport.close();
+  assert.equal(newCloseCount, 1);
+});
+
+test("UDP socket errors reject serial and non-serial pending work once and make explicit close safe", async () => {
+  for (const frameType of ["3e", "4e"]) {
+    let closeCount = 0;
+    let rejectionCount = 0;
+    const socket = {
+      send() {},
+      close() { closeCount += 1; },
+    };
+    const transport = new SlmpTransport({
+      host: "127.0.0.1",
+      port: 1025,
+      transportType: "udp",
+      frameType,
+      timeout: 200,
+    });
+    transport._udpSocket = socket;
+    const serial = 7;
+    const pending = transport.sendUdp(makeRequest(frameType, serial, TEST_TARGET), serial, TEST_TARGET)
+      .catch((error) => {
+        rejectionCount += 1;
+        throw error;
+      });
+    transport.handleUdpFailure(new Error("current socket error"), socket);
+    transport.handleUdpFailure(new Error("duplicate socket error"), socket);
+    await assert.rejects(() => pending, /current socket error/);
+    assert.equal(rejectionCount, 1);
+    assert.equal(closeCount, 1);
+    await transport.close();
+    assert.equal(closeCount, 1);
+  }
+});
+
+test("UDP socket retirement releases a fixed local port for the next generation", async () => {
+  const first = dgram.createSocket("udp4");
+  await new Promise((resolve, reject) => {
+    first.once("error", reject);
+    first.bind(0, "127.0.0.1", resolve);
+  });
+  const port = first.address().port;
+  const transport = new SlmpTransport({
+    host: "127.0.0.1",
+    port: 1025,
+    transportType: "udp",
+    frameType: "4e",
+    timeout: 200,
+  });
+  transport._udpSocket = first;
+  const firstClosed = new Promise((resolve) => first.once("close", resolve));
+  transport.handleUdpFailure(new Error("retire bound socket"), first);
+  await firstClosed;
+
+  const second = dgram.createSocket("udp4");
+  try {
+    await new Promise((resolve, reject) => {
+      second.once("error", reject);
+      second.bind(port, "127.0.0.1", resolve);
+    });
+    assert.equal(second.address().port, port);
+  } finally {
+    await new Promise((resolve) => second.close(resolve));
+  }
+});
+
+test("client close is a single flight with one lifecycle retirement and shared result", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let lockCount = 0;
+  let transportCloseCount = 0;
+  let finishClose;
+  client._lockRemotePasswordIfConfigured = async () => { lockCount += 1; };
+  client._closeTransport = () => {
+    transportCloseCount += 1;
+    return new Promise((resolve) => { finishClose = resolve; });
+  };
+  const generation = client._clientGeneration;
+  const first = client.close();
+  const second = client.close();
+  assert.equal(first, second);
+  assert.equal(client._closing, true);
+  assert.equal(client._clientGeneration, generation + 1);
+  await assert.rejects(() => client.connect(), /closing/);
+  await delay(0);
+  assert.equal(lockCount, 1);
+  assert.equal(transportCloseCount, 1);
+  finishClose();
+  await Promise.all([first, second]);
+  assert.equal(client._closing, false);
+
+  client._closeTransport = async () => { transportCloseCount += 1; };
+  await client.close();
+  assert.equal(client._clientGeneration, generation + 2);
+  assert.equal(lockCount, 2);
+  assert.equal(transportCloseCount, 2);
+});
+
+test("concurrent close callers observe the same aggregate failure", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const lockFailure = new SlmpError("lock failed");
+  const closeFailure = new SlmpError("close failed");
+  client._lockRemotePasswordIfConfigured = async () => { throw lockFailure; };
+  client._closeTransport = async () => { throw closeFailure; };
+  const first = client.close();
+  const second = client.close();
+  assert.equal(first, second);
+  const results = await Promise.allSettled([first, second]);
+  assert.equal(results[0].status, "rejected");
+  assert.equal(results[1].status, "rejected");
+  assert.equal(results[0].reason, results[1].reason);
+  assert.ok(results[0].reason.cause instanceof AggregateError);
+  assert.equal(client._closing, false);
+  await assert.rejects(() => client.close(), /both failed/);
+});
+
+function makeImmediateResponseClient({ transportType, frameType }, responseFactory) {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: transportType,
+    plcProfile: frameType === "4e" ? "melsec:iq-r" : "melsec:iq-f",
+    target: TEST_TARGET,
+  });
+  const state = { closeCount: 0, generation: 1, open: true, serial: 0 };
+  client._testTransportState = state;
+  client._transport = {
+    async connect() { state.open = true; },
+    hasOpenTransport() { return state.open; },
+    connectionGeneration() { return state.generation; },
+    nextSerial() {
+      const serial = state.serial;
+      state.serial = (state.serial + 1) & 0xffff;
+      return serial;
+    },
+    async sendAndReceive(frame) { return responseFactory(Buffer.from(frame)); },
+    async sendOnly() {},
+    async close() {
+      state.closeCount += 1;
+      state.open = false;
+      state.generation += 1;
+    },
+    trafficStats() { return Object.freeze({ requestCount: 0, txBytes: 0, rxBytes: 0 }); },
+  };
+  return client;
+}
+
+function responseWithPayloadForRequest(frame, frameType, data, endCode = 0) {
+  const target = readRequestTarget(frame, frameType);
+  return frameType === "4e"
+    ? make4EResponse(frame.readUInt16LE(2), data, endCode, target)
+    : make3EResponse(data, endCode, target);
 }
 
 function responseForRequest(frame, frameType, data, endCode = 0) {
