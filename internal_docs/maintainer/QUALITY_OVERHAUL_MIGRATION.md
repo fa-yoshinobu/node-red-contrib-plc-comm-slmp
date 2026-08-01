@@ -856,8 +856,8 @@ Machine-verifiable acceptance criteria:
 - [x] Codex self-review completed against the approved CI/package boundary.
 - [x] Live PLC verification is not required for package installation and editor registration.
 - [x] Changelog and maintainer documentation agree with the implementation.
-- [ ] The GitHub-hosted Ubuntu/Node 20 Editor-smoke job passed for the final source state.
-- [ ] Final acceptance criteria verified and the item marked complete.
+- [x] The GitHub-hosted Ubuntu/Node 20 Editor-smoke job passed for the final source state.
+- [x] Final acceptance criteria verified and the item marked complete.
 
 Local verification evidence on the final source state:
 
@@ -865,8 +865,9 @@ Local verification evidence on the final source state:
   source-archive validation passed on Windows/Node 24.14.1.
 - The package-installed Editor smoke passed with Node-RED 4.1.11 and the exact
   `red.js` path supplied through `NODE_RED_CMD`.
-- The workflow-pinned Ubuntu/Node 20 execution was not reproduced locally and
-  remains unchecked GitHub-hosted evidence.
+- GitHub Actions run `30706011871` for PR #46 head
+  `b00ed5b18779f6e73391a74cebd4c6db009a3cdd` passed the workflow-pinned
+  Ubuntu/Node 20 Editor smoke with Node-RED 4.1.11.
 
 Self-review disposition:
 
@@ -966,17 +967,19 @@ Machine-verifiable acceptance criteria:
 - [x] Implementation completed in this repository.
 - [x] Focused test selection covers every applicable lifecycle criterion.
 - [x] The exact eight-test Windows selector passed locally on Windows with Node 24.14.1.
-- [ ] Existing Linux complete gates and the Windows smoke passed on the same reviewed source state.
+- [x] Existing Linux complete gates and the Windows smoke passed on the same reviewed source state.
 - [x] Codex self-review completed after the local representative and complete verification runs.
 - [x] Live PLC verification is not required; the selected tests use fake or loopback transports only.
 - [x] Maintainer documentation agrees with the implemented CI behavior; no changelog or user migration entry is required.
-- [ ] Final acceptance criteria verified and the item marked complete.
+- [x] Final acceptance criteria verified and the item marked complete.
 
 Verification disposition: the exact selector and the complete 219-test local
 gate passed on the same Windows/Node 24.14.1 source state. Package consumer,
 current-worktree source archive, Node-RED 4.1.11 Editor smoke, canonical profile,
-and no-auto-publish checks also passed. Node 18/20/22 and the GitHub-hosted Linux
-and Windows jobs were not available locally, so no hosted matrix result is claimed.
+and no-auto-publish checks also passed. GitHub Actions run `30706011871` for
+PR #46 head `b00ed5b18779f6e73391a74cebd4c6db009a3cdd` passed the Linux Node
+18/20/22 complete gates, the Windows/Node 20 eight-test smoke, and the Editor
+smoke on the same reviewed source state.
 
 Self-review disposition:
 
