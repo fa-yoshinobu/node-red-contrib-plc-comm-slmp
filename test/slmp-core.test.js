@@ -1792,14 +1792,21 @@ test("4E TCP timeout destroys its generation and a separately queued request rec
       socket.write(responseForRequest(frame, "4e", [0x22, 0x22]));
     }
   });
-  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 25, _allowManualProfile: true });
+  const client = new SlmpClient({ host: "127.0.0.1", port: server.port, transport: "tcp", frameType: "4e", timeout: 250, _allowManualProfile: true });
 
   try {
+    // Keep initial connection scheduling outside the request deadline so this
+    // test deterministically exercises the TCP response-timeout path.
+    await client.connect();
     const first = client.rawCommand(0x0401, { payload: Buffer.from([0x01]) });
     const second = client.rawCommand(0x0401, { payload: Buffer.from([0x02]) });
+    const [firstResult, secondResult] = await Promise.allSettled([first, second]);
 
-    await assert.rejects(() => first, /TCP communication timeout/);
-    const secondResponse = await second;
+    assert.equal(firstResult.status, "rejected");
+    assert.ok(firstResult.reason instanceof SlmpTimeoutError);
+    assert.match(firstResult.reason.message, /TCP communication timeout/);
+    assert.equal(secondResult.status, "fulfilled");
+    const secondResponse = secondResult.value;
 
     assert.equal(frames.length, 2);
     assert.deepEqual([...requestPayload(frames[1], "4e")], [0x02]);
