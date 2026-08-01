@@ -396,3 +396,41 @@ The target behavior matches the existing .NET, C++, and Rust SLMP implementation
 - [x] Required live-PLC checks passed, or each unavailable check has an explicit release disposition.
 - [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
 - [x] Final acceptance criteria verified and the item marked complete. Evidence: an independent Node.js/Python audit confirmed empty standard semantic ACKs, malformed non-empty outcome handling, transport retirement, arbitrary-data raw command behavior, and send-only Remote RESET semantics.
+
+## SLMP-NODE-001 — Canonical profile limits for high-level named random writes
+
+Decision status: implemented and verified on 2026-08-02.
+
+### Implementation scope
+
+Node.js high-level `writeNamed` random word/dword, long-current, and random-bit planning, tests,
+maintainer documentation, and changelog. The low-level client and canonical profile JSON are unchanged.
+
+### Target contract
+
+High-level named random-write preflight obtains point and weighted limits from the selected canonical
+PLC profile and applies the same limits as the low-level client. It does not use iQ-R constants for
+Q/L profiles or split one named write into multiple requests.
+
+### Compatibility and operational impact
+
+Valid Q/L requests above the iQ-R ceiling are now accepted. Requests beyond the selected profile's
+point or weighted limit still fail before transport. Method signatures and wire encoding are unchanged.
+
+### Machine-verifiable acceptance criteria
+
+1. An iQ-R plan with 81 random word destinations is rejected before client I/O.
+2. A Q/L plan with 160 random word destinations is accepted as one request.
+3. A Q/L plan with 161 destinations is rejected with the canonical 160-point/1920-weight limits.
+4. Long-current and random-bit named writes obtain their corresponding canonical profile limits.
+5. The low-level client remains the final independent validator.
+
+### Acceptance tracking
+
+- [x] Implementation completed in this repository.
+- [x] Tests added or updated for every acceptance criterion in this repository.
+- [x] The targeted high-level suite passed 90/90 and the full local gate passed 264/264 with npm audit and package validation.
+- [x] Codex self-review covered profile selection, point/weighted calculations, validation order, no-send behavior, and low-level consistency.
+- [x] Live PLC is not required because the change is deterministic pre-transport validation against canonical profile data.
+- [x] Changelog and maintainer documentation agree with implementation; no user API signature changed.
+- [x] Final acceptance criteria verified and the item marked complete.

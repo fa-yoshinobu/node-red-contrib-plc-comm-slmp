@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: High-level `writeNamed` random word, dword, long-current, and bit preflight now uses the selected canonical profile's point and weighted limits, matching the low-level client. Valid Q/L plans are no longer rejected by iQ-R limits.
+- Tests: Added Q/L named random-write boundary coverage alongside the existing iQ-R no-send over-limit case.
 - CI: The Node-RED editor smoke now waits for its log streams to close before removing the isolated user directory, preventing a successful round-trip from failing during Windows cleanup.
 - CI: Added a dedicated normal-CI Node-RED 4.1.11 editor smoke job that installs the packed npm artifact into an isolated user directory and round-trips the maintained connection/read/write example.
 - Tests: Locked the connection, read, write, control-action, success-count, and dynamic-error node statuses to their exact fill, shape, and text contract.

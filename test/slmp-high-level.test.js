@@ -428,6 +428,138 @@ test("writeNamed rejects random word writes that exceed the one-request limit be
   assert.equal(writes.length, 0);
 });
 
+test("writeNamed uses the selected Q/L random-write limits instead of the iQ-R limits", async () => {
+  const writes = [];
+  const fakeClient = {
+    plcProfile: "melsec:qcpu:qj71e71-100",
+    plcSeries: "ql",
+    async writeRandomWords({ wordValues, dwordValues }) {
+      writes.push({ wordValues, dwordValues });
+    },
+  };
+
+  const accepted = Object.fromEntries(Array.from({ length: 160 }, (_, index) => [`D${index * 2}:U`, index]));
+  await writeNamed(fakeClient, accepted);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].wordValues.length, 160);
+  assert.equal(writes[0].dwordValues.length, 0);
+
+  const rejected = Object.fromEntries(Array.from({ length: 161 }, (_, index) => [`D${index * 2}:U`, index]));
+  await assert.rejects(
+    () => writeNamed(fakeClient, rejected),
+    /count=161, countLimit=160, weighted=1932, weightedLimit=1920/,
+  );
+  assert.equal(writes.length, 1);
+});
+
+test("writeNamed enforces the selected weighted dword limit below the point limit", async () => {
+  const writes = [];
+  const fakeClient = {
+    plcProfile: "melsec:qcpu:qj71e71-100",
+    plcSeries: "ql",
+    async writeRandomWords({ wordValues, dwordValues }) {
+      writes.push({ wordValues, dwordValues });
+    },
+  };
+
+  const accepted = Object.fromEntries(Array.from({ length: 137 }, (_, index) => [`D${index * 3}:D`, index]));
+  await writeNamed(fakeClient, accepted);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].wordValues.length, 0);
+  assert.equal(writes[0].dwordValues.length, 137);
+
+  const rejected = Object.fromEntries(Array.from({ length: 138 }, (_, index) => [`D${index * 3}:D`, index]));
+  await assert.rejects(
+    () => writeNamed(fakeClient, rejected),
+    /count=138, countLimit=160, weighted=1932, weightedLimit=1920/,
+  );
+  assert.equal(writes.length, 1);
+});
+
+test("writeNamed applies canonical long-current and random-bit limits", async () => {
+  const calls = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    plcSeries: "iqr",
+    async writeRandomWords({ wordValues, dwordValues }) {
+      calls.push({ kind: "word", wordValues, dwordValues });
+    },
+    async writeRandomBits({ bitValues }) {
+      calls.push({ kind: "bit", bitValues });
+    },
+  };
+
+  const acceptedLongCurrent = Object.fromEntries(
+    Array.from({ length: 68 }, (_, index) => [`LCN${index}:D`, index]),
+  );
+  await writeNamed(fakeClient, acceptedLongCurrent);
+  assert.equal(calls.at(-1).kind, "word");
+  assert.equal(calls.at(-1).dwordValues.length, 68);
+
+  const rejectedLongCurrent = Object.fromEntries(
+    Array.from({ length: 69 }, (_, index) => [`LCN${index}:D`, index]),
+  );
+  await assert.rejects(
+    () => writeNamed(fakeClient, rejectedLongCurrent),
+    /count=69, countLimit=80, weighted=966, weightedLimit=960/,
+  );
+
+  const acceptedBits = Object.fromEntries(
+    Array.from({ length: 94 }, (_, index) => [`LCS${index}:BIT`, index % 2 === 0]),
+  );
+  await writeNamed(fakeClient, acceptedBits);
+  assert.equal(calls.at(-1).kind, "bit");
+  assert.equal(calls.at(-1).bitValues.length, 94);
+
+  const rejectedBits = Object.fromEntries(
+    Array.from({ length: 95 }, (_, index) => [`LCS${index}:BIT`, index % 2 === 0]),
+  );
+  await assert.rejects(() => writeNamed(fakeClient, rejectedBits), /one request \(1\.\.94\): 95/);
+  assert.equal(calls.length, 2);
+});
+
+test("writeNamed and low-level Random Write boundaries agree for every connectable profile", async () => {
+  for (const descriptor of slmp.profileDescriptors().filter((item) => item.connectable)) {
+    const profile = descriptor.canonicalName;
+    const maximum = slmp.getProfileLimit(profile, "random_write_word").max;
+    const client = new slmp.SlmpClient({
+      host: "127.0.0.1",
+      port: 5000,
+      transport: "tcp",
+      plcProfile: profile,
+      defaultTarget: TEST_TARGET,
+    });
+    let acknowledgements = 0;
+    client._requestAcknowledged = async () => { acknowledgements += 1; };
+
+    try {
+      const accepted = Object.fromEntries(
+        Array.from({ length: maximum }, (_, index) => [`D${index * 2}:U`, index]),
+      );
+      await writeNamed(client, accepted);
+      assert.equal(acknowledgements, 1, profile);
+
+      const rejected = Object.fromEntries(
+        Array.from({ length: maximum + 1 }, (_, index) => [`D${index * 2}:U`, index]),
+      );
+      await assert.rejects(() => writeNamed(client, rejected), /must fit one request/, profile);
+      assert.equal(acknowledgements, 1, profile);
+
+      const lowLevelRejected = Object.fromEntries(
+        Array.from({ length: maximum + 1 }, (_, index) => [`D${index * 2}`, index]),
+      );
+      await assert.rejects(
+        () => client.writeRandomWords({ wordValues: lowLevelRejected }),
+        /access points out of range/,
+        profile,
+      );
+      assert.equal(acknowledgements, 1, profile);
+    } finally {
+      await client.close();
+    }
+  }
+});
+
 test("writeNamed rejects overlapping normalized destinations before transport", async () => {
   const calls = [];
   const fakeClient = {
