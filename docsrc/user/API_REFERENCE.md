@@ -41,6 +41,11 @@ tries to lock an authenticated generation. If work is active or queued, local
 close takes priority and the PLC lock state must be treated as unknown. In that
 case `close()` reports `SLMP_OPERATION_OUTCOME_UNKNOWN` with reason `closed`;
 the local transport is still closed.
+Overlapping `close()` calls share one in-flight promise and therefore one
+generation retirement, at most one managed lock attempt, one transport close,
+and one success or failure result. Closing state remains active until that
+shared operation settles, so `connect()` and normal operations cannot enter
+between concurrent close callers. A later sequential close is idempotent.
 
 Each activated transaction has one monotonic absolute deadline covering lazy
 connect, managed unlock, send completion, response framing/correlation, and
@@ -55,6 +60,16 @@ deadline passes afterward. An
 incomplete non-state-changing read is reported as `SlmpClosedError`. An
 incomplete state-changing request that may have been sent is instead reported
 as outcome unknown with reason `closed`.
+
+UDP completion additionally requires both a successful `socket.send()`
+callback and a matching complete response. Either may arrive first; a response
+that arrives first is provisional until send success. Send failure discards it,
+retires and closes the UDP socket generation, and preserves the normal
+read-only transport or state-changing outcome-unknown classification. Traffic
+counters are not updated for a provisional matching response. A socket
+error releases the detached socket and ignores all later callbacks and messages
+from that generation. Missing send completion or response expires at the one
+absolute transaction deadline.
 
 ## Direct And Random Device Operations
 
@@ -116,6 +131,13 @@ selected profile's one-request limit. A long-timer route that requires Direct
 Read is never selected implicitly; use `readTyped` or an explicit long-timer
 helper. `writeNamed` also must fit exactly one request and rejects the complete
 update before I/O otherwise.
+
+Numeric high-level writes for `U`, `S`, `D`, `L`, and `F` accept primitive
+JavaScript Numbers only. Numeric strings, boxed Numbers, `BigInt`, Booleans,
+null, arrays, and coercible objects fail before queue admission. Accepted
+integers must retain the existing exact wire range, and `F` must remain finite
+after Float32 conversion. Scalar and counted-array forms use the same policy;
+`STR` remains string-only and `BIT` remains Boolean-only.
 
 High-level helper options may supply request-scoped values such as `target`.
 The helper-generated device lists, value lists, block lists, point counts, and
@@ -199,6 +221,14 @@ valid only for canonical word devices; use the `.0` through `.F` selector for a
 semantic bit inside a word device. This semantic rule is separate from explicit
 low-level packed word-unit access to a bit-device family.
 
+Public address counts are positive safe integers. `parseAddress()` accepts a
+complete ASCII-decimal suffix from `1` through `Number.MAX_SAFE_INTEGER` with
+no sign, whitespace, fraction, exponent, non-ASCII digit, or trailing text and
+preserves the exact Number. `formatParsedAddress()` accepts a count on a
+hand-built object only when `hasCount` is true and `count` is a primitive
+positive safe-integer Number; it performs no coercion. Syntax/safe-integer
+validation precedes and is separate from each command/profile point limit.
+
 Numeric fields in runtime extension objects also require primitive finite safe
 integer Numbers. An explicitly present `null` is invalid; only an omitted
 optional field selects its documented default. String qualification in
@@ -214,14 +244,25 @@ assigned by the client. PLC errors expose the numeric end code, stable
 `slmp_end_code_xxxx` key, and structured error information, not localized
 manual-derived messages.
 
+When a non-zero response contains structured error information, its network,
+station, module I/O, multidrop, command, and subcommand must match the active
+wire request. A mismatch raises a malformed `SlmpError`, closes the supplying
+transport generation, and is not a definitive PLC error. A possibly sent
+state-changing operation is instead `SlmpOperationOutcomeUnknownError` with
+reason `malformed-response`. Bytes after a matching nine-byte prefix remain
+available as additional PLC error data. Standard acknowledgement-only APIs
+also require an empty data body after end code zero; unexpected data is the
+same malformed/outcome-unknown failure. `rawCommand()` is excluded and
+continues to return arbitrary successful response data.
+
 Timeout and lifecycle errors are machine-readable: `SlmpTimeoutError`
 (`SLMP_TIMEOUT`), `SlmpClosedError` (`SLMP_CLOSED`), and
 `SlmpNotConnectedError` (`SLMP_NOT_CONNECTED`). If a state-changing request may
 have been sent before timeout, close, or transport failure, the result is
 `SlmpOperationOutcomeUnknownError` (`SLMP_OPERATION_OUTCOME_UNKNOWN`). Its
-`reason` is `timeout`, `closed`, or `transport`, and `cause` retains the original
-error. Do not automatically retry outcome-unknown operations; first verify PLC
-state.
+`reason` is `timeout`, `closed`, `transport`, or `malformed-response`, and
+`cause` retains the original error. Do not automatically retry outcome-unknown
+operations; first verify PLC state.
 
 TCP command payloads are limited to 65,529 bytes. UDP command payloads are
 limited to 65,492 bytes for 3E and 65,488 bytes for 4E so the complete frame

@@ -131,6 +131,68 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   }
 });
 
+test("address counts preserve exact positive safe integers and reject every non-decimal suffix", () => {
+  const options = { plcProfile: "melsec:iq-r" };
+  for (const count of [1, Number.MAX_SAFE_INTEGER]) {
+    const text = `D0:U,${count}`;
+    const parsed = parseAddress(text);
+    assert.equal(parsed.count, count);
+    assert.equal(formatParsedAddress(parsed, options), text);
+  }
+
+  for (const suffix of [
+    `${Number.MAX_SAFE_INTEGER + 1}`,
+    "999999999999999999999999999999999999",
+    "+1",
+    "-1",
+    " 1",
+    "1 0",
+    "1e2",
+    "1.5",
+    "1junk",
+    "",
+    "0",
+    "\u0661",
+  ]) {
+    assert.throws(() => parseAddress(`D0:U,${suffix}`), /count/i, suffix);
+  }
+  assert.throws(() => parseAddress("D0:U,1,2"), /count separator/i);
+});
+
+test("formatParsedAddress requires a native positive safe-integer count without coercion", () => {
+  const options = { plcProfile: "melsec:iq-r" };
+  const base = { base: "D0", dtype: "U", bitIndex: null, hasCount: true };
+  let coercions = 0;
+  const coercible = {
+    valueOf() { coercions += 1; return 2; },
+    toString() { coercions += 1; return "2"; },
+  };
+  for (const count of ["2", new Number(2), 2n, coercible, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => formatParsedAddress({ ...base, count }, options), /positive safe-integer/i);
+  }
+  assert.equal(coercions, 0);
+  assert.equal(
+    formatParsedAddress({ ...base, hasCount: false, count: coercible }, options),
+    "D0:U",
+  );
+  assert.equal(coercions, 0);
+});
+
+test("named planning applies profile limits after exact count parsing and before client I/O", async () => {
+  let calls = 0;
+  const client = {
+    plcProfile: "melsec:iq-r",
+    async readRandom() { calls += 1; return { word: {}, dword: {} }; },
+    async writeBlock() { calls += 1; },
+  };
+  await assert.rejects(() => readNamed(client, ["D0:U,97"]), /must fit one request/i);
+  await assert.rejects(
+    () => writeNamed(client, { "D0:U,9007199254740991": [] }),
+    /device span|expects 9007199254740991 item|must fit one request/i,
+  );
+  assert.equal(calls, 0);
+});
+
 test("readNamed and writeNamed reject BIT_IN_WORD without an explicit bit index", async () => {
   const fakeClient = {
     plcProfile: "melsec:iq-r",
@@ -1236,9 +1298,63 @@ test("writes accept only native booleans for bit values and exact integer widths
     await writeTyped(fakeClient, "M1000", "BIT", value);
     assert.equal(writes.at(-1).values[0], expected);
   }
-  await writeTyped(fakeClient, "D100", "U", "65535");
-  await writeTyped(fakeClient, "D101", "S", "-32768");
+  await writeTyped(fakeClient, "D100", "U", 65535);
+  await writeTyped(fakeClient, "D101", "S", -32768);
   assert.deepEqual(writes.slice(-2).map((entry) => entry.values), [[65535], [32768]]);
+  await assert.rejects(() => writeTyped(fakeClient, "D102", "U", "65535"), /native JavaScript Number/);
+  await assert.rejects(() => writeTyped(fakeClient, "D103", "S", "-32768"), /native JavaScript Number/);
+});
+
+test("all numeric dtypes reject strings and coercible values atomically before client I/O", async () => {
+  let calls = 0;
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async writeDevices() { calls += 1; },
+    async writeRandomWords() { calls += 1; },
+    async writeBlock() { calls += 1; },
+  };
+  for (const dtype of ["U", "S", "D", "L", "F"]) {
+    for (const value of ["1", "+1", "-1", "1.5", "1e2"]) {
+      await assert.rejects(() => writeTyped(fakeClient, "D0", dtype, value), /native JavaScript Number/);
+    }
+  }
+
+  let coercions = 0;
+  const coercible = {
+    valueOf() { coercions += 1; return 1; },
+    toString() { coercions += 1; return "1"; },
+  };
+  for (const value of [new Number(1), 1n, true, null, [], coercible]) {
+    await assert.rejects(() => writeTyped(fakeClient, "D0", "U", value), /native JavaScript Number/);
+  }
+  await assert.rejects(
+    () => writeNamed(fakeClient, { "D0:U,3": [1, "2", 3] }),
+    /native JavaScript Number/,
+  );
+  assert.equal(coercions, 0);
+  assert.equal(calls, 0);
+});
+
+test("numeric dtype native boundary values keep their exact wire words", async () => {
+  const writes = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    async writeDevices(_device, values) { writes.push(Array.from(values)); },
+  };
+  const cases = [
+    ["U", 0, [0]],
+    ["U", 0xffff, [0xffff]],
+    ["S", -0x8000, [0x8000]],
+    ["S", 0x7fff, [0x7fff]],
+    ["D", 0xffffffff, [0xffff, 0xffff]],
+    ["L", -0x80000000, [0x0000, 0x8000]],
+    ["L", 0x7fffffff, [0xffff, 0x7fff]],
+    ["F", Math.fround(3.5), [0x0000, 0x4060]],
+  ];
+  for (const [dtype, value] of cases) {
+    await writeTyped(fakeClient, "D0", dtype, value);
+  }
+  assert.deepEqual(writes, cases.map(([, , words]) => words));
 });
 
 test("writeNamed forwards per-request target overrides to client calls", async () => {

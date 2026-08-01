@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- Library: Present nine-byte PLC error information must identify the active request's route, command, and subcommand. A mismatch now invalidates the transport and raises a malformed `SlmpError`; a possibly sent state-changing command reports outcome unknown with reason `malformed-response` instead of a definitive PLC error. Matching prefixes still permit and retain additional PLC error data.
+- Library: Standard acknowledgement-only write, monitor-registration, remote-control, clear-error, password, memory, extend-unit, and label APIs now require an empty successful response body. Unexpected data after end code zero is malformed and outcome-unknown; maintainer-level `rawCommand()` remains the arbitrary-response surface.
+- Library: High-level `U`, `S`, `D`, `L`, and `F` writes now require primitive JavaScript Numbers and never coerce numeric strings, boxed values, `BigInt`, Booleans, null, arrays, or objects. Callers with configuration text must convert it explicitly before the write API.
+- Library: Public address counts now require complete ASCII-decimal positive safe integers. Precision-losing text, partial suffixes, signs, whitespace, exponents, fractions, zero, non-ASCII digits, and coercible hand-built formatter values are rejected instead of being rounded or partially parsed.
 - Library: Structured Direct, Random, Monitor-registration, and Block device operations now reject
   any route whose final consumed device number exceeds the selected Q/L 24-bit or iQ-R 32-bit wire
   field. Ordinary DWord/float values consume two word addresses, packed bit-device words and bit
@@ -88,6 +92,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Library: UDP exchanges now require both a successful socket-send callback and a matching response before completing or publishing request/byte counters. Response-first data remains provisional; a later send failure discards it, closes the generation, and preserves read-only versus state-changing error classification under the one absolute deadline.
+- Library: A current UDP socket error now detaches and closes that socket exactly once, rejects its pending requests, clears its connect state, releases the local port/listeners, and ignores late retired-generation events before reconnect.
+- Library: Concurrent `close()` calls now share one close flight, generation retirement, managed password-lock attempt, transport close, and result. Closing state cannot clear early and admit a new connection while the shared close is pending.
 - Library: Transaction timeout now retires the exact TCP/UDP generation, and
   delayed callbacks from a retired generation cannot update counters or satisfy
   later work. Read timeouts remain `SLMP_TIMEOUT`; ambiguous post-send writes
@@ -115,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
+- Tests: Added deterministic 3E/4E TCP/UDP error-information correlation, extra-data acknowledgement, raw-command exclusion, UDP send/response ordering, send failure, socket retirement, concurrent close, strict numeric write, and exact safe-integer address-count vectors.
 - Tests: Added absolute lazy-connect deadline, timeout/outcome-unknown error,
   active/queued close, stale-generation reconnect prevention, definitive-result
   close precedence, one-Random-Read named-plan boundaries, blocked-send

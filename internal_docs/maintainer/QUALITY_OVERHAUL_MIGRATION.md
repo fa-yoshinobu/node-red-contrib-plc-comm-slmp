@@ -1,4 +1,4 @@
-# Node-RED SLMP Quality Overhaul
+﻿# Node-RED SLMP Quality Overhaul
 
 This maintainer record preserves approved target contracts, compatibility impact, acceptance criteria, and verification evidence. User pages describe only the resulting supported behavior.
 
@@ -1322,3 +1322,57 @@ approved cross-language target contracts.
   the approved configuration/runtime boundary; explicit configuration parsing
   is retained instead.
 - Deferred: none. No accepted finding remains open.
+
+## 2026-08-02 response, UDP lifecycle, and high-level validation migration
+
+### SLMP-ERROR-INFO-CORRELATION-001
+
+PLC errors carrying the structured nine-byte error-information prefix are
+definitive only when its route, command, and subcommand identify the active
+request. Simulators and gateways must return that matching identity. Callers
+must treat a malformed `SlmpError`, or state-changing outcome unknown with
+reason `malformed-response`, as an uncorrelated result and must not retry a
+write as though the PLC had definitely rejected it. Additional bytes after a
+matching prefix remain supported.
+
+### SLMP-EMPTY-ACK-001
+
+Standard acknowledgement-only APIs accept no response data after end code
+zero. Custom peers must remove non-standard success payloads. A maintainer that
+intentionally sends a vendor command with response data must use
+`rawCommand()` and own its response semantics; ordinary write/control APIs no
+longer discard that data as a compatibility behavior.
+
+### SLMP-NODE-UDP-SEND-GATE-001 and SLMP-NODE-UDP-ERROR-CLOSE-001
+
+Custom UDP socket adapters and test doubles must invoke the send callback
+exactly once. A response alone no longer proves local send completion. Socket
+errors retire and close the owning generation, so integrations must reconnect
+through a new socket rather than retaining the failed socket or its listeners.
+Missing send callbacks remain subject to the transaction deadline.
+
+### SLMP-NODE-CLOSE-SINGLE-FLIGHT-001
+
+Overlapping `close()` calls now observe one shared operation and result. Code
+must await that result before connecting or submitting more work; it must not
+depend on duplicate password-lock calls, duplicate transport closes, or an
+earlier concurrent caller clearing closing state.
+
+### SLMP-NODE-NUMERIC-NO-COERCION-001
+
+High-level numeric writes require primitive JavaScript Numbers. Applications
+loading decimal, fractional, or exponent text from configuration must parse
+and validate it explicitly before calling `writeTyped` or `writeNamed`. Numeric
+strings, boxed Numbers, `BigInt`, Booleans, null, arrays, and coercible objects
+are no longer compatibility inputs. `STR` and native-Boolean `BIT` keep their
+separate exact-type contracts.
+
+### SLMP-NODE-ADDRESS-COUNT-001
+
+Address count suffixes must be complete ASCII-decimal values from `1` through
+`Number.MAX_SAFE_INTEGER`. Applications must remove signs, embedded spaces,
+fractions, exponent notation, non-ASCII digits, and suffix text instead of
+depending on partial parsing. Hand-built objects passed to
+`formatParsedAddress()` must provide a primitive positive safe-integer Number
+when `hasCount` is true. Command/profile point limits still apply after this
+syntax and representation check.
