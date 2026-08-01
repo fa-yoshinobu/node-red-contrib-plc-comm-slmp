@@ -92,6 +92,23 @@ Every object-form DeviceRef used by direct, typed, random, block, or monitor
 helpers must carry the exact client `plcProfile`; a missing or different
 identity is rejected before serial allocation or transport.
 
+Structured device operations must also fit their complete consumed span in the
+selected wire device-number field. The exact protocol boundaries are 24 bits
+for Q/L and 32 bits for ordinary iQ-R entries. A link-direct `J`-qualified
+entry always uses the 24-bit Q/L device specification, including on an iQ-R
+client. A normal word or bit consumes one device number,
+an ordinary DWord or float consumes two word-device numbers, and a packed
+bit-device word or Block bit point consumes 16 bit-device numbers; a low-level
+packed bit-device DWord consumes 32. Native long devices keep their
+command-specific stride. Direct, Random, Monitor
+registration, Block, typed, and named helpers reject a crossing span before
+request framing, serial allocation, connection, or traffic accounting. This is
+a wire-format check only; profile-catalog practical device ranges are not used
+as pre-transport address guards.
+Random word/DWord write overlap checks use the same ordinary, packed-bit, and
+native long-device widths, so overlapping destinations are rejected without
+rejecting valid adjacent native DWords.
+
 `readNamed` emits exactly one Random Read request or rejects the complete plan
 before transport. Counted word values, strings, DWord arrays, and packable bit
 entries are expanded into Random Read entries and deduplicated within the

@@ -234,6 +234,17 @@ an incomplete or conflicting selector is not completed from `msg.dtype`.
 
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
+The complete accessed span must fit the selected SLMP device-number field:
+24 bits for Q/L or 32 bits for ordinary iQ-R entries. A link-direct
+`J`-qualified device always uses the 24-bit Q/L device specification, including
+when the client profile is iQ-R. Ordinary DWord and float values consume
+two consecutive word addresses. Low-level packed word access to a bit-device
+family, and each Block bit point, consumes 16 consecutive bit-device numbers;
+a low-level packed DWord consumes 32. Crossing the wire boundary is rejected
+before communication. This check does
+not impose the profile catalog's practical device ranges; applications may
+enforce those separately when required.
+
 Use only `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`. The removed compatibility
 spellings `:I`, `:STRING`, and `DSTR...` are rejected. `:BIT` and counted bit
 forms require a canonical bit device. Numeric and string forms require a
