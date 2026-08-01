@@ -3,7 +3,6 @@
 const fs = require("node:fs");
 const http = require("node:http");
 const net = require("node:net");
-const os = require("node:os");
 const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 
@@ -11,7 +10,11 @@ const repoRoot = path.resolve(__dirname, "..");
 const packageJson = require(path.join(repoRoot, "package.json"));
 const flowPath = path.join(repoRoot, "examples", "flows", "slmp-basic-read-write.json");
 const expectedTypes = new Set(["slmp-connection", "slmp-read", "slmp-write"]);
-const smokeDir = path.join(os.tmpdir(), `${packageJson.name.replace(/[^a-z0-9._-]+/gi, "-")}-editor-smoke`);
+const smokeDir = path.resolve(
+  repoRoot,
+  "..",
+  `.${packageJson.name.replace(/[^a-z0-9._-]+/gi, "-")}-editor-smoke`,
+);
 const npmCacheDir = path.join(smokeDir, ".npm-cache");
 const npmRunner = resolveNpmRunner();
 const nodeRedRunner = resolveNodeRedRunner();
@@ -92,7 +95,10 @@ function resolveNpmRunner() {
 
 function resolveNodeRedRunner() {
   const explicit = process.env.NODE_RED_CMD;
-  if (explicit && fs.existsSync(explicit)) {
+  if (explicit) {
+    if (!fs.existsSync(explicit)) {
+      throw new Error(`NODE_RED_CMD does not exist: ${explicit}`);
+    }
     if (explicit.toLowerCase().endsWith(".js")) {
       return { command: process.execPath, args: [explicit] };
     }

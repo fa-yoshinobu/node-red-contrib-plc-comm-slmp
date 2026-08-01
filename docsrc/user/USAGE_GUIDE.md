@@ -261,6 +261,43 @@ Use explicit 32-bit forms for long current-value families:
 
 These are 32-bit families. Do not use direct plain word access for them; the lower-level direct word commands reject that shape. The explicit suffix also makes your flow portable and readable.
 
+## Node status and diagnosis
+
+Node status is a concise progress indicator. Use the selected error route and
+its Error object for diagnosis; do not parse status text as an error code.
+
+| Node / state | Fill | Shape | Exact text |
+| --- | --- | --- | --- |
+| Connection created | grey | ring | `ready` |
+| Connection opening | yellow | ring | `connecting` |
+| Connection open | green | dot | `connected` |
+| Connection closing | yellow | ring | `disconnecting` |
+| Connection closed by a disconnect operation | red | ring | `disconnected` |
+| Connection closing and opening again | yellow | ring | `reinitializing` |
+| Config node removed or runtime stopped | grey | ring | `closed` |
+| Read in progress | blue | dot | `reading` |
+| Write in progress | blue | dot | `writing` |
+| Successful read or write | green | dot | `N item(s)` |
+| Failed read, write, or control action | red | ring | The actual `error.message` |
+
+A `connect`, `disconnect`, or `reinitialize` control message first shows a
+yellow ring with that exact action name. Success then shows a dot with the same
+text: green for `connect` and `reinitialize`, red for `disconnect`.
+
+The failure status is deliberately dynamic. Timeout, operation-outcome-unknown,
+and profile-capability failures are error classifications, not promised status
+strings. Depending on the configured Errors mode, inspect the Error passed to
+`done(error)` or the Error in `msg.error` on output 1 or output 2. Its
+JavaScript type and structured fields such as `code`, `reason`, `endCode`,
+`errorInfo`, and `cause` provide the available diagnosis.
+
+A profile-capability rejection is local pre-transport validation; it does not
+prove that a PLC rejected a request. If a state-changing request may have been
+sent and its outcome is unknown, the node does not retry it automatically.
+Confirm PLC/application state with an appropriate read or operator procedure
+before deciding whether to issue another write.
+
+
 ## Connection control messages
 
 Send any of these fields to `slmp-read` or `slmp-write`:

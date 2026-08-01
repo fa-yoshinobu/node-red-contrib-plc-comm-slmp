@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- CI: Added a dedicated normal-CI Node-RED 4.1.11 editor smoke job that installs the packed npm artifact into an isolated user directory and round-trips the maintained connection/read/write example.
+- Tests: Locked the connection, read, write, control-action, success-count, and dynamic-error node statuses to their exact fill, shape, and text contract.
+- Docs: Documented the exact stable node statuses and directed error diagnosis to the selected error route and structured Error object instead of status-text matching.
 - CI: The package gate now creates and installs the real npm tarball in an isolated consumer, runs the package-name/FIFO RMW assertions from a generated UTF-8 JavaScript file without checkout fallback, validates packaged Node-RED flows, and rejects root maintainer/runner files, credentials, caches, and build/release output from the artifact.
 - Tooling: The source-archive gate can synthesize a Git tree from the complete current worktree, including modified, untracked, and deleted paths, then runs both the full extracted-source gate and installed-package consumer gate.
 - Docs: Documented Node.js 18 as the package's minimum supported runtime so the getting-started requirements agree with package metadata and CI.

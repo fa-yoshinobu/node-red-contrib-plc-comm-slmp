@@ -62,3 +62,46 @@ jobs:
         if: matrix.node-version == 22
         shell: pwsh
         run: ./scripts/check_source_archive.ps1 -IncludeWorktree
+
+  editor-smoke:
+    name: Editor smoke / Node-RED 4.1.11
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install fixed Node-RED editor runtime
+        env:
+          NODE_RED_RUNTIME_DIR: ${{ runner.temp }}/node-red-editor-smoke-runtime
+        run: npm install --prefix "$NODE_RED_RUNTIME_DIR" --no-save --package-lock=false node-red@4.1.11
+
+      - name: Install package and round-trip the maintained example in Node-RED
+        env:
+          NODE_RED_CMD: ${{ runner.temp }}/node-red-editor-smoke-runtime/node_modules/node-red/red.js
+        run: node test/run-editor-smoke.js
+
+  windows-socket-lifecycle-smoke:
+    name: Windows socket lifecycle smoke / Node 20
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up representative Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run bounded socket lifecycle contract smoke
+        run: node test/run-windows-socket-smoke.js
