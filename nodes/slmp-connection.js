@@ -8,7 +8,7 @@ const {
   normalizeTransport,
   profileDescriptors,
 } = require("../lib/slmp");
-const { normalizeDisplayName } = require("./runtime-validation");
+const { normalizeConfiguredRouteTarget, normalizeDisplayName } = require("./runtime-validation");
 
 module.exports = function registerSlmpConnection(RED) {
   if (RED.httpAdmin && typeof RED.httpAdmin.get === "function") {
@@ -54,12 +54,12 @@ module.exports = function registerSlmpConnection(RED) {
         throw new Error("slmp-connection remotePassword is required when useRemotePassword is enabled");
       }
     }
-    this.target = {
+    this.target = normalizeConfiguredRouteTarget({
       network: config.network,
       station: config.station,
       moduleIO: config.moduleIO,
       multidrop: config.multidrop,
-    };
+    });
 
     if (!this.plcProfile) {
       throw new Error("slmp-connection requires plcProfile");

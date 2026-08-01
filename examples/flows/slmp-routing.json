@@ -31,7 +31,7 @@
                       },
                       {
                           "p":  "target",
-                          "v":  "{\"network\":0,\"station\":255,\"moduleIO\":\"03FF\",\"multidrop\":0}",
+                          "v":  "{\"network\":0,\"station\":255,\"moduleIO\":1023,\"multidrop\":0}",
                           "vt":  "json"
                       }
                   ],

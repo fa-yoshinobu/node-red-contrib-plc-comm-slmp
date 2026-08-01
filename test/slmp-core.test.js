@@ -813,6 +813,79 @@ test("block access rejects device categories that do not match the block kind", 
   assert.equal(calls, 0);
 });
 
+test("every semantic bit-entry client surface uses canonical device-unit metadata", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    target: TEST_TARGET,
+    plcProfile: "melsec:iq-r",
+  });
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    return { data: Buffer.alloc(0) };
+  };
+  const wordCodes = Object.entries(slmpApi.DEVICE_CODES)
+    .filter(([, info]) => info.unit === slmpApi.DeviceUnit.WORD)
+    .map(([code]) => code);
+  const bitCodes = Object.entries(slmpApi.DEVICE_CODES)
+    .filter(([, info]) => info.unit === slmpApi.DeviceUnit.BIT)
+    .map(([code]) => code);
+
+  for (const code of wordCodes) {
+    await assert.rejects(() => client.readDevices(`${code}0`, 1, { bitUnit: true }));
+    await assert.rejects(() => client.writeDevices(`${code}0`, [true], { bitUnit: true }));
+    await assert.rejects(() => client.writeRandomBits({ bitValues: [[`${code}0`, true]] }));
+    await assert.rejects(() => client.readBlock({ bitBlocks: [[`${code}0`, 1]] }));
+    await assert.rejects(() => client.writeBlock({ bitBlocks: [[`${code}0`, [1]]] }));
+  }
+  for (const code of bitCodes) {
+    await assert.rejects(() => client.readBlock({ wordBlocks: [[`${code}0`, 1]] }));
+    await assert.rejects(() => client.writeBlock({ wordBlocks: [[`${code}0`, [1]]] }));
+  }
+  for (const address of [String.raw`J1\W0`, String.raw`J1\SW0`, String.raw`U1\G0`, String.raw`U3E0\HG0`]) {
+    await assert.rejects(
+      () => client.writeRandomBitsExt({ bitValues: [[new SlmpExtendedDevice(address), true]] }),
+      /requires a bit device/i
+    );
+  }
+  assert.equal(calls, 0);
+});
+
+test("explicit low-level word access retains packed bit-device access", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    target: TEST_TARGET,
+    plcProfile: "melsec:iq-r",
+  });
+  const requests = [];
+  client._request = async (command, subcommand) => {
+    requests.push({ command, subcommand });
+    return {
+      data: command === Command.DEVICE_READ || command === Command.DEVICE_READ_RANDOM
+        ? Buffer.from([0x34, 0x12])
+        : Buffer.alloc(0),
+    };
+  };
+
+  assert.deepEqual(await client.readDevices("M0", 1, { bitUnit: false }), [0x1234]);
+  await client.writeDevices("M0", [0x5678], { bitUnit: false });
+  assert.deepEqual(await client.readRandom({ wordDevices: ["M0"] }), {
+    word: { M0: 0x1234 },
+    dword: {},
+  });
+  await client.writeRandomWords({ wordValues: [["M0", 0x5678]] });
+  assert.deepEqual(requests, [
+    { command: Command.DEVICE_READ, subcommand: 0x0002 },
+    { command: Command.DEVICE_WRITE, subcommand: 0x0002 },
+    { command: Command.DEVICE_READ_RANDOM, subcommand: 0x0002 },
+    { command: Command.DEVICE_WRITE_RANDOM, subcommand: 0x0002 },
+  ]);
+});
+
 test("raiseOnError defaults to true and accepts only explicit booleans", async () => {
   const base = {
     host: "127.0.0.1",
@@ -861,23 +934,26 @@ test("raiseOnError defaults to true and accepts only explicit booleans", async (
   assert.equal(frames.length, 1, "invalid request policies must fail before transport");
 });
 
-test("normalizeTarget rejects partial, fractional, and non-finite route values", () => {
-  assert.deepEqual(normalizeTarget({ network: "1", station: "2", moduleIO: "03FF", multidrop: "3" }), {
+test("normalizeTarget requires primitive finite safe integer route values", () => {
+  assert.equal("parseNumber" in slmpApi, false, "the coercive numeric helper is not public");
+  assert.deepEqual(normalizeTarget({ network: 1, station: 2, moduleIO: 0x03ff, multidrop: 3 }), {
     network: 1,
     station: 2,
     moduleIO: 0x03ff,
     multidrop: 3,
   });
-  for (const target of [
-    { ...TEST_TARGET, network: "1junk" },
-    { ...TEST_TARGET, station: "2.9" },
-    { ...TEST_TARGET, moduleIO: "03FFzz" },
-    { ...TEST_TARGET, multidrop: "3x" },
-    { ...TEST_TARGET, network: 1.5 },
-    { ...TEST_TARGET, station: Number.NaN },
-    { ...TEST_TARGET, moduleIO: Number.POSITIVE_INFINITY },
-  ]) {
-    assert.throws(() => normalizeTarget(target), /integer/i);
+  const maxima = { network: 0xff, station: 0xff, moduleIO: 0xffff, multidrop: 0xff };
+  for (const [field, maximum] of Object.entries(maxima)) {
+    for (const invalid of [
+      "1", "ff", "0x10", " ", new Number(1), false, true, NaN, Infinity,
+      -Infinity, 1.5, Number.MAX_SAFE_INTEGER + 1, -1, maximum + 1,
+      { valueOf: () => 1 }, { toString: () => "1" },
+    ]) {
+      assert.throws(
+        () => normalizeTarget({ ...TEST_TARGET, [field]: invalid }),
+        new RegExp(`target\\.${field}.*(?:integer|range)`, "i")
+      );
+    }
   }
   assert.throws(() => normalizeTarget({ network: 0 }), /required/i);
   assert.throws(() => normalizeTarget({ ...TEST_TARGET, module_io: 0x03ff }), /both moduleIO and module_io/i);
@@ -1241,6 +1317,183 @@ test("close during a possibly sent state-changing request reports outcome unknow
   await rejected;
 });
 
+function makeLifecycleBarrierClient(responseFactory, { transport = "tcp", timeout = 3000 } = {}) {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport,
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+    timeout,
+  });
+  let resolveResponse = null;
+  let signalRequestReady = null;
+  let transportCloseCount = 0;
+  const requestReady = new Promise((resolve) => { signalRequestReady = resolve; });
+  client._transport = {
+    async connect() {},
+    hasOpenTransport() { return true; },
+    connectionGeneration() { return 1; },
+    nextSerial() { return 7; },
+    sendAndReceive(frame) {
+      return new Promise((resolve) => {
+        resolveResponse = () => resolve(responseFactory(frame, client.frameType));
+        signalRequestReady();
+      });
+    },
+    async close() { transportCloseCount += 1; },
+  };
+  return {
+    client,
+    async waitForRequest() {
+      await requestReady;
+    },
+    async releaseResponse() {
+      await requestReady;
+      resolveResponse();
+    },
+    getTransportCloseCount() {
+      return transportCloseCount;
+    },
+  };
+}
+
+test("a decoded success, acknowledged write, or PLC end code remains definitive after close", async () => {
+  const read = makeLifecycleBarrierClient((frame, frameType) =>
+    responseForRequest(frame, frameType, Buffer.from([0x34, 0x12]))
+  );
+  const readOperation = read.client.readDevices("D0", 1, { bitUnit: false });
+  await read.releaseResponse();
+  assert.deepEqual(await readOperation, [0x1234]);
+  await read.client.close();
+
+  const write = makeLifecycleBarrierClient((frame, frameType) =>
+    responseForRequest(frame, frameType, Buffer.alloc(0))
+  );
+  const writeOperation = write.client.writeDevices("D0", [0x5678], { bitUnit: false });
+  await write.releaseResponse();
+  await writeOperation;
+  await write.client.close();
+
+  const plcError = makeLifecycleBarrierClient((frame, frameType) =>
+    responseForRequest(frame, frameType, Buffer.alloc(0), 0xc051)
+  );
+  const plcOperation = plcError.client.readDevices("D0", 1, { bitUnit: false });
+  await plcError.releaseResponse();
+  await assert.rejects(
+    () => plcOperation,
+    (error) => error instanceof SlmpError && error.endCode === 0xc051
+  );
+  await plcError.client.close();
+});
+
+test("close before a definitive response wins over valid, malformed, and length-mismatched read bytes", async () => {
+  const responses = [
+    (frame, frameType) => responseForRequest(frame, frameType, Buffer.from([0x34, 0x12])),
+    () => Buffer.from([0x00, 0x01, 0x02]),
+    (frame, frameType) => responseForRequest(frame, frameType, Buffer.alloc(0)),
+  ];
+  for (const responseFactory of responses) {
+    const read = makeLifecycleBarrierClient(responseFactory);
+    const operation = read.client.readDevices("D0", 1, { bitUnit: false });
+    await read.waitForRequest();
+    await read.client.close();
+    await read.releaseResponse();
+    await assert.rejects(() => operation, SlmpClosedError);
+  }
+
+  const write = makeLifecycleBarrierClient((frame, frameType) =>
+    responseForRequest(frame, frameType, Buffer.alloc(0))
+  );
+  const operation = write.client.writeDevices("D0", [0x5678], { bitUnit: false });
+  await write.waitForRequest();
+  await write.client.close();
+  await write.releaseResponse();
+  await assert.rejects(
+    () => operation,
+    (error) => error instanceof SlmpOperationOutcomeUnknownError
+      && error.reason === "closed"
+      && error.cause instanceof SlmpClosedError
+  );
+});
+
+test("protocol and command-specific decode errors remain definitive when close starts afterward", async () => {
+  const malformed = makeLifecycleBarrierClient(() => Buffer.from([0x00, 0x01, 0x02]));
+  const malformedOperation = malformed.client.readDevices("D0", 1, { bitUnit: false });
+  await malformed.releaseResponse();
+  await assert.rejects(
+    () => malformedOperation,
+    (error) => error instanceof SlmpError && !(error instanceof SlmpClosedError)
+  );
+  await malformed.client.close();
+
+  const mismatch = makeLifecycleBarrierClient((frame, frameType) =>
+    responseForRequest(frame, frameType, Buffer.alloc(0))
+  );
+  const mismatchOperation = mismatch.client.readDevices("D0", 1, { bitUnit: false });
+  await mismatch.releaseResponse();
+  await assert.rejects(
+      () => mismatchOperation,
+    (error) => error instanceof SlmpError
+      && !(error instanceof SlmpClosedError)
+      && /(size|count) mismatch/i.test(error.message)
+  );
+  await mismatch.client.close();
+});
+
+test("decoded read, write ACK, and PLC end code remain definitive after a later deadline", async () => {
+  for (const transport of ["tcp", "udp"]) {
+    const timeout = 100;
+    const read = makeLifecycleBarrierClient(
+      (frame, frameType) => responseForRequest(frame, frameType, Buffer.from([0x34, 0x12])),
+      { transport, timeout },
+    );
+    const readOperation = read.client._requestDecoded(
+      Command.DEVICE_READ,
+      0x0000,
+      Buffer.alloc(0),
+      {},
+      (response) => {
+        const value = response.data.readUInt16LE(0);
+        const finish = performance.now() + timeout + 25;
+        while (performance.now() < finish) {
+          // Cross the deadline only after the response and value are definitive.
+        }
+        return value;
+      },
+    );
+    await read.releaseResponse();
+    assert.equal(await readOperation, 0x1234, transport);
+    assert.equal(read.getTransportCloseCount(), 0, transport);
+
+    const write = makeLifecycleBarrierClient(
+      (frame, frameType) => responseForRequest(frame, frameType, Buffer.alloc(0)),
+      { transport, timeout },
+    );
+    const writeOperation = write.client.writeDevices("D0", [0x5678], { bitUnit: false });
+    await write.releaseResponse();
+    await writeOperation;
+
+    const plcError = makeLifecycleBarrierClient(
+      (frame, frameType) => responseForRequest(frame, frameType, Buffer.alloc(0), 0xc051),
+      { transport, timeout },
+    );
+    const plcOperation = plcError.client.readDevices("D0", 1, { bitUnit: false });
+    await plcError.releaseResponse();
+    const isExpectedPlcError = (error) => error instanceof SlmpError && error.endCode === 0xc051;
+    await assert.rejects(() => plcOperation, isExpectedPlcError);
+
+    const later = performance.now() + timeout + 25;
+    while (performance.now() < later) {
+      // A later deadline cannot replace an already-settled ACK or PLC end code.
+    }
+    await writeOperation;
+    await assert.rejects(() => plcOperation, isExpectedPlcError);
+    assert.equal(write.getTransportCloseCount(), 0, transport);
+    assert.equal(plcError.getTransportCloseCount(), 0, transport);
+  }
+});
+
 test("encodeDeviceSpec follows QL and iQR layouts", () => {
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "ql" })], [100, 0, 0, 0xa8]);
   assert.deepEqual([...encodeDeviceSpec("D100", { series: "iqr" })], [100, 0, 0, 0, 0xa8, 0x00]);
@@ -1260,6 +1513,65 @@ test("Extended Device public model is semantic and raw wire encoders are hidden"
   assert.equal(new SlmpIndexLz(1).index, 1);
   assert.throws(() => new SlmpIndexLz(2), /0\.\.1/);
   assert.throws(() => new SlmpExtendedDevice("D0", {}), /modification/);
+});
+
+test("Extended Device numeric options reject null and every coercible non-number for both aliases", () => {
+  const encodeResolved = require("../lib/slmp/core")._encodeResolvedExtendedDeviceSpec;
+  const fields = [
+    ["extensionSpecification", "extension_specification"],
+    ["extensionSpecificationModification", "extension_specification_modification"],
+    ["deviceModificationIndex", "device_modification_index"],
+    ["deviceModificationFlags", "device_modification_flags"],
+    ["directMemorySpecification", "direct_memory_specification"],
+  ];
+  for (const invalidExtension of [null, false, 0, "", []]) {
+    assert.throws(
+      () => encodeResolved(
+        { code: "D", number: 0 },
+        { series: "iqr", extension: invalidExtension }
+      ),
+      /extension must be an object/i
+    );
+  }
+  for (const aliases of fields) {
+    for (const field of aliases) {
+      for (const invalid of [null, "1", "0x1", "ff", false, Object(1), { valueOf: () => 1 }]) {
+        assert.throws(
+          () => encodeResolved(
+            { code: "D", number: 0 },
+            { series: "iqr", extension: { [field]: invalid } }
+          ),
+          new RegExp(`extension\\.${aliases[0]}.*integer`, "i")
+        );
+      }
+    }
+    assert.throws(
+      () => encodeResolved(
+        { code: "D", number: 0 },
+        { series: "iqr", extension: { [aliases[0]]: 1, [aliases[1]]: 1 } }
+      ),
+      /must not specify both/i
+    );
+  }
+  assert.doesNotThrow(() => encodeResolved(
+    { code: "D", number: 0 },
+    { series: "iqr", extension: {} }
+  ));
+  assert.doesNotThrow(() => encodeResolved(
+    { code: "D", number: 0 },
+    {
+      series: "iqr",
+      extension: {
+        extensionSpecification: 1,
+        extensionSpecificationModification: 0,
+        deviceModificationIndex: 0,
+        deviceModificationFlags: 0,
+        directMemorySpecification: 0,
+      },
+    }
+  ));
+  assert.doesNotThrow(() => new SlmpExtendedDevice(String.raw`J1\X0`));
+  assert.doesNotThrow(() => new SlmpExtendedDevice(String.raw`U3E0\HG0`));
 });
 
 test("slmp-connection editor supplies required new-node connection values", () => {

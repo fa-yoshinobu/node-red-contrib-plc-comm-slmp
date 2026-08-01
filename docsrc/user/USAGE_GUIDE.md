@@ -60,6 +60,13 @@ with reason `closed`. The local transport is still closed. The field is disabled
 off. When it is on, iQ-R credentials must be 6–32 printable ASCII characters and Q/L credentials must
 be exactly 4 printable ASCII characters.
 
+If a concurrent disconnect occurs only after a response has already decoded,
+the decoded success, write acknowledgement, or PLC end code remains the
+operation result. The same result remains definitive if the local transaction
+deadline passes afterward. An incomplete read reports `SLMP_CLOSED`. An incomplete
+state-changing operation that may have been sent reports
+`SLMP_OPERATION_OUTCOME_UNKNOWN` with reason `closed`.
+
 Authentication belongs to one concrete TCP/UDP connection. A reconnect unlocks again before the first
 normal command; a failed normal command is never replayed automatically. Disconnect always closes the
 local transport. If the PLC rejects the final lock or the lock times out, the disconnect operation
@@ -87,7 +94,7 @@ Per-request routing can be supplied from a message:
   "target": {
     "network": 1,
     "station": 2,
-    "moduleIO": "03FF",
+    "moduleIO": 1023,
     "multidrop": 0
   }
 }
@@ -95,6 +102,13 @@ Per-request routing can be supplied from a message:
 
 The same object can be placed in `msg.slmp.target`, or configured through the
 Route source on `slmp-read` and `slmp-write`.
+
+Runtime route objects use primitive integer Numbers for all four fields. String,
+Boolean, boxed, and coercible values are rejected. Saved connection fields and
+literal Route JSON are editor configuration: the runtime converts their decimal
+fields and hexadecimal `moduleIO` field before calling the client, so the visible
+own-station default remains `03FF`. Dynamic `msg`, flow, global, and environment
+route objects must already use Numbers.
 
 Route priority is `msg.target`, `msg.slmp.target`, configured Route source, then
 the connection route when no override is present. If a higher-priority property
@@ -216,19 +230,27 @@ an incomplete or conflicting selector is not completed from `msg.dtype`.
 | Bit in word | `D50.3` | One bit inside a word device. |
 | Direct bit | `M1000:BIT` | One bit device. |
 | Counted bit | `M1000:BIT,8` | One contiguous bit request. |
-| Counted word | `D100:U,4` | One word block inside a single block request. |
+| Counted word | `D100:U,4` | Four word entries inside one Random Read request. |
 
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
 Use only `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`. The removed compatibility
-spellings `:I`, `:STRING`, and `DSTR...` are rejected. `readNamed` may split an
-aggregate read into sequential requests only between independent listed
-entries. Those requests preserve listed timing order, keep one FIFO turn, stop
-on the first failure, return no partial
-result, and never split one scalar, string, or counted array. A split result is
-not one simultaneous snapshot; use a single-request read or PLC-side
-snapshot/handshake when values must represent one instant. `writeNamed` must fit
-one protocol request and rejects mixed command families before transport.
+spellings `:I`, `:STRING`, and `DSTR...` are rejected. `:BIT` and counted bit
+forms require a canonical bit device. Numeric and string forms require a
+canonical word device; use `.0` through `.F` for a bit inside a word device.
+Explicit low-level word-unit access may still address a packed 16-bit word in a
+bit-device family.
+
+`readNamed` emits exactly one Random Read request or rejects the complete plan
+before transport. Counted words, strings, DWord arrays, and packable bit entries
+are expanded inside that one request and must fit the selected profile limit.
+It never hides a long-timer Direct Read fallback; use `readTyped` or an explicit
+long-timer helper for those routes. `writeNamed` must also fit one protocol
+request and rejects mixed command families before transport.
+Options such as a per-request `target` are forwarded by the high-level helpers.
+Their compiled device/value lists, block lists, point counts, and bit/word route
+remain authoritative; same-named caller option fields cannot redirect the
+operation or replace its values.
 Bit-in-word read-modify-write is not hidden inside `writeNamed`. The explicit
 `writeBitInWord` helper snapshots and validates its arguments before queue
 admission, then holds one ordinary-client FIFO turn across its word read and
@@ -254,12 +276,15 @@ Use explicit 32-bit forms for long current-value families:
 
 | Family | Use |
 | --- | --- |
-| `LTN` | `LTN0:D` or `LTN0:L` |
-| `LSTN` | `LSTN0:D` or `LSTN0:L` |
+| `LTN` | Low-level `readTyped`/`writeTyped` with `LTN0` and `D` or `L` |
+| `LSTN` | Low-level `readTyped`/`writeTyped` with `LSTN0` and `D` or `L` |
 | `LCN` | `LCN0:D` or `LCN0:L` |
 | `LZ` | `LZ0:D` or `LZ0:L` |
 
-These are 32-bit families. Do not use direct plain word access for them; the lower-level direct word commands reject that shape. The explicit suffix also makes your flow portable and readable.
+These are 32-bit families. Do not use direct plain word access for them; the
+lower-level direct word commands reject that shape. `readNamed` and the
+Node-RED read node accept Random-Read-compatible `LCN` and `LZ` entries, but
+reject `LTN` and `LSTN` because they would require a hidden Direct Read route.
 
 ## Node status and diagnosis
 

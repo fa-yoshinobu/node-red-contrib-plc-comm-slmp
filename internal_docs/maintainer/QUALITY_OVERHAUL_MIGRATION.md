@@ -991,3 +991,235 @@ Self-review disposition:
   validation, or Node version matrix to Windows would exceed the approved
   bounded contract.
 - No deferred finding remains for this repository implementation.
+
+## NR-SLMP-R1-20260801 — One Random Read named-read contract
+
+Implementation scope: `compileReadPlan`, `readNamed`, the Node-RED read wrapper,
+named-read tests, examples, and user documentation.
+
+Target contract: one `readNamed` call emits exactly one canonical Random Read
+request or rejects the complete operation before transport. Counted words,
+strings, DWord arrays, and packable bit entries may be expanded and deduplicated
+inside that request. A long-timer route that requires Direct Read is never
+selected as a hidden fallback.
+
+Compatibility impact: named reads that previously issued Direct, Block, or
+several sequential requests now reject. Callers must use `readTyped`, an
+explicit route helper, or application-defined separate operations.
+
+Machine-verifiable acceptance criteria:
+
+1. Every accepted `readNamed` call and Node-RED read operation invokes
+   `readRandom` exactly once and invokes no Direct or Block read helper.
+2. Counted word/string/DWord and packable bit entries decode from that one
+   response, including aligned packed-bit word heads and device-specific DWord
+   stride.
+3. Mixed Random/Direct plans, `LTN`/`LSTN` Direct routes, and expanded plans over
+   the profile limit reject before queue admission, transport, counters, or
+   serial allocation.
+4. The complete plan and route target are validated and snapshotted before the
+   client FIFO turn; no partial result is exposed.
+5. Examples and user documentation state the exact one-Random-Read boundary and
+   the explicit migration route.
+
+- [x] Implementation completed in this affected repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC verification is not required for this deterministic planning and pre-transport contract.
+- [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## NR-SLMP-N1-20260801 — Exact semantic device-unit enforcement
+
+Implementation scope: direct, random-bit, Block, typed, named, and bit
+convenience APIs plus their Node-RED wrappers.
+
+Target contract: every semantic bit or bit-entry operation accepts only a
+canonical bit device. Typed and named `BIT` accepts only bit devices; numeric
+and string dtypes accept only word devices. Explicit low-level word-unit packed
+access to a bit-device family remains supported. Standalone `G` and `HG` remain
+word-only qualified routes.
+
+Compatibility impact: calls that relied on a dtype, bit flag, or collection
+name to reinterpret the wrong device unit now reject before transport.
+
+Machine-verifiable acceptance criteria:
+
+1. Every canonical device family is checked across Direct bit, random-bit, and
+   both Block collection directions before transport.
+2. Typed, named, and convenience helpers reject `BIT` on word devices and
+   numeric/string types on bit devices before client I/O.
+3. Explicit `bitUnit: false` packed word access to a bit device still encodes
+   the word-unit subcommand and can read or write one packed word.
+4. `G`/`HG` cannot pass a semantic bit route, and their existing qualified
+   word-route requirements remain intact.
+
+- [x] Implementation completed in this affected repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC verification is not required for deterministic device-metadata validation.
+- [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## NR-SLMP-N3-20260801 — Strict numeric runtime route and extension fields
+
+Implementation scope: core target/extension normalization, connection-node
+saved values, read/write route sources, examples, and documentation.
+
+Target contract: runtime route and extension numeric fields accept only
+primitive finite safe integer Numbers in range. Strings, Booleans, boxed
+Numbers, coercible objects, and explicit `null` reject. An optional extension
+field uses its documented default only when the property is omitted. Saved
+connection fields and literal Route JSON are configuration syntax parsed by
+field-specific radix before the strict client boundary. Visible editor defaults
+remain `0`, `255`, `03FF`, and `0`. Qualified `Jn\...` and `Un\...` device syntax
+is unchanged.
+
+Compatibility impact: programmatic and dynamic route/extension objects must
+replace numeric strings with Numbers. Existing editor display values and saved
+literal configuration continue to work through explicit conversion.
+
+Machine-verifiable acceptance criteria:
+
+1. Every route field rejects decimal/hex/blank strings, Booleans, boxed values,
+   non-finite/fractional/unsafe Numbers, coercible objects, negatives, and
+   values above its range, naming the failing field.
+2. Every extension numeric field and camel/snake alias applies the same
+   primitive finite safe integer contract, rejects explicit `null` and alias
+   conflicts, and preserves documented defaults only on omission.
+3. Connection configuration and literal Route JSON parse decimal
+   network/station/multidrop and hexadecimal module I/O into Numbers.
+4. `msg`, `msg.slmp`, flow, global, environment, and direct client route objects
+   remain strict and never parse JSON or numeric strings.
+5. Qualified device syntax continues to parse J-network decimal and U-extension
+   hexadecimal components without exposing a coercive numeric helper.
+
+- [x] Implementation completed in this affected repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC verification is not required for deterministic input normalization.
+- [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## NR-SLMP-D1-20260801 — Definitive result precedence under concurrent close
+
+Implementation scope: client lifecycle generation and deadline checks,
+protocol and command-specific response decoding, deterministic TCP/UDP
+lifecycle tests, and documentation.
+
+Target contract: after response decode completes, success, write
+acknowledgement, and PLC end-code error are definitive even if `close()` runs
+concurrently. An incomplete state-changing request that may have been sent is
+closed with outcome unknown. An incomplete non-state-changing read reports
+`SLMP_CLOSED`. Active and queued work that has no definitive result still
+follows deterministic close cancellation. The absolute deadline is enforced
+through protocol decode and immediately before command-specific result
+materialization. A result that becomes definitive is not replaced by a later
+deadline observation.
+
+Compatibility impact: a close that wins before protocol and command-specific
+decode now deterministically replaces any later-arriving success bytes with
+the closed classification. Once decoding is definitive, the result is unchanged.
+
+Machine-verifiable acceptance criteria:
+
+1. Explicit lifecycle barriers prove a close before definitive decode wins and
+   a close after definitive decode preserves a successful read value.
+2. Deterministic TCP and UDP schedules prove a materialized read value,
+   acknowledged write, and nonzero PLC end code win over a later deadline.
+3. Valid, malformed, and command-length-mismatched bytes arriving after close
+   retain `SLMP_CLOSED`; a possibly sent incomplete write retains
+   `SLMP_OPERATION_OUTCOME_UNKNOWN` with reason `closed`.
+4. User documentation distinguishes definitive decoded results from incomplete
+   state-changing operations.
+
+- [x] Implementation completed in this affected repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC verification is not required for deterministic mocked lifecycle ordering.
+- [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## NR-SLMP-R1-20260801 — High-level compiled-plan ownership
+
+Implementation scope: typed, named, bit convenience, Random, Block, and Direct
+high-level helper option construction plus deterministic tests and user docs.
+
+Target contract: high-level helpers compile the device/value lists, block
+lists, point counts, and bit/word route required by the requested semantic
+operation. Caller options may supply request-scoped values such as `target`, but
+same-named fields cannot replace or redirect that compiled plan.
+
+Compatibility impact: callers that attempted to inject internal helper fields
+through the options object no longer redirect the operation. Supported
+request-scoped options continue to be forwarded.
+
+Machine-verifiable acceptance criteria:
+
+1. Opposite caller `bitUnit` values cannot change typed or bit-convenience
+   Direct read/write routes.
+2. Caller `wordDevices` and `dwordDevices` cannot replace named or typed Random
+   Read destinations.
+3. Caller `wordValues`, `dwordValues`, and `bitValues` cannot replace typed or
+   named Random Write destinations or values.
+4. Compiled Block lists remain authoritative, while a complete caller `target`
+   reaches every resulting client request unchanged.
+
+- [x] Implementation completed in this affected repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC verification is not required for deterministic request construction.
+- [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+### 2026-08-01 verification evidence and self-review disposition
+
+The final current-worktree source-archive gate passed and, inside the extracted
+archive, ran the complete 232-test suite, `npm ci`, and `npm pack --dry-run`.
+The independent installed-package consumer gate passed with 34 files and all
+eight maintained flow JSON files. Canonical profile fixtures were unchanged;
+the no-auto-publish workflow guard, JavaScript syntax checks, example JSON
+parsing, and `git diff --check` also passed. No live PLC traffic was sent.
+
+Self-review inspected the actual runtime/API diff, validation order,
+pre-transport behavior, request planning, route snapshots, definitive-result
+lifecycle ordering, tests, examples, documentation, package contents, and the
+approved cross-language target contracts.
+
+- Accepted and corrected: low-level validation messages still recommended
+  `readNamed` for long Direct routes that the new contract rejects. They now
+  direct callers to `readTyped` or the explicit long-timer helper.
+- Accepted and corrected: the initial expanded-read coverage did not prove a
+  packed-bit boundary crossing or the different ordinary/long DWord strides.
+  One deterministic one-request vector now covers both.
+- Accepted and corrected: the routing flow supplied a dynamic string
+  `moduleIO`; it now supplies numeric `1023`, while saved editor configuration
+  retains the visible `03FF` default.
+- Accepted and corrected: explicit `null` in an extension field was treated as
+  omission by nullish fallback. Presence-based alias selection now rejects it,
+  rejects a non-object extension container, and defaults only omitted fields.
+- Accepted and corrected: the original concurrent-close regression scheduled
+  close before response decode while asserting a definitive result. Lifecycle
+  generation now remains authoritative through protocol and command-specific
+  decode, and explicit before/after barriers cover valid, malformed, and
+  length-mismatched responses plus possibly-sent writes.
+- Accepted and corrected: caller options could overwrite high-level compiled
+  Random device/value lists. Internal Direct, Random, and Block plan fields now
+  win while supported request-scoped options such as `target` still propagate.
+- Accepted and corrected during cross-library self-review: a post-materialization
+  deadline check could replace an already-definitive decoded result with
+  `SLMP_TIMEOUT`, contrary to D1. Deadline expiry is now checked immediately
+  before command-specific materialization; decoded reads, write ACKs, and PLC
+  end codes retain precedence over later expiry in deterministic TCP/UDP tests.
+- Duplicate: the API and usage wording that omitted incomplete-read
+  `SLMP_CLOSED` behavior was the documentation expression of D1 and was corrected
+  under that item rather than tracked as a separate contract decision.
+- Rejected: changing the editor's visible route defaults would conflict with
+  the approved configuration/runtime boundary; explicit configuration parsing
+  is retained instead.
+- Deferred: none. No accepted finding remains open.

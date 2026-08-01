@@ -4,14 +4,14 @@
     "type": "tab",
     "label": "SLMP Device Matrix",
     "disabled": false,
-    "info": "High-level one-by-one sample for every device code in the sample catalog. The flow sends each sample to slmp-read/slmp-write; unsupported-device errors follow the configured error-handling contract and never bypass profile enforcement."
+    "info": "High-level one-by-one sample for every device code in the sample catalog. The flow sends each sample to slmp-read/slmp-write; unsupported-device and one-Random-Read contract errors follow the configured error-handling contract. Long-timer Direct-read routes require low-level typed helpers and are expected to reject here."
   },
   {
     "id": "comment-slmp-device-matrix-main",
     "type": "comment",
     "z": "tab-slmp-device-matrix",
     "name": "High-level one-by-one read/write sample with JSONL logging, timeout tracking, and unsupported-device skip records",
-    "info": "Broad verification flow for one-by-one and run-all high-level device reads/writes. Use it after a simple D-register read succeeds.",
+    "info": "Broad verification flow for one-by-one and run-all high-level device reads/writes. Use it after a simple D-register read succeeds. The high-level read node deliberately rejects entries that cannot be represented by one Random Read.",
     "x": 350,
     "y": 40,
     "wires": []

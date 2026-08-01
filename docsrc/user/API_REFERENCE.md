@@ -17,6 +17,12 @@ the local communication timeout. TCP enables keepalive after 30 seconds idle.
 IPv6 literals and hostnames without an IPv4 result are rejected; the client
 never selects or falls back to IPv6.
 
+Every runtime target field (`network`, `station`, `moduleIO`, and `multidrop`)
+must be a primitive finite safe integer Number within its field range. Decimal
+or hexadecimal strings, Booleans, boxed Numbers, and coercible objects are not
+runtime values. The Node-RED editor separately converts saved connection fields
+and literal Route JSON using the displayed field radix.
+
 `remotePassword` is optional. Omit it (or use explicit `undefined`) to disable
 managed authentication. When present it must be a printable ASCII string with
 the selected profile's exact length rule: 6–32 characters for iQ-R-family
@@ -38,10 +44,17 @@ the local transport is still closed.
 
 Each activated transaction has one monotonic absolute deadline covering lazy
 connect, managed unlock, send completion, response framing/correlation, and
-response decoding. Partial frames, wrong serials, and foreign routes do not
-restart it. An explicit `connect()` has its own connection deadline. A timeout
-retires the current transport generation; no timed-out operation is retried or
-resent automatically.
+protocol response decode through the boundary immediately before
+command-specific result materialization. Partial frames, wrong serials, and
+foreign routes do not restart it. An explicit `connect()` has its own connection
+deadline. A timeout before that boundary retires the current transport
+generation; no timed-out operation is retried or resent automatically.
+Once a response has decoded to success, a write acknowledgement, or a PLC end
+code, that result is definitive even if `close()` runs concurrently or the
+deadline passes afterward. An
+incomplete non-state-changing read is reported as `SlmpClosedError`. An
+incomplete state-changing request that may have been sent is instead reported
+as outcome unknown with reason `closed`.
 
 ## Direct And Random Device Operations
 
@@ -67,23 +80,30 @@ wrap the address in `new SlmpExtendedDevice(address, modification)` with
 The current Node-RED low-level client does not expose separate extended direct
 device helpers. Use the extended random APIs for routed random access.
 
-`readDevices` and `writeDevices` require a Boolean `bitUnit`. Random and block
-writes reject duplicate or overlapping destinations. Every bit write value is
-a native JavaScript Boolean; numeric and string spellings such as `0`, `1`,
-`"ON"`, and `"OFF"` are rejected before transport.
+`readDevices` and `writeDevices` require a Boolean `bitUnit`. With
+`bitUnit: true`, the device must be a canonical bit device. Explicit
+`bitUnit: false` access may still read or write a packed 16-bit word through a
+bit-device family. Random bit entries and Block `bitBlocks` require bit devices;
+Block `wordBlocks` require word devices. Random and block writes reject
+duplicate or overlapping destinations. Every bit write value is a native
+JavaScript Boolean; numeric and string spellings such as `0`, `1`, `"ON"`, and
+`"OFF"` are rejected before transport.
 Every object-form DeviceRef used by direct, typed, random, block, or monitor
 helpers must carry the exact client `plcProfile`; a missing or different
 identity is rejected before serial allocation or transport.
 
-`readNamed` is an explicitly aggregate, read-only API. It may issue multiple
-sequential requests, split only between independent declared entries, and keeps
-one exclusive FIFO client turn until all requests finish. Requests follow the
-declared entry order; entries separated by another read route are not moved
-earlier merely to batch them. It never splits a
-multiword scalar, string, counted array, or other logical entry. The result is
-non-atomic: separate requests may observe different PLC scan times. The first
-failure rejects the call and no partial result is returned. `writeNamed` must
-fit exactly one request and rejects the complete update before I/O otherwise.
+`readNamed` emits exactly one Random Read request or rejects the complete plan
+before transport. Counted word values, strings, DWord arrays, and packable bit
+entries are expanded into Random Read entries and deduplicated within the
+selected profile's one-request limit. A long-timer route that requires Direct
+Read is never selected implicitly; use `readTyped` or an explicit long-timer
+helper. `writeNamed` also must fit exactly one request and rejects the complete
+update before I/O otherwise.
+
+High-level helper options may supply request-scoped values such as `target`.
+The helper-generated device lists, value lists, block lists, point counts, and
+`bitUnit` route are authoritative and cannot be replaced through that options
+object.
 
 ## Specialized Operations
 
@@ -135,7 +155,7 @@ length, and exact echo. `clearError` always uses the fixed empty payload.
 | Address parsing and formatting | `parseDevice`, `deviceToString`, `normalizeAddress`, `parseAddress`, `formatParsedAddress` |
 | Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
-| Named mixed aggregate reads and writes | `compileReadPlan`, `readNamed`, `writeNamed` |
+| Named one-request reads and writes | `compileReadPlan`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
 
 `writeBitInWord` validates and snapshots the complete operation before it enters
@@ -157,6 +177,16 @@ unit-specific word/bit collections.
 
 The supported dtype vocabulary is `BIT`, `U`, `S`, `D`, `L`, `F`, and `STR`.
 Compatibility spellings `:I`, `:STRING`, and `DSTR...` are not accepted.
+`:BIT` is valid only for canonical bit devices. Numeric and string dtypes are
+valid only for canonical word devices; use the `.0` through `.F` selector for a
+semantic bit inside a word device. This semantic rule is separate from explicit
+low-level packed word-unit access to a bit-device family.
+
+Numeric fields in runtime extension objects also require primitive finite safe
+integer Numbers. An explicitly present `null` is invalid; only an omitted
+optional field selects its documented default. String qualification in
+`Jn\...` and `Un\...` device syntax is unchanged; it is parsed as address syntax
+rather than runtime numeric coercion.
 
 The raw request API requires command, subcommand, and an explicit byte payload.
 Known commands have a fixed read-only/state-changing classification. Unknown
@@ -181,8 +211,8 @@ limited to 65,492 bytes for 3E and 65,488 bytes for 4E so the complete frame
 fits one datagram. Single-request command builders reject oversized inputs
 before transport or serial allocation and never truncate or split them. Label
 builders additionally enforce their aggregate payload size; their largest
-protocol-representable even payload is 65,528 bytes. Read-only aggregate
-splitting is limited to the documented `readNamed` entry-boundary contract.
+protocol-representable even payload is 65,528 bytes. `readNamed` never splits a
+plan: its expanded Random Read entry count must fit the selected profile limit.
 
 ## Profile Selection
 

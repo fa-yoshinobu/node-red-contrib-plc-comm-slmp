@@ -1,7 +1,14 @@
 "use strict";
 
 const { normalizeAddress, normalizeTarget, writeNamed } = require("../lib/slmp");
-const { hasOwn, normalizeDisplayName, requireEnum, requireSourceType, validateOutputs } = require("./runtime-validation");
+const {
+  hasOwn,
+  normalizeConfiguredRouteTarget,
+  normalizeDisplayName,
+  requireEnum,
+  requireSourceType,
+  validateOutputs,
+} = require("./runtime-validation");
 const SINGLE_WRITE_DTYPES = new Set(["BIT", "U", "S", "D", "L", "F", "STR"]);
 
 module.exports = function registerSlmpWrite(RED) {
@@ -135,7 +142,10 @@ async function resolveTarget(RED, node, msg) {
   }
   const configured = await evaluateConfiguredValue(RED, node, msg, node.routeTarget, node.routeTargetType, "target");
   try {
-    return { target: normalizeTargetSource(configured), source: `configured.${node.routeTargetType}` };
+    const target = node.routeTargetType === "str"
+      ? normalizeConfiguredRouteTarget(configured)
+      : normalizeTargetSource(configured);
+    return { target, source: `configured.${node.routeTargetType}` };
   } catch (error) {
     throw new Error(`Configured route target (${node.routeTargetType}) is invalid: ${error.message}`);
   }
@@ -199,23 +209,8 @@ function normalizeTargetSource(value) {
   if (value === undefined || value === null) {
     throw new Error("Routing target reference is missing");
   }
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      throw new Error("Routing target must not be empty");
-    }
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (!isPlainObject(parsed)) {
-        throw new Error("Routing target must be an object");
-      }
-      return normalizeTarget(parsed);
-    } catch (error) {
-      throw new Error(`Unable to parse target: ${error.message}`);
-    }
-  }
   if (!isPlainObject(value)) {
-    throw new Error("Routing target must be an object");
+    throw new Error("Routing target must be a runtime object with numeric fields");
   }
   return normalizeTarget(value);
 }

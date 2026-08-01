@@ -40,10 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SlmpOperationOutcomeUnknownError`. A state-changing operation interrupted
   after possible send reports outcome unknown instead of a plain retryable
   timeout or transport error.
-- Library: `readNamed` is now an explicitly non-atomic read aggregate. It may
-  split only between independent entries while retaining one exclusive client
-  turn. `writeNamed` still rejects any update requiring more than one request
-  before I/O.
+- Library: `readNamed` now emits exactly one Random Read request or rejects the
+  complete operation before I/O. Counted words, strings, DWord arrays, and
+  packable bit entries are expanded inside that one request. Long-timer Direct
+  routes must use `readTyped` or an explicit long-timer helper; there is no
+  hidden fallback. `writeNamed` continues to require exactly one request.
 - Library: `writeBitInWord` now preflights and snapshots the complete operation,
   then holds one ordinary-client FIFO turn across its read and write. The helper
   remains a two-request, non-atomic PLC operation, never retries automatically,
@@ -56,11 +57,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Block APIs now require word devices in `wordBlocks` and bit devices in `bitBlocks`.
   Bit-block overlap detection treats each block point as 16 bit-device destinations, preventing
   overlapping writes such as `M0` for two points plus `M16` for one point.
+- Library: Semantic bit operations (`bitUnit: true`, random bit entries,
+  `bitBlocks`, `:BIT`, and bit convenience helpers) now accept only canonical
+  bit devices. Semantic numeric and string types accept only canonical word
+  devices. Explicit low-level word-unit access to packed bit-device words is
+  still supported.
+- Library: Runtime route and extension fields now require primitive finite safe
+  integer Numbers. Explicit `null`, strings, Booleans, boxed Numbers, and
+  coercible objects are rejected; only an omitted optional extension field uses
+  its documented default. The coercive `parseNumber` helper is no longer exported. Qualified
+  `Jn\...` and `Un\...` address syntax remains string-based.
 - Library: Bit response decoding now requires exactly `ceil(points / 2)` bytes and rejects used
   nibbles other than `0` or `1`. The public 4E response decoder rejects non-zero reserved bytes.
 - Node-RED editor: Removed the unsupported `I`, `STRING`, and legacy `DSTR...` dtype spellings.
   Literal route overrides must now contain exactly `network`, `station`, `multidrop`, and one of
   `moduleIO` or `module_io`, matching runtime route validation.
+- Node-RED runtime: Saved connection fields and literal Route JSON are parsed
+  using their editor radix before being passed to the strict numeric client
+  contract. Dynamic `msg`, flow, global, and environment route objects must
+  already contain numeric fields. Existing visible defaults such as `03FF`
+  remain unchanged in the editor.
 
 ### Fixed
 
@@ -71,9 +87,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library: Every DeviceRef-taking direct, typed, random, block, and monitor API
   enforces exact `plcProfile` identity before serial allocation, counters, or
   transport.
-- Library: Multi-request named reads validate and snapshot the complete plan,
-  preserve declared entry order/result mapping, stop at the first error, and
-  never split a scalar, string, or counted array across requests.
+- Library: Named reads validate and snapshot the complete plan before queue
+  admission, preserve declared result mapping, and reject any plan that cannot
+  be represented by one Random Read within the selected profile limit.
+- Library: A response that has already decoded to success, write
+  acknowledgement, or a PLC end code is definitive even when `close()` runs
+  concurrently or the transaction deadline passes afterward. An incomplete
+  read reports `SLMP_CLOSED`; only an incomplete
+  state-changing operation that may have been sent is closed with an unknown
+  outcome.
+- Library: High-level typed and named helpers keep ownership of their compiled
+  device, value, count, and bit-unit fields. Per-request options such as
+  `target` are forwarded, but cannot replace the helper's generated Random,
+  Block, or Direct operation plan.
 - Library: Array label reads now accept the documented six-bit/two-byte response shape and reject count, unit, logical-length, truncation, and trailing-data mismatches. Random label reads reject zero or odd result lengths while preserving unknown data type IDs and spare values.
 - Library: Enforced command-payload limits of 65,529 bytes over TCP, 65,492 bytes for UDP 3E, and 65,488 bytes for UDP 4E; oversized requests are never truncated or split automatically.
 - Library: Corrected bit-block destination span calculation and block device-category validation.
@@ -82,14 +108,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Tests
 
 - Tests: Added absolute lazy-connect deadline, timeout/outcome-unknown error,
-  active/queued close, stale-generation reconnect prevention, aggregate-read
-  exclusivity/splitting/declared timing order, indivisible-value boundary,
-  blocked-send deadline, and complete DeviceRef profile-mismatch coverage.
+  active/queued close, stale-generation reconnect prevention, definitive-result
+  close precedence, one-Random-Read named-plan boundaries, blocked-send
+  deadline, and complete DeviceRef profile-mismatch coverage.
 - Tests: Added IPv6-literal rejection and local TCP/UDP hostname checks that prove IPv4 socket selection.
 - Tests: Added bit and byte boundary vectors plus malformed label-response coverage.
 - Tests: Added TCP/UDP 3E/4E payload boundaries, no-serial/no-stat rejection checks, and aggregate limits for all four label builders.
 - Tests: Added block overlap/category, bit response, public 4E reserved-field, and editor/runtime
   contract regressions.
+- Tests: Added exhaustive device-unit checks across direct, random-bit, block,
+  typed, named, and convenience APIs, plus strict numeric route/extension and
+  configured-literal conversion matrices.
+- Tests: Added explicit lifecycle barriers for close-before/after definitive
+  decode, explicit-null checks for every extension field alias, and caller-option
+  collision coverage for typed and named Direct/Random routes.
 
 ## [4.0.1] - 2026-07-29
 
