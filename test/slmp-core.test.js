@@ -211,6 +211,53 @@ test("TCP and UDP connect deadlines expose the dedicated timeout classification"
   }
 });
 
+test("TCP and UDP connection failures reject and retire the candidate socket", async () => {
+  class FailingTcpTransport extends SlmpTransport {
+    _createTcpSocket() {
+      this.createdSocket = new FakeConnectingTcpSocket();
+      return this.createdSocket;
+    }
+  }
+  class FailingUdpTransport extends SlmpTransport {
+    _createUdpSocket() {
+      this.createdSocket = new FakeConnectingUdpSocket();
+      return this.createdSocket;
+    }
+  }
+  const cases = [
+    {
+      label: "TCP",
+      transport: new FailingTcpTransport({
+        host: "127.0.0.1", port: 1025, transportType: "tcp", frameType: "4e", timeout: 1000,
+      }),
+      wasRetired: (socket) => socket.destroyed,
+    },
+    {
+      label: "UDP",
+      transport: new FailingUdpTransport({
+        host: "127.0.0.1", port: 1025, transportType: "udp", frameType: "4e", timeout: 1000,
+      }),
+      wasRetired: (socket) => socket.closed,
+    },
+  ];
+
+  for (const entry of cases) {
+    const pending = entry.transport.connect();
+    const socket = entry.transport.createdSocket;
+    const refusal = Object.assign(new Error("synthetic connection refusal"), { code: "ECONNREFUSED" });
+    socket.emit("error", refusal);
+
+    await assert.rejects(
+      () => pending,
+      (error) => error instanceof SlmpError
+        && error.cause === refusal
+        && new RegExp(`${entry.label} connection failed`).test(error.message),
+    );
+    assert.equal(entry.transport.hasOpenTransport(), false);
+    assert.equal(entry.wasRetired(socket), true);
+  }
+});
+
 test("transport use before connect exposes the dedicated not-connected classification", async () => {
   for (const transportType of ["tcp", "udp"]) {
     const transport = new SlmpTransport({

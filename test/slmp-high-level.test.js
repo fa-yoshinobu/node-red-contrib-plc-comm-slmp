@@ -1889,6 +1889,7 @@ test("slmp-read can route errors to the second output", async () => {
     assert.equal(Array.isArray(result.sent[0]), true);
     assert.equal(result.sent[0][0], null);
     assert.equal(result.sent[0][1].error.message, "boom");
+    assert.deepEqual(node.statusCalls.at(-1), { fill: "red", shape: "ring", text: "boom" });
   });
 });
 
@@ -1956,7 +1957,11 @@ test("slmp-read supports connect/disconnect/reinitialize control messages", asyn
     assert.equal(connectResult.sent.length, 0);
     assert.equal(disconnectResult.sent.length, 0);
     assert.equal(reinitResult.sent.length, 0);
-    assert.deepEqual(node.statusCalls.slice(-2), [
+    assert.deepEqual(node.statusCalls, [
+      { fill: "yellow", shape: "ring", text: "connect" },
+      { fill: "green", shape: "dot", text: "connect" },
+      { fill: "yellow", shape: "ring", text: "disconnect" },
+      { fill: "red", shape: "dot", text: "disconnect" },
       { fill: "yellow", shape: "ring", text: "reinitialize" },
       { fill: "green", shape: "dot", text: "reinitialize" },
     ]);
@@ -2000,6 +2005,7 @@ test("slmp-write builds a typed update from msg.address and msg.value", async ()
     assert.equal(result.sent.length, 1);
     assert.deepEqual(calls, [{ client: fakeClient, updates: { "D200:F": 3.5 } }]);
     assert.deepEqual(msg.slmp.updates, { "D200:F": 3.5 });
+    assert.deepEqual(node.statusCalls[0], { fill: "blue", shape: "dot", text: "writing" });
     assert.deepEqual(node.statusCalls.at(-1), { fill: "green", shape: "dot", text: "1 item(s)" });
   });
 });
@@ -2261,6 +2267,7 @@ test("slmp-write can route errors to the second output", async () => {
     assert.equal(result.sent.length, 1);
     assert.equal(result.sent[0][0], null);
     assert.equal(result.sent[0][1].error.message, "write failed");
+    assert.deepEqual(node.statusCalls.at(-1), { fill: "red", shape: "ring", text: "write failed" });
   });
 });
 
@@ -2588,6 +2595,14 @@ test("slmp-write supports connect/disconnect/reinitialize control messages", asy
     assert.equal(connectResult.sent.length, 0);
     assert.equal(disconnectResult.sent.length, 0);
     assert.equal(reinitResult.sent.length, 0);
+    assert.deepEqual(node.statusCalls, [
+      { fill: "yellow", shape: "ring", text: "connect" },
+      { fill: "green", shape: "dot", text: "connect" },
+      { fill: "yellow", shape: "ring", text: "disconnect" },
+      { fill: "red", shape: "dot", text: "disconnect" },
+      { fill: "yellow", shape: "ring", text: "reinitialize" },
+      { fill: "green", shape: "dot", text: "reinitialize" },
+    ]);
   });
 });
 

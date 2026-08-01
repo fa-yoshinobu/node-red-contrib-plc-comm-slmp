@@ -823,3 +823,171 @@ Acceptance criteria:
 - [x] Additional profile-by-profile live confirmation classified as not required.
 - [x] Documentation and release-scope records agree.
 - [x] Final acceptance verified; no follow-up TODO remains.
+
+## GOAL-NODE-EDITOR-SMOKE-001 — Required package-installed Editor smoke
+
+Implementation scope: the normal GitHub Actions CI workflow and the
+repository-only Node-RED Editor smoke runner.
+
+Target contract: one dedicated representative Linux/Node job installs an
+explicit Node-RED version, supplies its exact executable through
+`NODE_RED_CMD`, packs this repository, installs the tarball into an isolated
+Node-RED user directory, starts the editor, imports and reads back the
+maintained example, and proves registration of the connection, read, and write
+node types. The consumer package manifest gains no test or smoke script.
+
+Compatibility impact: none. This is a stricter CI and packaging acceptance
+gate without a runtime or package-manifest API change.
+
+Machine-verifiable acceptance criteria:
+
+1. Normal CI contains one independent Ubuntu/Node 20 Editor smoke job pinned to
+   Node-RED 4.1.11.
+2. The job passes the exact existing `red.js` path through `NODE_RED_CMD`;
+   an invalid explicit path fails instead of falling back to a global command.
+3. The runner creates the npm tarball, installs it into an isolated user
+   directory, imports and reads back `slmp-basic-read-write.json`, and finds
+   `slmp-connection`, `slmp-read`, and `slmp-write`.
+4. `package.json` contains no `test`, `check`, or Editor-smoke script.
+
+- [x] Implementation completed in this repository.
+- [x] Tests use the repository-only runner and the package-installed artifact.
+- [x] Relevant local static, unit, Editor-smoke, package, and source-archive gates passed for the final source state.
+- [x] Codex self-review completed against the approved CI/package boundary.
+- [x] Live PLC verification is not required for package installation and editor registration.
+- [x] Changelog and maintainer documentation agree with the implementation.
+- [ ] The GitHub-hosted Ubuntu/Node 20 Editor-smoke job passed for the final source state.
+- [ ] Final acceptance criteria verified and the item marked complete.
+
+Local verification evidence on the final source state:
+
+- The complete 219-test suite, real npm-tarball consumer, and current-worktree
+  source-archive validation passed on Windows/Node 24.14.1.
+- The package-installed Editor smoke passed with Node-RED 4.1.11 and the exact
+  `red.js` path supplied through `NODE_RED_CMD`.
+- The workflow-pinned Ubuntu/Node 20 execution was not reproduced locally and
+  remains unchecked GitHub-hosted evidence.
+
+Self-review disposition:
+
+- Accepted: an explicit but missing `NODE_RED_CMD` previously fell back to a
+  global executable, so the smoke could pass without using the CI-selected
+  runtime. An explicit invalid path now fails immediately.
+- Accepted: the SLMP smoke used an OS temporary path instead of the workspace
+  diagnostics area. Its isolated user directory now uses a package-specific
+  sibling under the workspace and is removed on success.
+- Rejected: adding an npm manifest smoke script would duplicate the
+  repository-only runner in a consumer artifact and conflicts with the
+  approved package boundary.
+- No duplicate or deferred finding remains for this item.
+
+## GOAL-NODE-STATUS-DOC-001 — Exact node status and diagnosis contract
+
+Implementation scope: connection/read/write runtime status tests and the
+Node-RED usage guide collected by `plc-comm-docs-site`.
+
+Target contract: stable lifecycle, operation, count, and control status values
+match the runtime exactly. A failure is a red ring containing the actual
+`error.message`; diagnosis uses the selected Node-RED error route and
+structured Error type/fields. Timeout, operation-outcome-unknown, and
+profile-capability classifications are not fixed status strings.
+
+Compatibility impact: none. Existing runtime values are locked by tests and
+documented without inventing new status values.
+
+Machine-verifiable acceptance criteria:
+
+1. Connection status tests cover `ready`, `connecting`, `connected`,
+   `disconnecting`, `disconnected`, `reinitializing`, and `closed`
+   with exact fill and shape.
+2. Read/write tests cover `reading`, `writing`, successful `N item(s)`,
+   all three control-action transitions, and dynamic red-ring error text.
+3. Error-route tests retain the Error object and its structured classification.
+4. The source usage guide and generated docs-site copy contain one matching
+   status table and direct diagnosis to the selected error route.
+5. Outcome-unknown writes are not described as retryable and local profile
+   rejection is not described as PLC evidence.
+
+- [x] Implementation completed in this repository.
+- [x] Tests cover every local status and error-route acceptance criterion.
+- [x] Relevant static, unit, package, source-archive, and docs checks passed for the final source state.
+- [x] Codex self-review completed against runtime values, tests, docs, and cross-library consistency.
+- [x] Live PLC verification is not required; status transitions and routing are deterministic runtime behavior.
+- [x] Usage guide, generated site copy, changelog, and maintainer record agree.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+Verification and self-review disposition:
+
+- Runtime source, exact-status assertions, and both Node-RED source usage guides
+  were compared field by field. The generated docs-site paths are ignored
+  build output by design; their local copies contain the same status contract
+  and deployment recollects the tracked source guide.
+- Accepted: prior control tests covered only the final reinitialize status.
+  They now cover all exact intermediate and completion values for every
+  control action.
+- Accepted: second-output tests now assert dynamic red-ring error text as well
+  as the selected message route.
+- No rejected, duplicate, or deferred finding remains for this item.
+
+## GOAL-CROSS-OS-CI-001 — Bounded Windows socket-lifecycle contract smoke
+
+Implementation scope: the normal GitHub Actions CI workflow, the focused
+repository-only Windows smoke selector, and one deterministic connection-
+failure test in the existing core test source.
+
+Target contract: the authoritative complete gate remains the existing Ubuntu
+Node 18/20/22 matrix. One independent Windows/Node 20 job runs only the
+applicable socket-lifecycle contract subset: fragmented TCP receive,
+TCP/UDP connection failure and timeout, close while connecting, transport
+retirement and reconnect, rejection of late-generation data, and UDP route and
+4E serial association. The selection uses fake or loopback transports and does
+not communicate with a PLC.
+
+Compatibility impact: none. This is CI and deterministic test coverage only;
+it does not change the runtime API, package payload, supported protocol, or
+user migration contract.
+
+Machine-verifiable acceptance criteria:
+
+1. CI has exactly one `windows-latest` socket-lifecycle smoke job using Node 20
+   without a Node.js version matrix and with an explicit ten-minute upper bound.
+2. The Ubuntu Node 18/20/22 complete test gate remains unchanged and
+   authoritative.
+3. The Windows selector executes only the eight named core lifecycle tests and
+   fails when any selected test fails or cannot be started.
+4. The selected tests cover fragmented receive, connection failure, connection
+   and request timeout, close during connect, retirement/reconnect, ignored
+   late data, and UDP route/serial association.
+5. The Windows job does not execute the Node-RED Editor smoke, package/source
+   validation, unrelated samples, or a full Node.js version matrix.
+6. All selected tests use deterministic fake or IPv4 loopback peers and send no
+   live PLC traffic.
+
+- [x] Implementation completed in this repository.
+- [x] Focused test selection covers every applicable lifecycle criterion.
+- [x] The exact eight-test Windows selector passed locally on Windows with Node 24.14.1.
+- [ ] Existing Linux complete gates and the Windows smoke passed on the same reviewed source state.
+- [x] Codex self-review completed after the local representative and complete verification runs.
+- [x] Live PLC verification is not required; the selected tests use fake or loopback transports only.
+- [x] Maintainer documentation agrees with the implemented CI behavior; no changelog or user migration entry is required.
+- [ ] Final acceptance criteria verified and the item marked complete.
+
+Verification disposition: the exact selector and the complete 219-test local
+gate passed on the same Windows/Node 24.14.1 source state. Package consumer,
+current-worktree source archive, Node-RED 4.1.11 Editor smoke, canonical profile,
+and no-auto-publish checks also passed. Node 18/20/22 and the GitHub-hosted Linux
+and Windows jobs were not available locally, so no hosted matrix result is claimed.
+
+Self-review disposition:
+
+- Accepted: the existing lifecycle suite had no direct candidate-socket
+  retirement assertion for TCP/UDP connection refusal. One deterministic fake-
+  socket test now covers the shared failure contract and is included in both
+  the Linux complete gate and Windows smoke.
+- Reused: existing focused tests already cover all other accepted lifecycle and
+  UDP-association behaviors, so the Windows job selects them rather than
+  duplicating test implementations.
+- Rejected: copying the full Linux gate, Editor process smoke, package/source
+  validation, or Node version matrix to Windows would exceed the approved
+  bounded contract.
+- No deferred finding remains for this repository implementation.
