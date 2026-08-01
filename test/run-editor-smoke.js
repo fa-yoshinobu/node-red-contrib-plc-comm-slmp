@@ -69,12 +69,18 @@ async function main() {
       child.stdout.unpipe(stdout);
       child.stderr.unpipe(stderr);
     }
-    stdout.end();
-    stderr.end();
+    await Promise.all([closeWriteStream(stdout), closeWriteStream(stderr)]);
     if (!keepArtifacts) {
       cleanDirectory(smokeDir);
     }
   }
+}
+
+function closeWriteStream(stream) {
+  return new Promise((resolve, reject) => {
+    stream.once("error", reject);
+    stream.end(resolve);
+  });
 }
 
 function resolveNpmRunner() {

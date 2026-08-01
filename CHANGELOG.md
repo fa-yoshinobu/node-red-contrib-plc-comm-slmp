@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- CI: The Node-RED editor smoke now waits for its log streams to close before removing the isolated user directory, preventing a successful round-trip from failing during Windows cleanup.
 - CI: Added a dedicated normal-CI Node-RED 4.1.11 editor smoke job that installs the packed npm artifact into an isolated user directory and round-trips the maintained connection/read/write example.
 - Tests: Locked the connection, read, write, control-action, success-count, and dynamic-error node statuses to their exact fill, shape, and text contract.
 - Docs: Documented the exact stable node statuses and directed error diagnosis to the selected error route and structured Error object instead of status-text matching.
@@ -29,6 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- Library: Structured Direct, Random, Monitor-registration, and Block device operations now reject
+  any route whose final consumed device number exceeds the selected Q/L 24-bit or iQ-R 32-bit wire
+  field. Ordinary DWord/float values consume two word addresses, packed bit-device words and bit
+  blocks consume 16 bit-device numbers per word, and native long-device widths retain their
+  route-specific stride. Random-write overlap checks use those same route widths. Rejection occurs
+  before request framing or transport; profile-catalog
+  practical ranges remain application metadata rather than transport guards.
 - Library: Client operations now use one FIFO admission queue and one absolute
   transaction deadline across lazy connect, managed unlock, send, response
   correlation, and decode. `close()` rejects active and queued work; continuations

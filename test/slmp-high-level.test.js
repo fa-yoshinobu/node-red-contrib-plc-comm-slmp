@@ -1141,6 +1141,56 @@ test("writeTyped routes long current and state devices through random writes", a
   ]);
 });
 
+test("ordinary DWord and float routes reject consumed word spans beyond each wire namespace", async () => {
+  for (const { plcProfile, maximum } of [
+    { plcProfile: "melsec:qcpu:qj71e71-100", maximum: 0xffffff },
+    { plcProfile: "melsec:iq-r", maximum: 0xffffffff },
+  ]) {
+    for (const dtype of ["D", "F"]) {
+      const client = new slmp.SlmpClient({
+        host: "127.0.0.1",
+        port: 1025,
+        transport: "tcp",
+        target: TEST_TARGET,
+        plcProfile,
+      });
+      let calls = 0;
+      client._request = async (command) => {
+        calls += 1;
+        return {
+          endCode: 0,
+          data: command === slmp.Command.DEVICE_READ || command === slmp.Command.DEVICE_READ_RANDOM
+            ? Buffer.alloc(4)
+            : Buffer.alloc(0),
+        };
+      };
+      const value = dtype === "F" ? 1.5 : 1;
+      const validAddress = `D${maximum - 1}`;
+      const validNamedAddress = `D${maximum - 1}:${dtype},1`;
+
+      await readTyped(client, validAddress, dtype);
+      await writeTyped(client, validAddress, dtype, value);
+      await readNamed(client, [validNamedAddress]);
+      await writeNamed(client, { [validNamedAddress]: [value] });
+      assert.equal(calls, 4);
+      assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+
+      for (const operation of [
+        () => readTyped(client, `D${maximum}`, dtype),
+        () => writeTyped(client, `D${maximum}`, dtype, value),
+        () => readNamed(client, [`D${maximum - 1}:${dtype},2`]),
+        () => writeNamed(client, { [`D${maximum - 1}:${dtype},2`]: [value, value] }),
+        () => readNamed(client, [`D${maximum}:${dtype},1`]),
+        () => writeNamed(client, { [`D${maximum}:${dtype},1`]: [value] }),
+      ]) {
+        await assert.rejects(operation, /device span exceeds .* wire namespace/i);
+      }
+      assert.equal(calls, 4);
+      assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+    }
+  }
+});
+
 test("writes validate boolean and numeric values before any client call", async () => {
   let calls = 0;
   const fakeClient = {

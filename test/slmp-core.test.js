@@ -1506,6 +1506,7 @@ test("Extended Device public model is semantic and raw wire encoders are hidden"
   assert.equal("encodeResolvedExtendedDeviceSpec" in slmpApi, false);
   assert.equal("normalizeExtensionSpec" in slmpApi, false);
   assert.equal("resolveExtendedDeviceAndExtension" in slmpApi, false);
+  assert.equal("_validateWireDeviceSpan" in slmpApi, false);
   const typed = new SlmpExtendedDevice(String.raw`U1\G0`, new SlmpIndexZ(4));
   assert.equal(typed.address, String.raw`U1\G0`);
   assert.equal(typed.modification.index, 4);
@@ -3018,6 +3019,75 @@ test("write APIs reject duplicate and overlapping destinations before transport"
   assert.equal(calls, 1);
 });
 
+test("Random write overlap uses packed-bit and native DWord destination widths", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await client.writeRandomWords({ wordValues: [["M0", 1], ["M16", 2]] });
+  await client.writeRandomWords({ dwordValues: [["LCN0", 1], ["LCN1", 2]] });
+  assert.equal(calls, 2);
+
+  await assert.rejects(
+    () => client.writeRandomWords({ wordValues: [["M0", 1], ["M1", 2]] }),
+    /duplicate word destinations/
+  );
+  await assert.rejects(
+    () => client.writeRandomWords({ wordValues: [["M16", 1]], dwordValues: [["M0", 2]] }),
+    /overlapping word\/dword destinations/
+  );
+
+  const extClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
+  extClient._request = client._request;
+  await extClient.writeRandomWordsExt({
+    wordValues: [[String.raw`J1\M0`, 1], [String.raw`J1\M16`, 2]],
+  });
+  assert.equal(calls, 3);
+  await assert.rejects(
+    () => extClient.writeRandomWordsExt({
+      wordValues: [[String.raw`J1\M0`, 1], [String.raw`J1\M1`, 2]],
+    }),
+    /duplicate word destinations/
+  );
+  await assert.rejects(
+    () => extClient.writeRandomWordsExt({
+      wordValues: [[String.raw`J1\M16`, 1]],
+      dwordValues: [[String.raw`J1\M0`, 2]],
+    }),
+    /overlapping word\/dword destinations/
+  );
+  assert.equal(calls, 3);
+});
+
+test("write overlap arithmetic runs only after wire-safe span validation", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
+  let calls = 0;
+  client._request = async () => {
+    calls += 1;
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  await assert.rejects(
+    () => client.writeBlock({
+      wordBlocks: [["D9007199254740992", [1]], ["D9007199254740993", [2]]],
+    }),
+    /head address out of .* wire namespace/i
+  );
+  await assert.rejects(
+    () => client.writeRandomWordsExt({
+      wordValues: [
+        [String.raw`U1\D9007199254740992`, 1],
+        [String.raw`U1\D9007199254740993`, 2],
+      ],
+    }),
+    /head address out of .* wire namespace/i
+  );
+  assert.equal(calls, 0);
+});
+
 test("direct access does not use device-range upper bounds as a send guard", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
   let calls = 0;
@@ -3030,6 +3100,231 @@ test("direct access does not use device-range upper bounds as a send guard", asy
   assert.deepEqual(await client.readDevices("D999999", 1), [0x1234]);
   await client.writeDevices("D999999", [0x5678]);
   assert.equal(calls, 2);
+});
+
+test("direct word and bit access rejects spans beyond each wire namespace before transport", async () => {
+  for (const { plcProfile, maximum } of [
+    { plcProfile: "melsec:qcpu:qj71e71-100", maximum: 0xffffff },
+    { plcProfile: "melsec:iq-r", maximum: 0xffffffff },
+  ]) {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile });
+    let calls = 0;
+    let responseData = Buffer.alloc(0);
+    client._request = async () => {
+      calls += 1;
+      return { endCode: 0, data: responseData };
+    };
+
+    responseData = Buffer.from([0x34, 0x12]);
+    assert.deepEqual(await client.readDevices(`D${maximum}`, 1), [0x1234]);
+    responseData = Buffer.alloc(0);
+    await client.writeDevices(`D${maximum}`, [0x5678]);
+    responseData = Buffer.from([0x10]);
+    assert.deepEqual(await client.readDevices(`M${maximum}`, 1, { bitUnit: true }), [true]);
+    responseData = Buffer.alloc(0);
+    await client.writeDevices(`M${maximum}`, [true], { bitUnit: true });
+    assert.equal(calls, 4);
+    assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+
+    for (const operation of [
+      () => client.readDevices(`D${maximum}`, 2),
+      () => client.writeDevices(`D${maximum}`, [1, 2]),
+      () => client.readDevices(`M${maximum}`, 2, { bitUnit: true }),
+      () => client.writeDevices(`M${maximum}`, [true, false], { bitUnit: true }),
+    ]) {
+      await assert.rejects(operation, /device span exceeds .* wire namespace/i);
+    }
+    assert.equal(calls, 4);
+    assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+  }
+});
+
+test("direct packed-bit words and long timers use route-specific consumed device widths", async () => {
+  for (const { plcProfile, maximum } of [
+    { plcProfile: "melsec:qcpu:qj71e71-100", maximum: 0xffffff },
+    { plcProfile: "melsec:iq-r", maximum: 0xffffffff },
+  ]) {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile });
+    let calls = 0;
+    let responseData = Buffer.alloc(0);
+    client._request = async () => {
+      calls += 1;
+      return { endCode: 0, data: responseData };
+    };
+
+    const packedStart = maximum - 15;
+    responseData = Buffer.from([0x34, 0x12]);
+    assert.deepEqual(await client.readDevices(`M${packedStart}`, 1), [0x1234]);
+    responseData = Buffer.alloc(0);
+    await client.writeDevices(`M${packedStart}`, [0x5678]);
+    if (plcProfile === "melsec:iq-r") {
+      responseData = Buffer.alloc(8);
+      assert.deepEqual(await client.readDevices(`LTN${maximum}`, 4), [0, 0, 0, 0]);
+      responseData = Buffer.alloc(4);
+      assert.deepEqual(await client.readRandom({ dwordDevices: [`LTN${maximum}`] }), {
+        word: {},
+        dword: { [`LTN${maximum}`]: 0 },
+      });
+    }
+    const validCalls = plcProfile === "melsec:iq-r" ? 4 : 2;
+    assert.equal(calls, validCalls);
+    assert.equal(client._transport._serial, 0);
+    assert.equal(client._transport._tcpSocket, null);
+    assert.equal(client._transport._udpSocket, null);
+
+    await assert.rejects(() => client.readDevices(`M${packedStart}`, 2), /device span exceeds/i);
+    await assert.rejects(() => client.writeDevices(`M${packedStart}`, [1, 2]), /device span exceeds/i);
+    if (plcProfile === "melsec:iq-r") {
+      await assert.rejects(() => client.readDevices(`LTN${maximum}`, 8), /device span exceeds/i);
+    }
+    assert.equal(calls, validCalls);
+  }
+});
+
+test("native Random and Monitor DWord routes consume one logical device", async () => {
+  const maximum = 0xffffffff;
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let calls = 0;
+  client._request = async (command, _subcommand, payload) => {
+    calls += 1;
+    const data = command === Command.DEVICE_READ_RANDOM
+      ? Buffer.alloc(payload[0] * 2 + payload[1] * 4)
+      : Buffer.alloc(0);
+    return { endCode: 0, data };
+  };
+
+  for (const code of ["LTN", "LSTN", "LCN", "LZ"]) {
+    const address = `${code}${maximum}`;
+    await client.readRandom({ dwordDevices: [address] });
+    await client.writeRandomWords({ dwordValues: [[address, 1]] });
+    await client.registerMonitorDevices({ dwordDevices: [address] });
+  }
+  assert.equal(calls, 12);
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+});
+
+test("Random, Monitor, and Block routes validate their mechanical device spans before transport", async () => {
+  for (const { plcProfile, maximum } of [
+    { plcProfile: "melsec:qcpu:qj71e71-100", maximum: 0xffffff },
+    { plcProfile: "melsec:iq-r", maximum: 0xffffffff },
+  ]) {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile });
+    let calls = 0;
+    client._request = async (command) => {
+      calls += 1;
+      if (command === Command.DEVICE_READ_RANDOM) {
+        return { endCode: 0, data: Buffer.alloc(4) };
+      }
+      if (command === Command.DEVICE_READ_BLOCK) {
+        return { endCode: 0, data: Buffer.alloc(2) };
+      }
+      return { endCode: 0, data: Buffer.alloc(0) };
+    };
+
+    await client.readRandom({ dwordDevices: [`D${maximum - 1}`] });
+    await client.writeRandomWords({ dwordValues: [[`D${maximum - 1}`, 1]] });
+    await client.registerMonitorDevices({ dwordDevices: [`D${maximum - 1}`] });
+    await client.readRandom({ dwordDevices: [`M${maximum - 31}`] });
+    await client.writeRandomWords({ dwordValues: [[`M${maximum - 31}`, 1]] });
+    await client.registerMonitorDevices({ dwordDevices: [`M${maximum - 31}`] });
+    await client.readBlock({ wordBlocks: [[`D${maximum}`, 1]] });
+    await client.writeBlock({ wordBlocks: [[`D${maximum}`, [1]]] });
+    await client.readBlock({ bitBlocks: [[`M${maximum - 15}`, 1]] });
+    await client.writeBlock({ bitBlocks: [[`M${maximum - 15}`, [1]]] });
+    assert.equal(calls, 10);
+
+    for (const operation of [
+      () => client.readRandom({ dwordDevices: [`D${maximum}`] }),
+      () => client.writeRandomWords({ dwordValues: [[`D${maximum}`, 1]] }),
+      () => client.registerMonitorDevices({ dwordDevices: [`D${maximum}`] }),
+      () => client.readRandom({ dwordDevices: [`M${maximum - 30}`] }),
+      () => client.writeRandomWords({ dwordValues: [[`M${maximum - 30}`, 1]] }),
+      () => client.registerMonitorDevices({ dwordDevices: [`M${maximum - 30}`] }),
+      () => client.readBlock({ wordBlocks: [[`D${maximum}`, 2]] }),
+      () => client.writeBlock({ wordBlocks: [[`D${maximum}`, [1, 2]]] }),
+      () => client.readBlock({ bitBlocks: [[`M${maximum - 15}`, 2]] }),
+      () => client.writeBlock({ bitBlocks: [[`M${maximum - 15}`, [1, 2]]] }),
+    ]) {
+      await assert.rejects(operation, /device span exceeds .* wire namespace/i);
+    }
+    assert.equal(calls, 10);
+    assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
+    assert.equal(client._transport._serial, 0);
+    assert.equal(client._transport._tcpSocket, null);
+    assert.equal(client._transport._udpSocket, null);
+  }
+});
+
+test("qualified Random and Monitor DWord routes validate the selected extended wire layout", async () => {
+  for (const { plcProfile, valid, invalid } of [
+    {
+      plcProfile: "melsec:qcpu:qj71e71-100",
+      valid: String.raw`J1\WFFFFFE`,
+      invalid: String.raw`J1\WFFFFFF`,
+    },
+    {
+      plcProfile: "melsec:iq-r",
+      valid: String.raw`U1\G4294967294`,
+      invalid: String.raw`U1\G4294967295`,
+    },
+  ]) {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile, _maintainerStrictProfile: false });
+    let calls = 0;
+    client._request = async (command) => {
+      calls += 1;
+      return {
+        endCode: 0,
+        data: command === Command.DEVICE_READ_RANDOM ? Buffer.alloc(4) : Buffer.alloc(0),
+      };
+    };
+
+    await client.readRandomExt({ dwordDevices: [valid] });
+    await client.writeRandomWordsExt({ dwordValues: [[valid, 1]] });
+    await client.registerMonitorDevicesExt({ dwordDevices: [valid] });
+    assert.equal(calls, 3);
+
+    await assert.rejects(() => client.readRandomExt({ dwordDevices: [invalid] }), /device span exceeds/i);
+    await assert.rejects(
+      () => client.writeRandomWordsExt({ dwordValues: [[invalid, 1]] }),
+      /device span exceeds/i
+    );
+    await assert.rejects(
+      () => client.registerMonitorDevicesExt({ dwordDevices: [invalid] }),
+      /device span exceeds/i
+    );
+    assert.equal(calls, 3);
+  }
+});
+
+test("qualified packed-bit Random and Monitor routes use the link-direct 24-bit layout", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r", _maintainerStrictProfile: false });
+  let calls = 0;
+  client._request = async (command, _subcommand, payload) => {
+    calls += 1;
+    const data = command === Command.DEVICE_READ_RANDOM
+      ? Buffer.alloc(payload[0] * 2 + payload[1] * 4)
+      : Buffer.alloc(0);
+    return { endCode: 0, data };
+  };
+
+  for (const { dword, valid, invalid } of [
+    { dword: false, valid: String.raw`J2\XFFFFF0`, invalid: String.raw`J2\XFFFFF1` },
+    { dword: true, valid: String.raw`J2\XFFFFE0`, invalid: String.raw`J2\XFFFFE1` },
+  ]) {
+    const readOptions = dword ? { dwordDevices: [valid] } : { wordDevices: [valid] };
+    const writeOptions = dword ? { dwordValues: [[valid, 1]] } : { wordValues: [[valid, 1]] };
+    await client.readRandomExt(readOptions);
+    await client.writeRandomWordsExt(writeOptions);
+    await client.registerMonitorDevicesExt(readOptions);
+
+    const invalidRead = dword ? { dwordDevices: [invalid] } : { wordDevices: [invalid] };
+    const invalidWrite = dword ? { dwordValues: [[invalid, 1]] } : { wordValues: [[invalid, 1]] };
+    await assert.rejects(() => client.readRandomExt(invalidRead), /device span exceeds/i);
+    await assert.rejects(() => client.writeRandomWordsExt(invalidWrite), /device span exceeds/i);
+    await assert.rejects(() => client.registerMonitorDevicesExt(invalidRead), /device span exceeds/i);
+  }
+  assert.equal(calls, 6);
+  assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
 });
 
 test("remote and memory helpers build expected commands", async () => {

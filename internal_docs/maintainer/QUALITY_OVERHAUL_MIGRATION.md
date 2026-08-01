@@ -1177,14 +1177,105 @@ Machine-verifiable acceptance criteria:
 - [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
 - [x] Final acceptance criteria verified and the item marked complete.
 
+## SLMP-SPAN-20260801 — Wire-safe contiguous device spans
+
+Implementation scope: structured Direct word/bit reads and writes, ordinary
+typed and named DWord/float routes, Random word/DWord reads and writes, Monitor
+registration, Block word/bit reads and writes, existing Extended Random/Monitor
+routes, Q/L 24-bit and iQ-R 32-bit device-number layouts, tests, user/generated
+API documentation, and changelog. Memory and Extend Unit command address spaces
+are not device-number routes and remain outside this item.
+
+Target contract: compute the final consumed device number from the starting
+number and the mechanically determined route width using JavaScript safe
+integers. Reject a span beyond the selected wire field with `ValueError` before
+payload/frame construction, queue admission, connection, serial allocation, or
+traffic accounting. Ordinary DWord/float values consume two word-device
+numbers, packed bit-device words and Block bit points consume 16 bit-device
+numbers per word, packed bit-device DWords consume 32, and native long-current
+Direct/Random widths retain their existing command-specific stride. Random
+write overlap checks use the same route-specific widths and safe-integer
+arithmetic after wire-span validation.
+Profile-catalog practical ranges are not transport guards.
+
+Compatibility impact: structured requests previously sent with a final device
+number beyond the 24-bit or 32-bit wire field now fail locally. Requests wholly
+inside that field, including addresses above a profile catalog's practical
+range, retain their previous transport behavior.
+
+Machine-verifiable acceptance criteria:
+
+1. Q/L and iQ-R accept one ordinary word or bit at the maximum wire address and
+   reject two contiguous points from that start for Direct read and write.
+2. An ordinary word device at maximum minus one accepts one DWord; two DWords
+   there and one DWord at maximum reject for typed/named read and write. Float
+   uses the same two-word span.
+3. Packed bit-device word access and Block bit points consume 16 device numbers,
+   a packed bit-device DWord consumes 32, and long-current Direct and native
+   Random DWord routes use their established stride without over-rejection.
+4. Random read/write, Monitor registration, Block read/write, and their existing
+   qualified Extended Random/Monitor variants validate every mechanically known
+   word/DWord/block span against the selected layout.
+5. Random and qualified Random write overlap checks use those same widths,
+   reject packed-bit overlap, and accept adjacent native DWords. Block and
+   Extended overlap arithmetic runs only after safe wire-span validation.
+6. Every rejected case issues zero requests and leaves transmit bytes, serial,
+   framing, connection, and caller-visible result state unchanged.
+7. No profile-catalog practical device range becomes a client-side send guard,
+   and no Memory or Extend Unit route is changed by this item.
+
+- [x] Implementation completed in this affected repository.
+- [x] Tests added or updated for every acceptance criterion.
+- [x] Relevant static checks, unit tests, integration tests, examples, and package/build checks passed.
+- [x] Codex self-review completed against the approved contract and cross-language consistency requirements.
+- [x] Live PLC verification is not required; the changed arithmetic and pre-transport ordering are deterministic local behavior.
+- [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+The final current-worktree gate described in the 2026-08-01 evidence below ran
+after every accepted span correction. Its complete 241-test suite and extracted
+package/source checks include the focused Direct, Random, Monitor, Block,
+qualified-route, overlap, and pre-transport acceptance vectors. No live PLC
+communication was performed.
+
+Self-review disposition:
+
+- Accepted and corrected: the initial Direct guard treated every word-unit
+  point as one device number. Packed bit-device words now consume 16 numbers,
+  packed bit-device DWords consume 32, and LTN/LSTN raw Direct word counts use
+  the established four-wire-word-to-one-device stride.
+- Accepted and corrected: the first implementation covered Direct and
+  high-level DWord/float only. Structured Random/Monitor DWord and word entries,
+  Block word/bit spans, and existing qualified Extended Random/Monitor routes
+  now apply the same mechanical boundary check.
+- Accepted and corrected: Random and qualified Random write overlap checks
+  retained fixed word/DWord widths after the boundary guard became
+  route-specific. They now reuse the same 16/32 packed-bit and one-device native
+  DWord widths. Block and Extended overlap checks run only after safe wire-span
+  validation, and overlap arithmetic rejects unsafe operands internally.
+- Reused: `readDevices`/`writeDevices` remain the enforcement point for typed
+  scalar Direct calls, while the high-level preflight locks the complete
+  counted ordinary DWord/float span before named-plan queue admission.
+- Rejected as out of contract: inspecting arbitrary caller-supplied
+  `rawCommand` payload bytes would turn the raw command surface into a second
+  semantic parser. Memory and Extend Unit commands use different address
+  spaces and do not consume device-number fields.
+- Deferred: none. No accepted finding remains open.
+
 ### 2026-08-01 verification evidence and self-review disposition
 
-The final current-worktree source-archive gate passed and, inside the extracted
-archive, ran the complete 232-test suite, `npm ci`, and `npm pack --dry-run`.
-The independent installed-package consumer gate passed with 34 files and all
-eight maintained flow JSON files. Canonical profile fixtures were unchanged;
-the no-auto-publish workflow guard, JavaScript syntax checks, example JSON
-parsing, and `git diff --check` also passed. No live PLC traffic was sent.
+The final current-worktree source-archive gate passed with 65 files and, inside
+the extracted source, ran `npm ci` with zero audit findings, all 241 tests, and
+`npm pack --dry-run`. The installed-package consumer passed with 34 files and
+all eight maintained flow JSON files. On Node.js 20.20.2, the Windows socket
+smoke passed all eight selected tests and the fixed Node-RED 4.1.11 editor
+round-trip imported and saved the maintained flow with exit code zero.
+Canonical profile fixtures were unchanged; the no-auto-publish workflow guard,
+syntax checks for all 23 tracked JavaScript files, parsing of all eight example
+flows (including the required 11-node basic flow), and `git diff --check` also
+passed. The API reference is source-controlled because this repository has no
+API-document generator; its contract wording was inspected in the self-review.
+No live PLC traffic, registry publication or registry duplicate query was run.
 
 Self-review inspected the actual runtime/API diff, validation order,
 pre-transport behavior, request planning, route snapshots, definitive-result
@@ -1216,6 +1307,11 @@ approved cross-language target contracts.
   `SLMP_TIMEOUT`, contrary to D1. Deadline expiry is now checked immediately
   before command-specific materialization; decoded reads, write ACKs, and PLC
   end codes retain precedence over later expiry in deterministic TCP/UDP tests.
+- Accepted and corrected during the final gate: a successful Node-RED editor
+  round-trip could exit with `ENOTEMPTY` on Windows because log WriteStreams
+  were ended asynchronously immediately before recursive cleanup. The smoke
+  now awaits both stream closures before removing its isolated user directory;
+  the same Node-RED 4.1.11 smoke is the regression check and passes cleanly.
 - Duplicate: the API and usage wording that omitted incomplete-read
   `SLMP_CLOSED` behavior was the documentation expression of D1 and was corrected
   under that item rather than tracked as a separate contract decision.
