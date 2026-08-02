@@ -1841,7 +1841,7 @@ test("TCP data from a retired socket generation is ignored", () => {
 
   transport.handleTcpData(Buffer.from([0xd4, 0x00]), {});
 
-  assert.equal(transport._tcpBuffer.length, 0);
+  assert.equal(transport._tcpAccumulator.length, 0);
   assert.equal(transport.trafficStats().rxBytes, 0);
 });
 
@@ -2297,6 +2297,212 @@ test("managed remote password state follows the transport generation and is neve
     { generation: 2, command: Command.REMOTE_PASSWORD_LOCK },
   ]);
   assert.equal(fakeTransport.open, false);
+});
+
+test("3E/4E TCP maximum responses assembled from one-byte chunks have linear copy work", async () => {
+  for (const frameType of ["3e", "4e"]) {
+    const client = new SlmpClient({ host: "127.0.0.1", frameType, timeout: 1000, _allowManualProfile: true });
+    const serial = frameType === "4e" ? 0x2345 : 0;
+    const response = frameType === "4e"
+      ? make4EResponse(serial, Buffer.alloc(0xffff - 2, 0x5a))
+      : make3EResponse(Buffer.alloc(0xffff - 2, 0x5a));
+    const pending = client._awaitTcpFrame(serial);
+
+    for (let index = 0; index < response.length; index += 1) {
+      client._handleTcpData(response.subarray(index, index + 1));
+    }
+
+    const frame = await pending;
+    assert.deepEqual(frame, response, frameType);
+    assert.ok(client._transport._tcpAccumulator.copiedBytes <= response.length * 4, frameType);
+    assert.ok(client._transport._tcpAccumulator._buffer.length <= response.length, frameType);
+  }
+});
+
+test("TCP accumulator rejects an oversized chunk before allocating beyond the protocol maximum", () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", timeout: 100, _allowManualProfile: true });
+  const accumulator = client._transport._tcpAccumulator;
+
+  assert.throws(
+    () => accumulator.append(Buffer.alloc(13 + 0xffff + 1)),
+    /protocol length limit/,
+  );
+  assert.equal(accumulator.length, 0);
+  assert.equal(accumulator._buffer.length, 0);
+});
+
+test("TCP complete frame ownership is stable after the accumulator accepts another frame", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", timeout: 100, _allowManualProfile: true });
+  const firstResponse = make4EResponse(0x1001, [0x11, 0x11]);
+  const secondResponse = make4EResponse(0x1002, [0x22, 0x22]);
+  const firstPending = client._awaitTcpFrame(0x1001);
+  client._handleTcpData(firstResponse);
+  const firstFrame = await firstPending;
+  const firstSnapshot = Buffer.from(firstFrame);
+
+  const secondPending = client._awaitTcpFrame(0x1002);
+  client._handleTcpData(secondResponse);
+  await secondPending;
+
+  assert.deepEqual(firstFrame, firstSnapshot);
+});
+
+test("TCP metadata and owned decode add no complete-frame copy after one owned materialization", async () => {
+  const { _decodeOwnedResponse } = require("../lib/slmp/core");
+  const client = new SlmpClient({ host: "127.0.0.1", frameType: "4e", timeout: 100, _allowManualProfile: true });
+  const response = make4EResponse(0x1001, [0x34, 0x12]);
+  const pending = client._awaitTcpFrame(0x1001);
+  const originalAllocUnsafe = Buffer.allocUnsafe;
+  const originalFrom = Buffer.from;
+  const originalCopy = Buffer.prototype.copy;
+  let exactOwnedAllocations = 0;
+  let completeFrameFromCopies = 0;
+  let ownedMaterializationCopies = 0;
+
+  Buffer.allocUnsafe = function trackedAllocUnsafe(size, ...args) {
+    if (size === response.length) exactOwnedAllocations += 1;
+    return originalAllocUnsafe(size, ...args);
+  };
+  Buffer.from = function trackedFrom(value, ...args) {
+    if (Buffer.isBuffer(value) && value.length === response.length) {
+      completeFrameFromCopies += 1;
+    }
+    return originalFrom(value, ...args);
+  };
+  Buffer.prototype.copy = function trackedCopy(target, targetStart = 0, sourceStart = 0, sourceEnd = this.length) {
+    if (target.length === response.length && sourceEnd - sourceStart === response.length) {
+      ownedMaterializationCopies += 1;
+    }
+    return originalCopy.call(this, target, targetStart, sourceStart, sourceEnd);
+  };
+  try {
+    client._handleTcpData(response);
+    const ownedFrame = await pending;
+    const decoded = _decodeOwnedResponse(ownedFrame, { frameType: "4e" });
+    assert.strictEqual(decoded.raw, ownedFrame);
+    assert.deepEqual([...decoded.data], [0x34, 0x12]);
+  } finally {
+    Buffer.allocUnsafe = originalAllocUnsafe;
+    Buffer.from = originalFrom;
+    Buffer.prototype.copy = originalCopy;
+  }
+
+  assert.equal(exactOwnedAllocations, 1);
+  assert.equal(ownedMaterializationCopies, 1);
+  assert.equal(completeFrameFromCopies, 0);
+});
+
+test("public decodeResponse retains an owned snapshot of caller input", () => {
+  const callerFrame = make4EResponse(0x1001, [0x34, 0x12]);
+  const decoded = decodeResponse(callerFrame, { frameType: "4e" });
+  callerFrame.fill(0);
+
+  assert.equal(decoded.serial, 0x1001);
+  assert.deepEqual([...decoded.data], [0x34, 0x12]);
+  assert.notStrictEqual(decoded.raw, callerFrame);
+});
+
+test("prepared named reads match one-shot request frames, FIFO order, results, and PLC errors", async () => {
+  const addresses = ["D100:U", "D200:U"];
+  const responseData = Buffer.from([0x11, 0x11, 0x22, 0x22]);
+  const client = makeImmediateResponseClient({ transportType: "tcp", frameType: "3e" }, () => {
+    throw new Error("test transport override was not installed");
+  });
+  const requestFrames = [];
+  let releaseFirst;
+  const firstResponseGate = new Promise((resolve) => { releaseFirst = resolve; });
+  client._transport.sendAndReceive = async (frame) => {
+    requestFrames.push(Buffer.from(frame));
+    if (requestFrames.length === 1) await firstResponseGate;
+    return responseForRequest(frame, "3e", responseData);
+  };
+  const plan = slmpApi.prepareReadNamed(client, addresses);
+
+  const oneShot = slmpApi.readNamed(client, addresses);
+  const prepared = plan.execute();
+  await delay(0);
+  assert.equal(requestFrames.length, 1, "the prepared request must wait for the one-shot FIFO turn");
+  releaseFirst();
+  const [oneShotResult, preparedResult] = await Promise.all([oneShot, prepared]);
+
+  assert.deepEqual(preparedResult, oneShotResult);
+  assert.equal(requestFrames.length, 2);
+  assert.deepEqual(requestFrames[1], requestFrames[0]);
+
+  const errorClient = makeImmediateResponseClient({ transportType: "tcp", frameType: "3e" }, () => {
+    throw new Error("test transport override was not installed");
+  });
+  const errorFrames = [];
+  errorClient._transport.sendAndReceive = async (frame) => {
+    errorFrames.push(Buffer.from(frame));
+    return responseForRequest(frame, "3e", Buffer.from([0xaa]), 0xc051);
+  };
+  const errorPlan = slmpApi.prepareReadNamed(errorClient, addresses);
+  const failures = await Promise.allSettled([
+    slmpApi.readNamed(errorClient, addresses),
+    errorPlan.execute(),
+  ]);
+
+  assert.deepEqual(failures.map((result) => result.status), ["rejected", "rejected"]);
+  assert.equal(errorFrames.length, 2);
+  assert.deepEqual(errorFrames[1], errorFrames[0]);
+  const [oneShotError, preparedError] = failures.map((result) => result.reason);
+  assert.equal(preparedError.constructor, oneShotError.constructor);
+  assert.deepEqual(
+    {
+      name: preparedError.name,
+      code: preparedError.code,
+      endCode: preparedError.endCode,
+      command: preparedError.command,
+      subcommand: preparedError.subcommand,
+      message: preparedError.message,
+    },
+    {
+      name: oneShotError.name,
+      code: oneShotError.code,
+      endCode: oneShotError.endCode,
+      command: oneShotError.command,
+      subcommand: oneShotError.subcommand,
+      message: oneShotError.message,
+    },
+  );
+});
+
+test("prepared named reads retain 4E route/serial correlation and malformed retirement", async () => {
+  const harness = createResponseCorrelationHarness({ transportType: "tcp", frameType: "4e", timeout: 200 });
+  const sentFrames = [];
+  harness.currentSocket().write = (frame, callback) => {
+    sentFrames.push(Buffer.from(frame));
+    callback();
+  };
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+    timeout: 200,
+  });
+  client._transport = harness.transport;
+  const plan = slmpApi.prepareReadNamed(client, ["D0:U"]);
+
+  const correlated = plan.execute();
+  await delay(0);
+  assert.equal(sentFrames.length, 1);
+  const serial = sentFrames[0].readUInt16LE(2);
+  harness.deliver(make4EResponse((serial + 1) & 0xffff, [0x11, 0x11], 0, TEST_TARGET));
+  harness.deliver(make4EResponse(serial, [0x22, 0x22], 0, mutateTarget(TEST_TARGET, "network")));
+  harness.deliver(make4EResponse(serial, [0x34, 0x12], 0, TEST_TARGET));
+  assert.deepEqual(await correlated, { "D0:U": 0x1234 });
+
+  const malformed = plan.execute();
+  await delay(0);
+  assert.equal(sentFrames.length, 2);
+  const malformedSerial = sentFrames[1].readUInt16LE(2);
+  harness.deliver(makeMalformedResponse("4e", malformedSerial, TEST_TARGET));
+  await assert.rejects(() => malformed, /malformed response/i);
+  assert.equal(harness.transport.hasOpenTransport(), false);
+  assert.equal(harness.currentSocket().destroyed, true);
 });
 
 test("managed remote password direct commands enter the prepared-request core once", async () => {
@@ -2825,6 +3031,69 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
     () => client.readRandomExt({ wordDevices: [new SlmpExtendedDevice(String.raw`J1\D0`, new SlmpIndexZ(1))] }),
     /link-direct devices do not support/
   );
+});
+
+test("extended aggregate builders allocate exactly one final payload buffer", async () => {
+  const cases = [
+    {
+      label: "readRandomExt",
+      responseData: Buffer.from([0x34, 0x12, 0xef, 0xcd, 0xab, 0x89]),
+      run: (client) => client.readRandomExt({
+        wordDevices: [new SlmpExtendedDevice("D100", new SlmpIndexZ(4))],
+        dwordDevices: [new SlmpExtendedDevice(String.raw`U01\G10`, new SlmpIndirect())],
+      }),
+    },
+    {
+      label: "writeRandomWordsExt",
+      responseData: Buffer.from([]),
+      run: (client) => client.writeRandomWordsExt({
+        wordValues: [[String.raw`U1\D10`, 0x1234]],
+        dwordValues: [[String.raw`U1\G20`, 0x89abcdef]],
+      }),
+    },
+    {
+      label: "writeRandomBitsExt",
+      responseData: Buffer.from([]),
+      run: (client) => client.writeRandomBitsExt({
+        bitValues: [
+          [new SlmpExtendedDevice("M7", new SlmpIndexZ(3)), true],
+          [new SlmpExtendedDevice("M8", new SlmpIndirect()), false],
+        ],
+      }),
+    },
+    {
+      label: "registerMonitorDevicesExt",
+      responseData: Buffer.from([]),
+      run: (client) => client.registerMonitorDevicesExt({
+        wordDevices: [new SlmpExtendedDevice("D100", new SlmpIndexZ(4))],
+        dwordDevices: [new SlmpExtendedDevice(String.raw`U01\G10`, new SlmpIndirect())],
+      }),
+    },
+  ];
+
+  for (const testCase of cases) {
+    const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+    let requestData;
+    client._request = async (_command, _subcommand, data) => {
+      requestData = data;
+      return { endCode: 0, data: testCase.responseData };
+    };
+
+    const originalAlloc = Buffer.alloc;
+    const allocationSizes = [];
+    Buffer.alloc = function trackedAlloc(size, ...args) {
+      allocationSizes.push(size);
+      return originalAlloc(size, ...args);
+    };
+    try {
+      await testCase.run(client);
+    } finally {
+      Buffer.alloc = originalAlloc;
+    }
+
+    assert.ok(Buffer.isBuffer(requestData), testCase.label);
+    assert.deepEqual(allocationSizes, [requestData.length], testCase.label);
+  }
 });
 
 test("extended random APIs derive QL payloads from qualified devices", async () => {

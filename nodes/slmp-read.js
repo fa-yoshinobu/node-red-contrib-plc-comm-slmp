@@ -1,6 +1,13 @@
 "use strict";
 
-const { normalizeAddress, normalizeAddressList, normalizeTarget, readNamed } = require("../lib/slmp");
+const slmp = require("../lib/slmp");
+const {
+  normalizeAddress,
+  normalizeAddressList,
+  normalizeTarget,
+  prepareReadNamed,
+  readNamed,
+} = slmp;
 const {
   hasOwn,
   normalizeConfiguredRouteTarget,
@@ -27,6 +34,7 @@ module.exports = function registerSlmpRead(RED) {
     this.errorHandling = requireEnum(config, "errorHandling", ["throw", "msg", "output2"]);
     this.metadataMode = requireEnum(config, "metadataMode", ["full", "minimal", "off"]);
     this.outputs = validateOutputs(config, this.errorHandling);
+    this._preparedReadCache = null;
 
     this.on("input", async (msg, send, done) => {
       send = send || ((message) => this.send(message));
@@ -59,7 +67,7 @@ module.exports = function registerSlmpRead(RED) {
         }
 
         const client = this.connection.getClient();
-        const snapshot = await readNamed(client, addresses, target ? { target } : {});
+        const snapshot = await executeCachedRead(this, client, addresses, target);
         msg.payload = formatPayload(snapshot, addresses, this.outputMode);
         applyMetadata(msg, this.metadataMode, {
           addresses,
@@ -78,10 +86,52 @@ module.exports = function registerSlmpRead(RED) {
         fail(this, msg, send, done, error);
       }
     });
+
+    this.on("close", () => {
+      this._preparedReadCache?.plan.dispose();
+      this._preparedReadCache = null;
+    });
   }
 
   RED.nodes.registerType("slmp-read", SlmpReadNode);
 };
+
+async function executeCachedRead(node, client, addresses, target) {
+  // Keep the existing injectable one-shot seam used by Node-RED runtime tests.
+  // Production exports prepareReadNamed and therefore use the bounded cache.
+  if (typeof prepareReadNamed !== "function"
+      || typeof client?._prepareRandomReadPlan !== "function"
+      || typeof client?._executeRandomReadPlan !== "function") {
+    return readNamed(client, addresses, target ? { target } : {});
+  }
+  const key = preparedReadCacheKey(client, addresses, target);
+  let cache = node._preparedReadCache;
+  if (!cache || cache.client !== client || cache.key !== key) {
+    const replacement = prepareReadNamed(client, addresses, target ? { target } : {});
+    cache?.plan.dispose();
+    cache = {
+      client,
+      key,
+      plan: replacement,
+    };
+    node._preparedReadCache = cache;
+  }
+  return cache.plan.execute();
+}
+
+function preparedReadCacheKey(client, addresses, target) {
+  const effectiveTarget = target || client.defaultTarget || null;
+  return JSON.stringify({
+    addresses,
+    target: effectiveTarget,
+    plcProfile: client.plcProfile ?? null,
+    plcSeries: client.plcSeries ?? null,
+    addressProfile: client.addressProfile ?? null,
+    frameType: client.frameType ?? null,
+    compatibility: client.compatibility ?? client.compat ?? null,
+    transportType: client.transportType ?? null,
+  });
+}
 
 function warnRemovedSkipUnsupported(node, msg) {
   const hasLegacyFlag = hasOwn(msg, "slmpSkipUnsupported")

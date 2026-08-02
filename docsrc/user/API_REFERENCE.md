@@ -142,6 +142,26 @@ Read is never selected implicitly; use `readTyped` or an explicit long-timer
 helper. `writeNamed` also must fit exactly one request and rejects the complete
 update before I/O otherwise.
 
+For a fixed repeated read, call `prepareReadNamed(client, addresses, options)`
+once and retain the returned opaque plan. `await plan.execute({ signal })`
+reuses the owned request payload and result indexes while still assigning a new
+serial, entering the normal FIFO, enforcing a new absolute deadline, and
+checking the current client lifecycle on every execution. An aborted active
+execution retires its transport generation so a late response cannot satisfy a
+later request. Call `plan.dispose()` when the plan is no longer needed. Disposal
+rejects future executions and releases the retained client, payload, and decode
+plan references; an execution that was already admitted completes normally.
+
+The prepared plan is bound to the exact `SlmpClient` and its profile, frame,
+compatibility, and target signature. It may be reused after an explicit
+close/reopen of that same unchanged client, but not with another client or after
+a configuration-signature change. `compileReadPlan` remains the inspectable
+structural address-expansion API; it is not a send-ready client-bound plan.
+`readNamed` remains the one-shot convenience API and does not accept a prepared
+plan in place of addresses. The Node-RED read node applies the same API
+internally with a one-entry exact-match cache, including for dynamic addresses
+and targets.
+
 Numeric high-level writes for `U`, `S`, `D`, `L`, and `F` accept primitive
 JavaScript Numbers only. Numeric strings, boxed Numbers, `BigInt`, Booleans,
 null, arrays, and coercible objects fail before queue admission. Accepted
@@ -204,7 +224,7 @@ length, and exact echo. `clearError` always uses the fixed empty payload.
 | Address parsing and formatting | `parseDevice`, `deviceToString`, `normalizeAddress`, `parseAddress`, `formatParsedAddress` |
 | Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
-| Named one-request reads and writes | `compileReadPlan`, `readNamed`, `writeNamed` |
+| Named one-request reads and writes | `compileReadPlan`, `prepareReadNamed`, `readNamed`, `writeNamed` |
 | Bit-in-word write | `writeBitInWord` |
 
 `writeBitInWord` validates and snapshots the complete operation before it enters

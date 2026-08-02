@@ -135,6 +135,93 @@ count suffixes retain their canonical output.
 - [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
 - [x] Final acceptance criteria verified and the item marked complete.
 
+## PERF2-008 — Direct final-buffer Extended Random/Monitor encoding
+
+Decision status: approved, implemented, reviewed, and verified on 2026-08-02.
+
+### Target contract
+
+All extended random read/write and monitor-registration inputs are parsed and validated before
+allocation. The implementation retains only compact validated layouts, allocates one exact final
+payload, and writes every extended specification and value directly at its final offset. Wire bytes,
+validation classification, profile decisions, command count, and public APIs remain unchanged.
+
+### Machine-verifiable acceptance criteria
+
+1. Link-direct Q/L, module-buffer Q/L and iQ-R layouts retain their existing vectors.
+2. No per-device complete specification Buffer or parts list is created by these builders.
+3. Invalid device, extension, mixed layout, span, count, overlap, and value inputs send nothing.
+4. The final payload is allocated exactly once after complete preflight.
+
+### Acceptance tracking
+
+- [x] Implementation and targeted extended-vector tests completed.
+- [x] Full repository static, unit, editor, example, and package gates passed.
+- [x] Codex final diff and cross-language self-review completed; allocation instrumentation and
+      validation-order coverage were added before final verification.
+- [x] Live PLC is not required because command bytes and request counts are contract-tested as unchanged.
+- [x] User documentation and Unreleased changelog agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## PERF2-010 — Linear TCP assembly and one owned response frame
+
+Decision status: approved, implemented, reviewed, and verified on 2026-08-02.
+
+### Target contract
+
+TCP fragments enter a growable accumulator without concatenating the complete prefix on every
+arrival. One stable complete frame is copied at the declared boundary; metadata and internal decode
+read that owned frame directly. Public `decodeResponse` retains its independent ownership contract.
+
+### Machine-verifiable acceptance criteria
+
+1. A maximum 4E response assembled one byte at a time has bounded linear copy work.
+2. A delivered frame remains unchanged after later accumulator reuse.
+3. Wrong subheader, route, serial, declared length, timeout, and retired socket behavior is unchanged.
+4. Internal metadata/decode does not make another complete-frame copy.
+
+### Acceptance tracking
+
+- [x] Implementation and targeted fragmentation/ownership tests completed.
+- [x] Full repository static, unit, editor, example, and package gates passed.
+- [x] Codex final diff and cross-language self-review completed; protocol-length bounding and
+      direct copy-count evidence for 3E/4E were added before final verification.
+- [x] Live PLC is not required because transport fragmentation and ownership are deterministic local behavior.
+- [x] User documentation and Unreleased changelog agree with the implementation.
+- [x] Final acceptance criteria verified and the item marked complete.
+
+## PERF2-014 — Client-bound prepared named-read plan
+
+Decision status: approved, implemented, reviewed, and verified on 2026-08-02.
+
+### Target contract
+
+`prepareReadNamed(client, addresses, options)` returns an opaque frozen plan that privately owns the
+validated Random Read payload and compact decode indexes. `plan.execute({ signal })` repeats only
+dynamic FIFO, generation, lifecycle, absolute-deadline, cancellation, serial, correlation, response,
+and result materialization work. `readNamed` and structural `compileReadPlan` retain distinct existing
+roles. The Node-RED read node caches at most one exact-match plan.
+
+### Machine-verifiable acceptance criteria
+
+1. Second and later executions do not parse addresses/devices or encode the Random Read payload.
+2. Forged, disposed, other-client, and profile/frame/compatibility/target-mismatched plans reject before send.
+3. Pre-abort sends nothing; active abort retires the transport generation.
+4. Close/reopen of the same unchanged client may reuse the plan with fresh lifecycle and serial state.
+5. Node-RED replaces its sole cached plan on any exact signature mismatch.
+6. Prepared and one-shot reads retain identical wire bytes, results, FIFO order, and error classes.
+
+### Acceptance tracking
+
+- [x] Implementation and targeted plan/cache/cancellation tests completed.
+- [x] Full repository static, unit, editor, example, and package gates passed.
+- [x] Codex final diff and cross-language self-review completed; FIFO deadline origin, active
+      disposal, cancellation accounting, complete cache signature, and equivalence vectors were
+      accepted findings and were corrected or added before final verification.
+- [x] Live PLC is not required because planning, cancellation, binding, and cache behavior are deterministic local contracts.
+- [x] API reference, usage guide, and Unreleased changelog agree with the additive API.
+- [x] Final acceptance criteria verified and the item marked complete.
+
 ## PERF-008D — Two-phase Node SLMP response decoding
 
 Decision status: approved on 2026-08-02; implementation and final acceptance are complete for the

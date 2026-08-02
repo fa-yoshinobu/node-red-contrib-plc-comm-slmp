@@ -288,6 +288,20 @@ are expanded inside that one request and must fit the selected profile limit.
 It never hides a long-timer Direct Read fallback; use `readTyped` or an explicit
 long-timer helper for those routes. `writeNamed` must also fit one protocol
 request and rejects mixed command families before transport.
+
+For repeated reads with the same client, addresses, and request options, create
+one `prepareReadNamed(client, addresses, options)` plan and call
+`await plan.execute({ signal })` each cycle. Preparation owns and validates the
+Random Read payload and decode indexes once; each execution still uses normal
+FIFO admission, a fresh serial and deadline, and current open/close state. The
+plan is bound to that exact client configuration and must not be passed as the
+addresses argument to `readNamed`. Call `plan.dispose()` when finished; it
+releases retained planning references and rejects later executions without
+cancelling an execution that is already active.
+`compileReadPlan` is the separate inspectable structural expansion API and is
+not directly executable. The Node-RED read node automatically retains no more
+than one exact-match prepared plan.
+
 Options such as a per-request `target` are forwarded by the high-level helpers.
 Their compiled device/value lists, block lists, point counts, and bit/word route
 remain authoritative; same-named caller option fields cannot redirect the

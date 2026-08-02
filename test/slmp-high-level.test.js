@@ -3,6 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
+const { performance } = require("node:perf_hooks");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -13,6 +14,7 @@ const {
   normalizeAddress,
   normalizeAddressList,
   parseAddress,
+  prepareReadNamed,
   readBits,
   readNamed,
   readTyped,
@@ -1035,6 +1037,210 @@ test("writeBitInWord snapshots options and retains one FIFO turn across read and
     { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 },
     { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 },
   ]);
+});
+
+test("prepareReadNamed owns one immutable client-bound wire plan across executions", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const payloads = [];
+  client._requestInternal = async (_command, _subcommand, payload) => {
+    payloads.push(Buffer.from(payload));
+    return { endCode: 0, data: Buffer.from([0x11, 0x11, 0x22, 0x22]) };
+  };
+
+  const plan = prepareReadNamed(client, ["D100:U", "D200:U"]);
+  assert.equal(Object.isFrozen(plan), true);
+  assert.deepEqual(Object.keys(plan), ["execute", "dispose"]);
+
+  client._parseDevice = () => {
+    throw new Error("prepared execution reparsed a device");
+  };
+  assert.deepEqual(await plan.execute(), { "D100:U": 0x1111, "D200:U": 0x2222 });
+  assert.deepEqual(await plan.execute(), { "D100:U": 0x1111, "D200:U": 0x2222 });
+  assert.equal(payloads.length, 2);
+  assert.deepEqual(payloads[0], payloads[1]);
+
+  await assert.rejects(() => plan.execute.call({}), /invalid or forged/i);
+  const otherClient = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  await assert.rejects(() => plan.execute.call(otherClient), /invalid or forged/i);
+  const frameType = client.frameType;
+  client.frameType = "3e";
+  await assert.rejects(() => plan.execute(), /no longer matches/i);
+  assert.equal(payloads.length, 2);
+  client.frameType = frameType;
+
+  const plcProfile = client.plcProfile;
+  client.plcProfile = "melsec:iq-f";
+  await assert.rejects(() => plan.execute(), /no longer matches/i);
+  assert.equal(payloads.length, 2);
+  client.plcProfile = plcProfile;
+
+  const plcSeries = client.plcSeries;
+  client.plcSeries = "ql";
+  await assert.rejects(() => plan.execute(), /no longer matches/i);
+  assert.equal(payloads.length, 2);
+  client.plcSeries = plcSeries;
+
+  client.compatibility = "Q/L";
+  await assert.rejects(() => plan.execute(), /no longer matches/i);
+  assert.equal(payloads.length, 2);
+  delete client.compatibility;
+
+  await assert.rejects(
+    () => plan.execute({ target: { network: 1, station: 2, moduleIO: 3, multidrop: 4 } }),
+    /does not accept 'target'/i,
+  );
+  assert.equal(payloads.length, 2);
+
+  await client.close();
+  assert.deepEqual(await plan.execute(), { "D100:U": 0x1111, "D200:U": 0x2222 });
+  assert.equal(payloads.length, 3);
+
+  plan.dispose();
+  await assert.rejects(() => plan.execute(), /disposed/i);
+});
+
+test("prepareReadNamed rejects pre-aborted execution before FIFO admission", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let sends = 0;
+  client._requestInternal = async () => {
+    sends += 1;
+    return { endCode: 0, data: Buffer.from([0, 0]) };
+  };
+  const plan = prepareReadNamed(client, ["D0:U"]);
+  const controller = new AbortController();
+  controller.abort("cancelled");
+
+  await assert.rejects(() => plan.execute({ signal: controller.signal }), { name: "AbortError" });
+  assert.equal(sends, 0);
+});
+
+test("prepareReadNamed disposal releases future use without corrupting an active execution", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let releaseResponse;
+  const responseGate = new Promise((resolve) => { releaseResponse = resolve; });
+  client._requestInternal = async () => {
+    await responseGate;
+    return { endCode: 0, data: Buffer.from([0x78, 0x56]) };
+  };
+  const plan = prepareReadNamed(client, ["D0:U"]);
+  const active = plan.execute();
+  await new Promise((resolve) => setImmediate(resolve));
+  plan.dispose();
+  releaseResponse();
+
+  assert.deepEqual(await active, { "D0:U": 0x5678 });
+  await assert.rejects(() => plan.execute(), /disposed/i);
+});
+
+test("prepareReadNamed starts its deadline when its FIFO turn activates", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+    timeout: 5,
+  });
+  let releaseBlocker;
+  const blocker = new Promise((resolve) => { releaseBlocker = resolve; });
+  const occupyingTurn = client._enqueueOperation(() => blocker);
+  const plan = prepareReadNamed(client, ["D0:U"]);
+  let inheritedDeadline = null;
+  client._requestInternal = async (
+    _command,
+    _subcommand,
+    _data,
+    _options,
+    _context,
+    deadline,
+  ) => {
+    inheritedDeadline = deadline;
+    return { data: Buffer.from([0x34, 0x12]) };
+  };
+
+  const pending = plan.execute();
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  const activationTime = performance.now();
+  releaseBlocker();
+  await occupyingTurn;
+  assert.deepEqual(await pending, { "D0:U": 0x1234 });
+  assert.ok(inheritedDeadline >= activationTime);
+});
+
+test("prepareReadNamed removes queued cancellation and retires an active cancelled transport", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => { releaseFirst = resolve; });
+  let calls = 0;
+  client._requestInternal = async () => {
+    calls += 1;
+    if (calls === 1) await firstGate;
+    return { endCode: 0, data: Buffer.from([0x11, 0x11]) };
+  };
+  const plan = prepareReadNamed(client, ["D0:U"]);
+  const first = client.rawCommand(slmp.Command.READ_TYPE_NAME, {
+    subcommand: 0,
+    payload: Buffer.alloc(0),
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const queuedController = new AbortController();
+  const queued = plan.execute({ signal: queuedController.signal });
+  queuedController.abort("queued");
+  await assert.rejects(() => queued, { name: "AbortError" });
+  assert.equal(client._queuedOperationCount, 0);
+  releaseFirst();
+  await first;
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 1);
+
+  let releaseActive;
+  const activeGate = new Promise((resolve) => { releaseActive = resolve; });
+  client._requestInternal = async () => {
+    calls += 1;
+    await activeGate;
+    return { endCode: 0, data: Buffer.from([0x22, 0x22]) };
+  };
+  let retired = 0;
+  client._closeTransport = async () => { retired += 1; };
+  const activeController = new AbortController();
+  const active = plan.execute({ signal: activeController.signal });
+  await new Promise((resolve) => setImmediate(resolve));
+  activeController.abort("active");
+  await assert.rejects(() => active, { name: "AbortError" });
+  assert.equal(retired, 1);
+  releaseActive();
+  await new Promise((resolve) => setImmediate(resolve));
 });
 
 test("writeBitInWord keeps exactly two requests for every bit index including an unchanged bit", async () => {
@@ -2155,6 +2361,76 @@ test("slmp-read can return an array payload in address order", async () => {
 
     assert.equal(result.error, undefined);
     assert.deepEqual(msg.payload, [[1, 2, 3], 1.5, true]);
+  });
+});
+
+test("slmp-read keeps at most one exact-match prepared read plan", async () => {
+  const prepared = [];
+  const disposed = [];
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    plcSeries: "iqr",
+    addressProfile: "melsec:iq-r",
+    frameType: "4e",
+    transportType: "tcp",
+    defaultTarget: TEST_TARGET,
+    _prepareRandomReadPlan() {},
+    _executeRandomReadPlan() {},
+  };
+
+  await withMockedSlmp({
+    prepareReadNamed: (_client, addresses, options = {}) => {
+      const id = prepared.length;
+      prepared.push({
+        addresses: [...addresses],
+        target: options.target || _client.defaultTarget,
+      });
+      return {
+        async execute() {
+          return Object.fromEntries(addresses.map((address) => [address, id + 1]));
+        },
+        dispose() {
+          disposed.push(id);
+        },
+      };
+    },
+  }, async () => {
+    const { RED, create, setNode } = createMockRed();
+    require("../nodes/slmp-read")(RED);
+    setNode("cfg-prepared-cache", {
+      getClient: () => fakeClient,
+      getProfile: () => ({ plcProfile: "melsec:iq-r", frameType: "4e", plcSeries: "iqr" }),
+    });
+    const node = create("slmp-read", {
+      id: "read-prepared-cache",
+      connection: "cfg-prepared-cache",
+      addresses: "D0:U",
+      outputMode: "object",
+    });
+
+    await invokeNode(node, {});
+    await invokeNode(node, {});
+    fakeClient.addressProfile = "melsec:iq-f";
+    await invokeNode(node, {});
+    fakeClient.transportType = "udp";
+    await invokeNode(node, {});
+    const alternateTarget = { network: 1, station: 2, moduleIO: 0x1234, multidrop: 3 };
+    await invokeNode(node, { target: alternateTarget });
+    await invokeNode(node, { target: { ...alternateTarget } });
+    await invokeNode(node, {});
+    await invokeNode(node, { addresses: ["D1:U"] });
+
+    assert.deepEqual(prepared, [
+      { addresses: ["D0:U"], target: TEST_TARGET },
+      { addresses: ["D0:U"], target: TEST_TARGET },
+      { addresses: ["D0:U"], target: TEST_TARGET },
+      { addresses: ["D0:U"], target: alternateTarget },
+      { addresses: ["D0:U"], target: TEST_TARGET },
+      { addresses: ["D1:U"], target: TEST_TARGET },
+    ]);
+    assert.deepEqual(disposed, [0, 1, 2, 3, 4]);
+    node.emit("close");
+    assert.deepEqual(disposed, [0, 1, 2, 3, 4, 5]);
   });
 });
 

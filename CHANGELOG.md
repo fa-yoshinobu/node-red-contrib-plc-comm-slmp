@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Added `prepareReadNamed(client, addresses, options)` for repeated named reads. Its immutable client-bound plan owns the validated Random Read payload and decode indexes, executes with fresh FIFO/deadline/serial/lifecycle checks, accepts cancellation through `plan.execute({ signal })`, and releases retained planning references with `plan.dispose()` without corrupting an already-active execution.
+- Node-RED: The read node now retains at most one exact-match prepared named-read plan and replaces it whenever the client, addresses, target, profile, frame, or compatibility changes.
+- Library: TCP response assembly now uses a growable accumulator with linear fragment-copy work and one owned complete frame; metadata and internal response decode use views of that owned frame without full-frame recopying.
+- Library: Extended Random and Monitor builders now validate into compact layouts, allocate one exact final payload, and encode device specifications and values directly into it without per-device Buffer construction.
+- Tests: Added maximum one-byte TCP fragmentation/copy bounds, frame ownership, prepared-plan branding/reuse/cancellation/signature, and bounded Node-RED cache coverage.
 - Library: Response handling now validates framing, correlation, PLC status, acknowledgement shape, command-specific payload length/structure, bit encoding, labels, and self-test echoes inside the wire FIFO turn, then performs pure array/object/string/Buffer materialization outside that turn. Malformed command bodies retire the supplying transport generation before another queued request can send, while public Promise settlement remains in admission order.
 - Library: General requests now snapshot and validate payload and request options once before FIFO admission and reuse one private prepared request through framing and decode. `readNamed` likewise compiles its deduplicated Random Read device expansion and result indexes once into an immutable private plan.
 - Library: `writeBitInWord` now prepares both requests before FIFO admission, retains one exclusive turn and one absolute procedure deadline, and still sends exactly one read plus one write even when the requested bit already has the desired value.
