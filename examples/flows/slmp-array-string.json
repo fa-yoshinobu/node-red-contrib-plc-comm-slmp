@@ -4,14 +4,14 @@
         "type":  "tab",
         "label":  "SLMP Array And String",
         "disabled":  false,
-        "info":  "Update the connection host, port, and safe array/string addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+        "info":  "Update the connection host, port, and controlled test array/string addresses before deploy. The optional write path saves the original values, writes random valid values, restores the snapshot after a confirmed acknowledgement, and reads again. Any error or outcome-unknown result requires manual reconciliation."
     },
     {
         "id":  "comment-slmp-array-string",
         "type":  "comment",
         "z":  "tab-slmp-array-string",
-        "name":  "TCP array and string examples using :STR,count",
-        "info":  "TCP examples for counted word reads, float arrays, and UTF-8 strings. Use this after slmp-basic-read-write.json succeeds.",
+        "name":  "TCP array/string read first; optional random write + restore",
+        "info":  "Use this after slmp-basic-read-write.json succeeds. Only use controlled test addresses. The optional write saves all three original values, writes random valid values, restores them, and reads again. Restoration stops after any error or outcome-unknown result.",
         "x":  270,
         "y":  40,
         "wires":  [
@@ -69,12 +69,10 @@
         "id":  "inject-array-write",
         "type":  "inject",
         "z":  "tab-slmp-array-string",
-        "name":  "Write array + string",
+        "name":  "Test arrays + string (random + restore)",
         "props":  [
                       {
-                          "p":  "payload",
-                          "v":  "{\"D300:U,10\":[0,1,2,3,4,5,6,7,8,9],\"D200:F,2\":[1.25,-2.5],\"D320:STR,10\":\"HELLO12345\"}",
-                          "vt":  "json"
+                          "p":  "payload"
                       }
                   ],
         "repeat":  "",
@@ -82,7 +80,52 @@
         "once":  false,
         "onceDelay":  0.1,
         "topic":  "",
+        "payloadType":  "date",
         "x":  120,
+        "y":  200,
+        "wires":  [
+                      [
+                          "read-array-original"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-array-original",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-array-string",
+        "name":  "Read original arrays + string",
+        "connection":  "cfg-slmp-array-string",
+        "addresses":  "D300:U,10\nD200:F,2\nD320:STR,10",
+        "addressesType":  "str",
+        "outputMode":  "object",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  380,
+        "y":  200,
+        "wires":  [
+                      [
+                          "prepare-array-random"
+                      ],
+                      [
+                          "debug-array-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-array-random",
+        "type":  "function",
+        "z":  "tab-slmp-array-string",
+        "name":  "Save snapshot + random values",
+        "func":  "const original = {\n    'D300:U,10': Array.from(msg.payload['D300:U,10']),\n    'D200:F,2': Array.from(msg.payload['D200:F,2']),\n    'D320:STR,10': String(msg.payload['D320:STR,10'])\n};\nmsg.slmpSampleOriginal = original;\nmsg.updates = {\n    'D300:U,10': Array.from({ length: 10 }, function () { return Math.floor(Math.random() * 65536); }),\n    'D200:F,2': Array.from({ length: 2 }, function () { return Math.fround((Math.random() * 2000) - 1000); }),\n    'D320:STR,10': Array.from({ length: 10 }, function () { return String.fromCharCode(65 + Math.floor(Math.random() * 26)); }).join('')\n};\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  680,
         "y":  200,
         "wires":  [
                       [
@@ -94,18 +137,62 @@
         "id":  "write-array-string",
         "type":  "slmp-write",
         "z":  "tab-slmp-array-string",
-        "name":  "Write array + float array + string",
+        "name":  "Write random arrays + string",
         "connection":  "cfg-slmp-array-string",
         "updates":  "",
         "updatesType":  "str",
         "metadataMode":  "full",
         "errorHandling":  "output2",
         "outputs":  2,
-        "x":  380,
+        "x":  970,
         "y":  200,
         "wires":  [
                       [
-                          "debug-array-write-ok"
+                          "prepare-array-restore"
+                      ],
+                      [
+                          "debug-array-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-array-restore",
+        "type":  "function",
+        "z":  "tab-slmp-array-string",
+        "name":  "Prepare snapshot restore",
+        "func":  "msg.updates = msg.slmpSampleOriginal;\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  1240,
+        "y":  200,
+        "wires":  [
+                      [
+                          "restore-array-string"
+                      ]
+                  ]
+    },
+    {
+        "id":  "restore-array-string",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-array-string",
+        "name":  "Restore arrays + string snapshot",
+        "connection":  "cfg-slmp-array-string",
+        "updates":  "",
+        "updatesType":  "str",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  1510,
+        "y":  200,
+        "wires":  [
+                      [
+                          "debug-array-write-ok",
+                          "read-array-string"
                       ],
                       [
                           "debug-array-write-error"
@@ -150,7 +237,7 @@
         "id":  "debug-array-write-ok",
         "type":  "debug",
         "z":  "tab-slmp-array-string",
-        "name":  "Write OK",
+        "name":  "Write + restore OK",
         "active":  true,
         "tosidebar":  true,
         "console":  false,
@@ -167,7 +254,7 @@
         "id":  "debug-array-write-error",
         "type":  "debug",
         "z":  "tab-slmp-array-string",
-        "name":  "Write Error",
+        "name":  "Write/restore error — reconcile manually",
         "active":  true,
         "tosidebar":  true,
         "console":  false,

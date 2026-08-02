@@ -4,7 +4,11 @@
 
 This directory contains importable Node-RED JSON flow files for the public `slmp-connection`, `slmp-read`, and `slmp-write` nodes. Start with the basic TCP flow, then use the other flows for arrays, strings, error routing, UDP, route overrides, and broader device coverage.
 
-Use only test addresses that are safe for your PLC program before you run any write example.
+Write controls are manual and opt-in. Use only controlled test addresses. The basic, array/string,
+UDP, and combined demo flows save the original values, write random format-valid values, restore
+after confirmed acknowledgements, and read again. Restoration is best effort: a transport failure,
+PLC error, or outcome-unknown result stops the sequence. Do not retry automatically; inspect and
+reconcile the target values manually.
 
 ## How to import
 
@@ -40,13 +44,13 @@ To persist CSV-equivalent rows, route the long-form row messages through a CSV n
 
 | File | What it demonstrates | Recommended first-use order |
 | --- | --- | --- |
-| [`slmp-basic-read-write.json`](slmp-basic-read-write.json) | Basic TCP read and write with scalar words, float values, and bit-in-word access. | 1 |
+| [`slmp-basic-read-write.json`](slmp-basic-read-write.json) | Basic TCP read plus an optional random write/restore check. Word/float and bit-in-word writes are separate supported operations. | 1 |
 | [`slmp-multi-plc-monitor.json`](slmp-multi-plc-monitor.json) | Read-only multi-PLC monitor with long-form row output and reconnect backoff. | 1 after connection settings are known |
-| [`slmp-array-string.json`](slmp-array-string.json) | TCP array access with `,count`, float arrays, and `:STR` string access. | 2 |
+| [`slmp-array-string.json`](slmp-array-string.json) | TCP array access with `,count`, float arrays, and `:STR` plus an optional random write/restore check. | 2 |
 | [`slmp-control-error.json`](slmp-control-error.json) | Connection control messages, `msg`-provided addresses, and second-output error routing. | 3 |
 | [`slmp-routing.json`](slmp-routing.json) | Per-request route override with `msg.target`. | 4 |
-| [`slmp-udp-read-write.json`](slmp-udp-read-write.json) | Basic UDP read and write. Set the UDP port to `1035` before deploy. | 5 |
-| [`slmp-device-matrix.json`](slmp-device-matrix.json) | One-by-one and run-all high-level read/write coverage with status feedback, explicit error routing, timeout tracking, and JSONL logging. Entries outside the one-Random-Read named contract are expected to reject and require low-level typed helpers. | 6 |
-| [`slmp-demo.json`](slmp-demo.json) | Combined demo with connection controls, array read, string read, write, and error output examples. | 7 |
+| [`slmp-udp-read-write.json`](slmp-udp-read-write.json) | UDP read plus an optional random write/restore check. Set port `1035`; an unknown UDP write outcome requires manual reconciliation. | 5 |
+| [`slmp-device-matrix.json`](slmp-device-matrix.json) | Read-only one-by-one and run-all high-level coverage with status feedback, explicit error routing, timeout tracking, and JSONL logging. Broad writes are disabled; use a dedicated restore flow. | 6 |
+| [`slmp-demo.json`](slmp-demo.json) | Combined demo with connection controls, reads, an optional random write/restore check, and error outputs. | 7 |
 
 The device-matrix flow is for verification after your first simple read works. Do not use it as the first smoke test.

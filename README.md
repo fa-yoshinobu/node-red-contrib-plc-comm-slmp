@@ -50,6 +50,11 @@ In the Node-RED editor:
 8. Deploy the flow.
 9. Trigger the read inject node and check `msg.payload` in the debug sidebar.
 
+The optional write button is only for controlled test addresses. It reads and saves the original
+values, writes random valid values, restores the snapshot after confirmed acknowledgements, and
+reads again. If any write or restore fails or has an unknown outcome, stop and reconcile the PLC
+values manually; the automatic sequence does not retry.
+
 Start with the basic flow before importing the device-matrix flow.
 
 ## Documentation

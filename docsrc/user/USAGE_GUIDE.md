@@ -221,6 +221,12 @@ Single-write dtype must come from exactly one source. A colon or period in
 `msg.address` must form a complete supported dtype/count or word-bit selector;
 an incomplete or conflicting selector is not completed from `msg.dtype`.
 
+Every write changes PLC state. Use controlled test addresses, save the original value before a
+reversible test, and restore only after confirmed acknowledgements. A timeout or transport failure
+after send can mean the outcome is unknown; do not retry or assume restoration succeeded. Stop the
+automatic sequence and reconcile the target value manually. The maintained write flows demonstrate
+manual opt-in, random format-valid test values, and best-effort snapshot restoration.
+
 | Output field | Description |
 | --- | --- |
 | `msg.payload` | The incoming payload is preserved unless your flow changes it before the write. |

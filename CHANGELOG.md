@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Samples: Reworked the maintained SLMP write flows to use the current `msg.updates` contract, save snapshots, write random format-valid values, restore confirmed writes, stop on error, and keep the broad device matrix read-only; the basic flow keeps bit-in-word access read-only instead of mixing it with named word/float writes.
+- Tests: Added executable saved-flow coverage for Inject-to-write resolution, snapshot restoration, bit-in-word exclusion, read-only matrix routing, and local safety guidance.
 - Library: High-level `writeNamed` random word, dword, long-current, and bit preflight now uses the selected canonical profile's point and weighted limits, matching the low-level client. Valid Q/L plans are no longer rejected by iQ-R limits.
 - Tests: Added Q/L named random-write boundary coverage alongside the existing iQ-R no-send over-limit case.
 - CI: The Node-RED editor smoke now waits for its log streams to close before removing the isolated user directory, preventing a successful round-trip from failing during Windows cleanup.

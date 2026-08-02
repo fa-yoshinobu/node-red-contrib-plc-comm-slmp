@@ -4,14 +4,14 @@
         "type":  "tab",
         "label":  "SLMP Demo",
         "disabled":  false,
-        "info":  "Update the slmp-connection host, port, and safe device addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+        "info":  "Update the connection host, port, and controlled test addresses before deploy. The optional write path saves the original values, writes random valid values, restores after a confirmed acknowledgement, and reads again. Any error or outcome-unknown result stops automatic cleanup and requires manual reconciliation."
     },
     {
         "id":  "comment-slmp-demo",
         "type":  "comment",
         "z":  "tab-slmp-demo",
-        "name":  "Update connection and safe device addresses before deploy",
-        "info":  "Combined demo for connection controls, array and string reads, writes, and error output behavior. Use the smaller example flows first.",
+        "name":  "Read first; optional random write + restore on test addresses",
+        "info":  "Combined demo for connection controls, array and string reads, controlled writes, and error output behavior. Use the smaller flows first. Restoration is best effort and is not attempted after an error or outcome-unknown result.",
         "x":  270,
         "y":  40,
         "wires":  [
@@ -144,12 +144,10 @@
         "id":  "inject-write",
         "type":  "inject",
         "z":  "tab-slmp-demo",
-        "name":  "Write array + string",
+        "name":  "Test array + string (random + restore)",
         "props":  [
                       {
-                          "p":  "payload",
-                          "v":  "{\"D300:U,3\":[10,11,12],\"D320:STR,10\":\"HELLO\"}",
-                          "vt":  "json"
+                          "p":  "payload"
                       }
                   ],
         "repeat":  "",
@@ -157,7 +155,52 @@
         "once":  false,
         "onceDelay":  0.1,
         "topic":  "",
+        "payloadType":  "date",
         "x":  120,
+        "y":  340,
+        "wires":  [
+                      [
+                          "read-demo-original"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-demo-original",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-demo",
+        "name":  "Read original writable values",
+        "connection":  "cfg-slmp-demo",
+        "addresses":  "D300:U,3\nD320:STR,10",
+        "addressesType":  "str",
+        "outputMode":  "object",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  350,
+        "y":  340,
+        "wires":  [
+                      [
+                          "prepare-demo-random"
+                      ],
+                      [
+                          "debug-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-demo-random",
+        "type":  "function",
+        "z":  "tab-slmp-demo",
+        "name":  "Save snapshot + random values",
+        "func":  "const original = {\n    'D300:U,3': Array.from(msg.payload['D300:U,3']),\n    'D320:STR,10': String(msg.payload['D320:STR,10'])\n};\nmsg.slmpSampleOriginal = original;\nmsg.updates = {\n    'D300:U,3': Array.from({ length: 3 }, function () { return Math.floor(Math.random() * 65536); }),\n    'D320:STR,10': Array.from({ length: 10 }, function () { return String.fromCharCode(65 + Math.floor(Math.random() * 26)); }).join('')\n};\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  650,
         "y":  340,
         "wires":  [
                       [
@@ -169,18 +212,62 @@
         "id":  "write-demo",
         "type":  "slmp-write",
         "z":  "tab-slmp-demo",
-        "name":  "Write array + string",
+        "name":  "Write random array + string",
         "connection":  "cfg-slmp-demo",
         "updates":  "",
         "updatesType":  "str",
         "metadataMode":  "full",
         "errorHandling":  "output2",
         "outputs":  2,
-        "x":  340,
+        "x":  930,
         "y":  340,
         "wires":  [
                       [
-                          "debug-write-ok"
+                          "prepare-demo-restore"
+                      ],
+                      [
+                          "debug-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-demo-restore",
+        "type":  "function",
+        "z":  "tab-slmp-demo",
+        "name":  "Prepare snapshot restore",
+        "func":  "msg.updates = msg.slmpSampleOriginal;\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  1190,
+        "y":  340,
+        "wires":  [
+                      [
+                          "restore-demo"
+                      ]
+                  ]
+    },
+    {
+        "id":  "restore-demo",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-demo",
+        "name":  "Restore array + string snapshot",
+        "connection":  "cfg-slmp-demo",
+        "updates":  "",
+        "updatesType":  "str",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  1450,
+        "y":  340,
+        "wires":  [
+                      [
+                          "debug-write-ok",
+                          "read-demo"
                       ],
                       [
                           "debug-write-error"
@@ -225,7 +312,7 @@
         "id":  "debug-write-ok",
         "type":  "debug",
         "z":  "tab-slmp-demo",
-        "name":  "Write OK",
+        "name":  "Write + restore OK",
         "active":  true,
         "tosidebar":  true,
         "console":  false,
@@ -242,7 +329,7 @@
         "id":  "debug-write-error",
         "type":  "debug",
         "z":  "tab-slmp-demo",
-        "name":  "Write Error",
+        "name":  "Write/restore error — reconcile manually",
         "active":  true,
         "tosidebar":  true,
         "console":  false,

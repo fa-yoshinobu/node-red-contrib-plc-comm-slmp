@@ -4,14 +4,14 @@
         "type":  "tab",
         "label":  "SLMP Basic Read Write",
         "disabled":  false,
-        "info":  "Update the connection host, port, and safe device addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+        "info":  "Update the connection host, port, and controlled test addresses before deploy. The optional write path saves D300, D301, and D200, writes random valid values, restores after confirmed acknowledgements, and reads again. D302.3 demonstrates read-only bit-in-word access because slmp-write does not provide implicit read-modify-write."
     },
     {
         "id":  "comment-slmp-basic",
         "type":  "comment",
         "z":  "tab-slmp-basic",
-        "name":  "Basic TCP read/write using safe scalar addresses",
-        "info":  "First-use TCP flow. Configure the connection for 192.168.250.100:1025 with PLC type melsec:iq-r, then trigger the read node before trying writes.",
+        "name":  "Basic TCP read first; optional random write + restore",
+        "info":  "First trigger Read snapshot. Only on controlled test addresses, the optional write button saves D300, D301, and D200, writes random word and float values as separate supported operations, restores them, then reads again. D302.3 remains read-only. Restoration is not attempted after an error or outcome-unknown result.",
         "x":  260,
         "y":  40,
         "wires":  [
@@ -69,12 +69,10 @@
         "id":  "inject-basic-write",
         "type":  "inject",
         "z":  "tab-slmp-basic",
-        "name":  "Write values",
+        "name":  "Test values (random + restore)",
         "props":  [
                       {
-                          "p":  "payload",
-                          "v":  "{\"D300:U\":123,\"D301:U\":456,\"D200:F\":1.25,\"D302.3\":true}",
-                          "vt":  "json"
+                          "p":  "payload"
                       }
                   ],
         "repeat":  "",
@@ -82,7 +80,52 @@
         "once":  false,
         "onceDelay":  0.1,
         "topic":  "",
+        "payloadType":  "date",
         "x":  110,
+        "y":  200,
+        "wires":  [
+                      [
+                          "read-basic-original"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-basic-original",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-basic",
+        "name":  "Read original values",
+        "connection":  "cfg-slmp-basic",
+        "addresses":  "D300:U\nD301:U\nD200:F",
+        "addressesType":  "str",
+        "outputMode":  "object",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  340,
+        "y":  200,
+        "wires":  [
+                      [
+                          "prepare-basic-random"
+                      ],
+                      [
+                          "debug-basic-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-basic-random",
+        "type":  "function",
+        "z":  "tab-slmp-basic",
+        "name":  "Save snapshot + random word values",
+        "func":  "const original = Object.assign({}, msg.payload);\nmsg.slmpSampleOriginal = original;\nmsg.slmpSampleRandomFloat = Math.fround((Math.random() * 2000) - 1000);\nmsg.updates = {\n    'D300:U': Math.floor(Math.random() * 65536),\n    'D301:U': Math.floor(Math.random() * 65536)\n};\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  610,
         "y":  200,
         "wires":  [
                       [
@@ -94,7 +137,7 @@
         "id":  "write-basic",
         "type":  "slmp-write",
         "z":  "tab-slmp-basic",
-        "name":  "Write scalar + float + bit",
+        "name":  "Write random word values",
         "connection":  "cfg-slmp-basic",
         "updates":  "",
         "updatesType":  "str",
@@ -102,10 +145,140 @@
         "errorHandling":  "output2",
         "outputs":  2,
         "x":  340,
-        "y":  200,
+        "y":  280,
         "wires":  [
                       [
-                          "debug-basic-write-ok"
+                          "prepare-basic-random-float"
+                      ],
+                      [
+                          "debug-basic-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-basic-random-float",
+        "type":  "function",
+        "z":  "tab-slmp-basic",
+        "name":  "Prepare separate random float write",
+        "func":  "msg.updates = { 'D200:F': msg.slmpSampleRandomFloat };\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  620,
+        "y":  320,
+        "wires":  [
+                      [
+                          "write-basic-float"
+                      ]
+                  ]
+    },
+    {
+        "id":  "write-basic-float",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-basic",
+        "name":  "Write random float",
+        "connection":  "cfg-slmp-basic",
+        "updates":  "",
+        "updatesType":  "str",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  900,
+        "y":  320,
+        "wires":  [
+                      [
+                          "prepare-basic-restore-float"
+                      ],
+                      [
+                          "debug-basic-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-basic-restore-float",
+        "type":  "function",
+        "z":  "tab-slmp-basic",
+        "name":  "Prepare float snapshot restore",
+        "func":  "msg.updates = { 'D200:F': msg.slmpSampleOriginal['D200:F'] };\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  1730,
+        "y":  320,
+        "wires":  [
+                      [
+                          "restore-basic-float"
+                      ]
+                  ]
+    },
+    {
+        "id":  "restore-basic-float",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-basic",
+        "name":  "Restore float snapshot",
+        "connection":  "cfg-slmp-basic",
+        "updates":  "",
+        "updatesType":  "str",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  1980,
+        "y":  320,
+        "wires":  [
+                      [
+                          "prepare-basic-restore-words"
+                      ],
+                      [
+                          "debug-basic-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-basic-restore-words",
+        "type":  "function",
+        "z":  "tab-slmp-basic",
+        "name":  "Prepare word snapshot restore",
+        "func":  "msg.updates = {\n    'D300:U': msg.slmpSampleOriginal['D300:U'],\n    'D301:U': msg.slmpSampleOriginal['D301:U']\n};\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  1740,
+        "y":  280,
+        "wires":  [
+                      [
+                          "restore-basic-words"
+                      ]
+                  ]
+    },
+    {
+        "id":  "restore-basic-words",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-basic",
+        "name":  "Restore word snapshot",
+        "connection":  "cfg-slmp-basic",
+        "updates":  "",
+        "updatesType":  "str",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  2000,
+        "y":  280,
+        "wires":  [
+                      [
+                          "debug-basic-write-ok",
+                          "read-basic"
                       ],
                       [
                           "debug-basic-write-error"
@@ -150,7 +323,7 @@
         "id":  "debug-basic-write-ok",
         "type":  "debug",
         "z":  "tab-slmp-basic",
-        "name":  "Write OK",
+        "name":  "Write + restore OK",
         "active":  true,
         "tosidebar":  true,
         "console":  false,
@@ -167,7 +340,7 @@
         "id":  "debug-basic-write-error",
         "type":  "debug",
         "z":  "tab-slmp-basic",
-        "name":  "Write Error",
+        "name":  "Write/restore error — reconcile manually",
         "active":  true,
         "tosidebar":  true,
         "console":  false,

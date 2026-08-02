@@ -50,6 +50,13 @@ unless your PLC network needs a different target.
 9. Trigger the read inject node.
 10. Open the debug sidebar and verify `msg.payload`.
 
+The optional `Test values (random + restore)` Inject is state-changing. Use it only after replacing
+the sample addresses with controlled test addresses. It saves the original values, performs
+separate supported word and float writes, restores the snapshot after confirmed acknowledgements,
+and reads again. `D302.3` remains read-only because it cannot be mixed into that named write
+contract. An error or outcome-unknown result stops the automatic sequence; inspect and reconcile
+the target values manually instead of retrying.
+
 In object output mode, a successful read looks like this shape:
 
 ```json
@@ -80,7 +87,7 @@ Trigger the node with any message. A successful response sets `msg.payload["D300
 1. The flow deploys without editor validation errors.
 2. The `slmp-connection` node has PLC profile `melsec:iq-r`.
 3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
-4. PLC-side RUN-time write permission is enabled before you run a write flow where the PLC exposes that setting.
+4. PLC-side RUN-time write permission is enabled before you run a write flow where the PLC exposes that setting, and every write address is a controlled test address.
 5. The read inject node produces a debug message.
 6. `msg.payload` contains a `D300:U` key.
 7. The connection status does not stay red after repeated reads.

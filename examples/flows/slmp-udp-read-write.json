@@ -4,14 +4,14 @@
         "type":  "tab",
         "label":  "SLMP UDP Read Write",
         "disabled":  false,
-        "info":  "Update the connection host, port, and safe device addresses before deploy. Use canonical uppercase addresses in the examples. The flow nodes keep the caller-visible logical request shape and do not silently switch to a different fallback split behavior."
+        "info":  "Update the connection host, port, and controlled test addresses before deploy. The optional UDP write path saves the original values, writes random valid values, restores after a confirmed acknowledgement, and reads again. A UDP timeout can leave the outcome unknown; do not retry automatically and reconcile the target values manually."
     },
     {
         "id":  "comment-slmp-udp",
         "type":  "comment",
         "z":  "tab-slmp-udp",
-        "name":  "Basic UDP read/write example",
-        "info":  "Basic UDP read/write flow. Set the connection host to 192.168.250.100, UDP port to 1035, and PLC type to melsec:iq-r before deploy.",
+        "name":  "UDP read first; optional random write + restore",
+        "info":  "Set the connection host, UDP port 1035, and profile before deploy. Only use controlled test addresses. Restoration runs only after confirmed acknowledgements; any error or outcome-unknown result stops the sequence and requires manual reconciliation.",
         "x":  220,
         "y":  40,
         "wires":  [
@@ -69,12 +69,10 @@
         "id":  "inject-udp-write",
         "type":  "inject",
         "z":  "tab-slmp-udp",
-        "name":  "Write UDP values",
+        "name":  "Test UDP values (random + restore)",
         "props":  [
                       {
-                          "p":  "payload",
-                          "v":  "{\"D300:U,4\":[10,11,12,13],\"D320:STR,10\":\"HELLO12345\"}",
-                          "vt":  "json"
+                          "p":  "payload"
                       }
                   ],
         "repeat":  "",
@@ -82,7 +80,52 @@
         "once":  false,
         "onceDelay":  0.1,
         "topic":  "",
+        "payloadType":  "date",
         "x":  120,
+        "y":  200,
+        "wires":  [
+                      [
+                          "read-udp-original"
+                      ]
+                  ]
+    },
+    {
+        "id":  "read-udp-original",
+        "type":  "slmp-read",
+        "z":  "tab-slmp-udp",
+        "name":  "Read original UDP values",
+        "connection":  "cfg-slmp-udp",
+        "addresses":  "D300:U,4\nD320:STR,10",
+        "addressesType":  "str",
+        "outputMode":  "object",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  350,
+        "y":  200,
+        "wires":  [
+                      [
+                          "prepare-udp-random"
+                      ],
+                      [
+                          "debug-udp-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-udp-random",
+        "type":  "function",
+        "z":  "tab-slmp-udp",
+        "name":  "Save snapshot + random UDP values",
+        "func":  "const original = {\n    'D300:U,4': Array.from(msg.payload['D300:U,4']),\n    'D320:STR,10': String(msg.payload['D320:STR,10'])\n};\nmsg.slmpSampleOriginal = original;\nmsg.updates = {\n    'D300:U,4': Array.from({ length: 4 }, function () { return Math.floor(Math.random() * 65536); }),\n    'D320:STR,10': Array.from({ length: 10 }, function () { return String.fromCharCode(65 + Math.floor(Math.random() * 26)); }).join('')\n};\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  650,
         "y":  200,
         "wires":  [
                       [
@@ -94,18 +137,62 @@
         "id":  "write-udp",
         "type":  "slmp-write",
         "z":  "tab-slmp-udp",
-        "name":  "Write UDP words + string",
+        "name":  "Write random UDP values",
         "connection":  "cfg-slmp-udp",
         "updates":  "",
         "updatesType":  "str",
         "metadataMode":  "full",
         "errorHandling":  "output2",
         "outputs":  2,
-        "x":  340,
+        "x":  930,
         "y":  200,
         "wires":  [
                       [
-                          "debug-udp-write-ok"
+                          "prepare-udp-restore"
+                      ],
+                      [
+                          "debug-udp-write-error"
+                      ]
+                  ]
+    },
+    {
+        "id":  "prepare-udp-restore",
+        "type":  "function",
+        "z":  "tab-slmp-udp",
+        "name":  "Prepare UDP snapshot restore",
+        "func":  "msg.updates = msg.slmpSampleOriginal;\ndelete msg.payload;\nreturn msg;",
+        "outputs":  1,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  1200,
+        "y":  200,
+        "wires":  [
+                      [
+                          "restore-udp"
+                      ]
+                  ]
+    },
+    {
+        "id":  "restore-udp",
+        "type":  "slmp-write",
+        "z":  "tab-slmp-udp",
+        "name":  "Restore UDP snapshot",
+        "connection":  "cfg-slmp-udp",
+        "updates":  "",
+        "updatesType":  "str",
+        "metadataMode":  "full",
+        "errorHandling":  "output2",
+        "outputs":  2,
+        "x":  1460,
+        "y":  200,
+        "wires":  [
+                      [
+                          "debug-udp-write-ok",
+                          "read-udp"
                       ],
                       [
                           "debug-udp-write-error"
@@ -150,7 +237,7 @@
         "id":  "debug-udp-write-ok",
         "type":  "debug",
         "z":  "tab-slmp-udp",
-        "name":  "Write OK",
+        "name":  "Write + restore OK",
         "active":  true,
         "tosidebar":  true,
         "console":  false,
@@ -167,7 +254,7 @@
         "id":  "debug-udp-write-error",
         "type":  "debug",
         "z":  "tab-slmp-udp",
-        "name":  "Write Error",
+        "name":  "Write/restore error — reconcile manually",
         "active":  true,
         "tosidebar":  true,
         "console":  false,
