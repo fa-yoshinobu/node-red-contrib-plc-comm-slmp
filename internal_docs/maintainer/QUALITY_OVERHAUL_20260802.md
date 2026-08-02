@@ -742,3 +742,10 @@ point or weighted limit still fail before transport. Method signatures and wire 
 - [x] Live PLC is not required because the change is deterministic pre-transport validation against canonical profile data.
 - [x] Changelog and maintainer documentation agree with implementation; no user API signature changed.
 - [x] Final acceptance criteria verified and the item marked complete.
+
+Final-source non-live disposition recheck (2026-08-02): PASS. The exact command
+`node --test --test-name-pattern="writeNamed uses the selected Q/L|writeNamed enforces the selected weighted|writeNamed applies canonical long-current|writeNamed and low-level Random Write boundaries" test/slmp-high-level.test.js`
+passed 4/4. It covers Q/L acceptance and rejection boundaries, weighted dword
+limits, long-current and random-bit profile keys, every connectable canonical
+profile, and independent low-level validation. All rejected plans fail before
+transport. No live PLC is required for `SLMP-NODE-001`.
