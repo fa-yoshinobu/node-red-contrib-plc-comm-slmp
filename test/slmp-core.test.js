@@ -1064,10 +1064,18 @@ test("queued requests snapshot the effective target before caller mutation", asy
     releaseFirst = resolve;
   });
   const observed = [];
+  const preparedData = [];
+  const originalPrepareRequest = client._prepareRequest.bind(client);
+  client._prepareRequest = (...args) => {
+    const prepared = originalPrepareRequest(...args);
+    preparedData.push(prepared.requestData);
+    return prepared;
+  };
   client._requestInternal = async (_command, _subcommand, data, options) => {
     observed.push({
       target: { ...options.target },
       data: Buffer.from(data),
+      dataReference: data,
       monitoringTimer: options.monitoringTimer,
       raiseOnError: options.raiseOnError,
     });
@@ -1104,6 +1112,7 @@ test("queued requests snapshot the effective target before caller mutation", asy
 
   assert.deepEqual(observed[1].target, { network: 1, station: 2, moduleIO: 0x03ff, multidrop: 3 });
   assert.deepEqual([...observed[1].data], [0x02]);
+  assert.equal(observed[1].dataReference, preparedData[1]);
   assert.equal(observed[1].monitoringTimer, 0);
   assert.equal(observed[1].raiseOnError, false);
 });
@@ -1436,12 +1445,12 @@ test("protocol and command-specific decode errors remain definitive when close s
       () => mismatchOperation,
     (error) => error instanceof SlmpError
       && !(error instanceof SlmpClosedError)
-      && /(size|count) mismatch/i.test(error.message)
+      && /(size|count|length) mismatch/i.test(error.message)
   );
   await mismatch.client.close();
 });
 
-test("decoded read, write ACK, and PLC end code remain definitive after a later deadline", async () => {
+test("response validation remains inside the deadline while settled ACK and PLC errors remain definitive", async () => {
   for (const transport of ["tcp", "udp"]) {
     const timeout = 100;
     const read = makeLifecycleBarrierClient(
@@ -1463,8 +1472,8 @@ test("decoded read, write ACK, and PLC end code remain definitive after a later 
       },
     );
     await read.releaseResponse();
-    assert.equal(await readOperation, 0x1234, transport);
-    assert.equal(read.getTransportCloseCount(), 0, transport);
+    await assert.rejects(() => readOperation, SlmpTimeoutError, transport);
+    assert.equal(read.getTransportCloseCount(), 1, transport);
 
     const write = makeLifecycleBarrierClient(
       (frame, frameType) => responseForRequest(frame, frameType, Buffer.alloc(0)),
@@ -1978,6 +1987,63 @@ test("request serialization gate is independent of transport type", async () => 
   assert.equal(maxActive, 1);
 });
 
+test("validated reads release the wire FIFO before materialization and publish in admission order", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const events = [];
+  let sends = 0;
+  client._sendAndReceive = async (frame) => {
+    sends += 1;
+    events.push(`send-${sends}`);
+    return responseForRequest(frame, client.frameType, Buffer.from([sends, 0]));
+  };
+
+  const first = client.readDevices("D0", 1, { bitUnit: false }).then((value) => {
+    events.push("settle-1");
+    return value;
+  });
+  const second = client.readDevices("D1", 1, { bitUnit: false }).then((value) => {
+    events.push("settle-2");
+    return value;
+  });
+
+  assert.deepEqual(await first, [1]);
+  assert.deepEqual(await second, [2]);
+  assert.deepEqual(events, ["send-1", "send-2", "settle-1", "settle-2"]);
+});
+
+test("malformed command data retires its generation and stops the next admitted request before send", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let sends = 0;
+  let closes = 0;
+  client._closeTransport = async () => { closes += 1; };
+  client._sendAndReceive = async (frame) => {
+    sends += 1;
+    const data = sends === 1 ? Buffer.alloc(0) : Buffer.from([0x34, 0x12]);
+    return responseForRequest(frame, client.frameType, data);
+  };
+
+  const malformed = client.readDevices("D0", 1, { bitUnit: false });
+  const queued = client.readDevices("D1", 1, { bitUnit: false });
+  await assert.rejects(() => malformed, /Malformed SLMP response.*length mismatch/i);
+  await assert.rejects(() => queued, SlmpClosedError);
+  assert.equal(sends, 1);
+  assert.equal(closes, 1);
+  assert.deepEqual(await client.readDevices("D2", 1, { bitUnit: false }), [0x1234]);
+  assert.equal(sends, 2);
+});
+
 test("remote password unlock sequence does not deadlock behind the request serialization gate", async () => {
   const commands = [];
   const server = await startMockTcpServer("4e", ({ frame, socket }) => {
@@ -2231,6 +2297,37 @@ test("managed remote password state follows the transport generation and is neve
     { generation: 2, command: Command.REMOTE_PASSWORD_LOCK },
   ]);
   assert.equal(fakeTransport.open, false);
+});
+
+test("managed remote password direct commands enter the prepared-request core once", async () => {
+  const client = new StrictSlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  let prepareCount = 0;
+  let captured = null;
+  const originalPrepareRequest = client._prepareRequest.bind(client);
+  client._prepareRequest = (...args) => {
+    prepareCount += 1;
+    return originalPrepareRequest(...args);
+  };
+  client._requestPreparedInternal = async (prepared) => {
+    captured = prepared;
+    return undefined;
+  };
+
+  await client._sendManagedRemotePasswordCommand(Command.REMOTE_PASSWORD_UNLOCK, "12345678");
+
+  assert.equal(prepareCount, 1);
+  assert.equal(captured.command, Command.REMOTE_PASSWORD_UNLOCK);
+  assert.deepEqual(captured.requestData, Buffer.concat([
+    Buffer.from([8, 0]),
+    Buffer.from("12345678", "ascii"),
+  ]));
+  assert.equal(Object.isFrozen(captured.requestOptions), true);
 });
 
 test("close always closes locally and reports remote password lock failures", async () => {

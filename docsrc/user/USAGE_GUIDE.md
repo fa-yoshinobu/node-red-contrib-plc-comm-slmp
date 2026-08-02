@@ -294,8 +294,10 @@ remain authoritative; same-named caller option fields cannot redirect the
 operation or replace its values.
 Bit-in-word read-modify-write is not hidden inside `writeNamed`. The explicit
 `writeBitInWord` helper snapshots and validates its arguments before queue
-admission, then holds one ordinary-client FIFO turn across its word read and
-word write. That prevents same-client interleaving only. The two requests are
+admission, prepares both request routes once, then holds one ordinary-client FIFO
+turn and one absolute procedure deadline across its word read and word write.
+It always sends both requests, including when the selected bit already has the
+requested value. That prevents same-client interleaving only. The two requests are
 not atomic at the PLC: another connection or PLC program logic can update the
 word between them, and they can observe different PLC scans. If the write may
 have been sent, its outcome is unknown after timeout, close, or transport

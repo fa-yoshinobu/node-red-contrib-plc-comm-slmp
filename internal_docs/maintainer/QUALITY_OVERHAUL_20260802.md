@@ -135,6 +135,227 @@ count suffixes retain their canonical output.
 - [x] Documentation, migration notes, changelog, and generated API reference agree with the implementation.
 - [x] Final acceptance criteria verified and the item marked complete.
 
+## PERF-008D — Two-phase Node SLMP response decoding
+
+Decision status: approved on 2026-08-02; implementation and final acceptance are complete for the
+Node SLMP scope in the overhaul worktree.
+
+### Implementation scope
+
+`SlmpClient` response decoding for Direct, Random, Block, Monitor, Memory, Extend Unit, Type Name,
+Self Test, Label, and named-read operations; malformed-response retirement; wire FIFO and public
+completion sequencing.
+
+### Target contract
+
+Transport identity, PLC status, acknowledgement shape, exact command-data size and structure, bit
+encoding, label boundaries, and self-test echo validation finish inside the wire FIFO turn. A
+malformed body retires the supplying generation before another already queued request can send;
+state-changing requests retain outcome-unknown classification and PLC end codes remain PLC errors.
+Pure array, object, string, and Buffer materialization runs after the wire turn. Public Promises
+settle in admission order, and lifecycle generation is checked before materialization and before
+publication. One absolute transaction deadline ends after the validation phase and is not restarted
+for materialization. ACK and RMW-dependent decoding remain inside their exclusive turns.
+
+### Compatibility and operational impact
+
+Public methods, wire frames, request counts, successful values, admission-order settlement, and
+timeout duration do not change. Command-specific malformed read bodies now retire the connection
+generation instead of remaining reusable. No public signature migration is required.
+
+### Machine-verifiable acceptance criteria
+
+1. Every semantic response decoder has an in-FIFO validation phase and any allocation-heavy pure
+   result construction occurs after that phase.
+2. A malformed command body retires its exact generation and prevents the next old-generation
+   queued request from sending; a newly admitted generation can proceed without retrying the failure.
+3. Concurrent valid reads start the next wire request after validation while their public Promises
+   settle in admission order.
+4. PLC errors, state-changing malformed outcomes, close races, ACKs, labels, self-test, and exact
+   payload boundaries retain their approved classifications.
+
+### Acceptance tracking
+
+Full local release-gate and self-review evidence is recorded below.
+
+- [x] Implementation completed in `node-red-contrib-plc-comm-slmp` for the full scope above.
+- [x] Tests were added or updated for every acceptance criterion; the response-phase and
+  malformed-generation coverage passed in the 257/257 targeted run and the full suite passed.
+- [x] Relevant full checks passed: no-auto-publish and profile-fixture freshness, unit/runtime tests,
+  example-flow load, Windows socket lifecycle smoke, package/source-archive checks, `npm pack
+  --dry-run`, and the Node-RED editor smoke test.
+- [x] Codex self-review covered the actual diff, decoder surface, validation/materialization boundary,
+  malformed-generation retirement, FIFO/public completion order, timeout/cancellation behavior,
+  tests, packaging, and applicable cross-library consistency; all accepted findings were corrected
+  and reverified.
+- [x] Live PLC verification is not required for PERF-008D: the changed response scheduling,
+  malformed-body retirement, and generation behavior are deterministic client-side contracts
+  verified with exact response vectors and local fake transports, with no PLC capability or wire
+  request change.
+- [x] `CHANGELOG.md`, user usage and API references, locally collected docs, package-symbol checks,
+  and the strict docs-site build agree with the implementation; no migration note is required
+  because no public signature changed.
+- [x] All numbered acceptance criteria were verified and PERF-008D is complete for Node SLMP.
+
+## PERF-008E — Prepared two-request `writeBitInWord` RMW
+
+Decision status: approved on 2026-08-02; implementation and final acceptance are complete for the
+Node SLMP scope in the overhaul worktree.
+
+### Implementation scope
+
+The explicit Node SLMP `writeBitInWord` helper, its Direct Read/Write prepared request metadata,
+exclusive FIFO execution, response decoding, and shared deadline.
+
+### Target contract
+
+Admission validates and snapshots the device, bit/value, profile, read/write route, request capacity,
+command metadata, and both fixed payload shapes before FIFO acquisition. Execution uses one exclusive
+turn and one absolute procedure deadline for exactly one word read followed by one word write. Only
+the final 16-bit word is inserted after the read. The write is not skipped when the bit already has
+the requested value. There is no retry, readback inference, or resend.
+
+### Compatibility and operational impact
+
+The public signature, two-request count, same-client exclusion, non-atomic PLC semantics, and
+outcome-unknown behavior do not change. Repeated preflight and payload construction are removed. No
+public signature migration is required.
+
+### Machine-verifiable acceptance criteria
+
+1. Invalid input and both read/write route or capacity failures occur before FIFO, serial, or send.
+2. One FIFO turn and one absolute deadline cover the read, final-word calculation, write, and ACK.
+3. Every bit index, ON/OFF, and an already-equal bit still produce exactly two requests with the
+   expected final 16-bit word.
+4. Read failure produces zero writes; a possibly-sent write failure retains outcome-unknown and is
+   never retried.
+
+### Acceptance tracking
+
+- [x] Implementation completed in `node-red-contrib-plc-comm-slmp` for the full scope above.
+- [x] Tests were added or updated for every acceptance criterion; RMW preflight, deadline, payload,
+  every bit index, unchanged-bit, and failure coverage passed in the 257/257 targeted run and the
+  full suite passed.
+- [x] Relevant full checks passed: no-auto-publish and profile-fixture freshness, unit/runtime tests,
+  example-flow load, Windows socket lifecycle smoke, package/source-archive checks, `npm pack
+  --dry-run`, and the Node-RED editor smoke test.
+- [x] Codex self-review covered the actual diff, public helper contract, two-request wire sequence,
+  validation order, exclusive FIFO state, shared deadline, outcome-unknown errors, tests, packaging,
+  and applicable cross-library consistency; all accepted findings were corrected and reverified.
+- [x] Live PLC verification is not required for PERF-008E: preflight ordering, exactly-two-request
+  execution, final-word construction, shared deadline, and failure classification are deterministic
+  client-side contracts verified with exact frames and local fake transports; no PLC capability or
+  wire-contract claim changed.
+- [x] `CHANGELOG.md`, user usage and API references, locally collected docs, package-symbol checks,
+  and the strict docs-site build agree with the implementation; no migration note is required
+  because no public signature changed.
+- [x] All numbered acceptance criteria were verified and PERF-008E is complete for Node SLMP.
+
+## PERF-010A — Single-snapshot prepared Node SLMP requests
+
+Decision status: approved on 2026-08-02; implementation and final acceptance are complete for the
+Node SLMP scope in the overhaul worktree.
+
+### Implementation scope
+
+General `SlmpClient` request preparation and private execution, including managed remote-password
+commands and the existing private-method override compatibility path.
+
+### Target contract
+
+The public/internal admission path copies a Buffer or Uint8Array payload exactly once, snapshots the
+effective target and request options, and validates payload capacity before FIFO acquisition. A
+module-private branded prepared request is consumed by the execution core without copying or
+revalidating the same payload. Managed-password commands use the same preparation boundary, and
+unbranded values cannot enter the prepared core. Existing private override behavior remains usable.
+
+### Compatibility and operational impact
+
+Public API, accepted input types, caller-mutation isolation, validation order, error classes, frames,
+request counts, FIFO order, and results remain unchanged. Only duplicate Buffer allocation and
+validation work is removed. No public migration is required.
+
+### Machine-verifiable acceptance criteria
+
+1. Normal and managed-password requests enter preparation once and pass the same snapshotted Buffer
+   reference to the private execution boundary.
+2. Caller mutation after admission cannot change the transmitted frame.
+3. Oversized payloads still fail before serial allocation or transport with the existing error type.
+4. Private override, 3E/4E, TCP/UDP, close, and FIFO behavior remain unchanged.
+
+### Acceptance tracking
+
+- [x] Implementation completed in `node-red-contrib-plc-comm-slmp` for the full scope above.
+- [x] Tests were added or updated for every acceptance criterion; queued snapshots, prepared-reference
+  identity, managed-password, mutation isolation, oversize preflight, and transport/FIFO coverage
+  passed in the 257/257 targeted run and the full suite passed.
+- [x] Relevant full checks passed: no-auto-publish and profile-fixture freshness, unit/runtime tests,
+  example-flow load, Windows socket lifecycle smoke, package/source-archive checks, `npm pack
+  --dry-run`, and the Node-RED editor smoke test.
+- [x] Codex self-review covered the actual diff, request/prepared boundary, public input ownership,
+  validation order, private override behavior, transport/FIFO state, tests, packaging, and applicable
+  cross-library consistency; all accepted findings were corrected and reverified.
+- [x] Live PLC verification is not required for PERF-010A: snapshot ownership, single-copy identity,
+  preflight ordering, private branding, and mutation isolation are deterministic client-side
+  contracts verified locally with exact frames across supported transports; no PLC capability or
+  wire behavior changed.
+- [x] `CHANGELOG.md`, user usage and API references, locally collected docs, package-symbol checks,
+  and the strict docs-site build agree with the implementation; no migration note is required
+  because no public signature changed.
+- [x] All numbered acceptance criteria were verified and PERF-010A is complete for Node SLMP.
+
+## PERF-010B — Immutable prepared Node SLMP named-read wire plan
+
+Decision status: approved on 2026-08-02; implementation and final acceptance are complete for the
+Node SLMP scope in the overhaul worktree.
+
+### Implementation scope
+
+High-level `compileReadPlan` and `readNamed` Random Read expansion, deduplication, response indexing,
+and result materialization.
+
+### Target contract
+
+Each public entry is expanded to its word/DWord wire devices exactly once at compile time. The
+private immutable plan stores deduplicated send arrays plus entry-specific word/DWord indexes and bit
+selection metadata. Send and decode reuse that plan without re-expanding entries. Private wire
+metadata is held in module-owned weak maps and is neither returned nor mutably shared with callers.
+
+### Compatibility and operational impact
+
+The one-Random-Read-or-reject contract, frames, device deduplication, input-order result mapping,
+dtype conversion, preflight errors, FIFO behavior, and all-or-error semantics remain unchanged. No
+public migration is required.
+
+### Machine-verifiable acceptance criteria
+
+1. Scalar, counted Word/DWord, STRING, BIT, BIT_IN_WORD, and DWord-stride vectors use the same one
+   wire request and return the same values.
+2. Shared wire devices are sent once and mapped to every referring public entry correctly.
+3. Capacity and invalid-entry failures remain pre-FIFO and zero-send.
+4. The exported compile result is immutable and does not expose wire arrays or entry decode indexes.
+
+### Acceptance tracking
+
+- [x] Implementation completed in `node-red-contrib-plc-comm-slmp` for the full scope above.
+- [x] Tests were added or updated for every acceptance criterion; immutable-plan, private-metadata,
+  deduplication, all dtype mappings, capacity/invalid preflight, and one-request coverage passed in
+  the 257/257 targeted run and the full suite passed.
+- [x] Relevant full checks passed: no-auto-publish and profile-fixture freshness, unit/runtime tests,
+  example-flow load, Windows socket lifecycle smoke, package/source-archive checks, `npm pack
+  --dry-run`, and the Node-RED editor smoke test.
+- [x] Codex self-review covered the actual diff, public compile result, private weak-map wire plan,
+  expansion/deduplication/index mapping, validation order, FIFO behavior, tests, packaging, and
+  applicable cross-library consistency; all accepted findings were corrected and reverified.
+- [x] Live PLC verification is not required for PERF-010B: plan immutability, metadata privacy,
+  deduplication, result indexing, and preflight are deterministic client-side planner contracts
+  verified locally with exact request frames and response vectors; no PLC capability or wire
+  behavior changed.
+- [x] `CHANGELOG.md`, user usage and API references, locally collected docs, package-symbol checks,
+  and the strict docs-site build agree with the implementation; no migration note is required
+  because no public signature changed.
+- [x] All numbered acceptance criteria were verified and PERF-010B is complete for Node SLMP.
+
 ## SLMP-NODE-NUMERIC-NO-COERCION-001 — Require native numeric values in high-level writes
 
 Decision status: implemented and verified on 2026-08-02.

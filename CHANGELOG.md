@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Library: Response handling now validates framing, correlation, PLC status, acknowledgement shape, command-specific payload length/structure, bit encoding, labels, and self-test echoes inside the wire FIFO turn, then performs pure array/object/string/Buffer materialization outside that turn. Malformed command bodies retire the supplying transport generation before another queued request can send, while public Promise settlement remains in admission order.
+- Library: General requests now snapshot and validate payload and request options once before FIFO admission and reuse one private prepared request through framing and decode. `readNamed` likewise compiles its deduplicated Random Read device expansion and result indexes once into an immutable private plan.
+- Library: `writeBitInWord` now prepares both requests before FIFO admission, retains one exclusive turn and one absolute procedure deadline, and still sends exactly one read plus one write even when the requested bit already has the desired value.
+- Tests: Added targeted response-phase ordering, malformed-generation retirement, prepared-request snapshot, managed-password, immutable named-plan, deduplicated mapping, and all-bit-index RMW coverage.
+- Docs: Documented the response validation/materialization boundary and the prepared named-read and bit-in-word execution contracts. No public method signature changed, so no API migration step is required.
 - Samples: Reworked the maintained SLMP write flows to use the current `msg.updates` contract, save snapshots, write random format-valid values, restore confirmed writes, stop on error, and keep the broad device matrix read-only; the basic flow keeps bit-in-word access read-only instead of mixing it with named word/float writes.
 - Tests: Added executable saved-flow coverage for Inject-to-write resolution, snapshot restoration, bit-in-word exclusion, read-only matrix routing, and local safety guidance.
 - Library: High-level `writeNamed` random word, dword, long-current, and bit preflight now uses the selected canonical profile's point and weighted limits, matching the low-level client. Valid Q/L plans are no longer rejected by iQ-R limits.
@@ -58,13 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timeout or transport error.
 - Library: `readNamed` now emits exactly one Random Read request or rejects the
   complete operation before I/O. Counted words, strings, DWord arrays, and
-  packable bit entries are expanded inside that one request. Long-timer Direct
+  packable bit entries are expanded and deduplicated once in an immutable
+  private plan used by both send and result mapping. Long-timer Direct
   routes must use `readTyped` or an explicit long-timer helper; there is no
   hidden fallback. `writeNamed` continues to require exactly one request.
 - Library: `writeBitInWord` now preflights and snapshots the complete operation,
-  then holds one ordinary-client FIFO turn across its read and write. The helper
-  remains a two-request, non-atomic PLC operation, never retries automatically,
-  and reports a possibly-sent write through the outcome-unknown error contract.
+  prepares both request shapes once, then holds one ordinary-client FIFO turn
+  and one absolute procedure deadline across its read and write. The helper
+  remains an unconditional two-request, non-atomic PLC operation, never retries
+  automatically, and reports a possibly-sent write through the outcome-unknown
+  error contract.
 - Library: All bit-write APIs accept native Boolean values only. Numeric and
   string Boolean spellings are no longer coerced.
 - Library: TCP and UDP connections are now IPv4-only. IPv6 literals are rejected before socket creation, hostnames are constrained to IPv4 resolution, and callers using IPv6 must migrate to IPv4.

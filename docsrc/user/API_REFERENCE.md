@@ -54,12 +54,20 @@ command-specific result materialization. Partial frames, wrong serials, and
 foreign routes do not restart it. An explicit `connect()` has its own connection
 deadline. A timeout before that boundary retires the current transport
 generation; no timed-out operation is retried or resent automatically.
-Once a response has decoded to success, a write acknowledgement, or a PLC end
-code, that result is definitive even if `close()` runs concurrently or the
-deadline passes afterward. An
-incomplete non-state-changing read is reported as `SlmpClosedError`. An
-incomplete state-changing request that may have been sent is instead reported
-as outcome unknown with reason `closed`.
+Once the public Promise has settled with a successful value, write
+acknowledgement, or PLC end code, a later `close()` or deadline cannot replace
+that result. Before publication, an incomplete non-state-changing read is
+reported as `SlmpClosedError`. An incomplete state-changing request that may
+have been sent is instead reported as outcome unknown with reason `closed`.
+
+The FIFO response phase validates the complete transport identity and the
+command-specific body shape, including exact lengths, acknowledgement emptiness,
+bit nibbles, label boundaries, and self-test echo data. A malformed body retires
+that transport generation before another queued wire request can send; a
+possibly-sent state change remains outcome-unknown. After validation, pure
+array/object/string/Buffer construction may run outside the wire FIFO. Public
+Promises still settle in admission order, and `close()` is checked before
+materialization and again before publication.
 
 UDP completion additionally requires both a successful `socket.send()`
 callback and a matching complete response. Either may arrive first; a response
@@ -127,7 +135,9 @@ rejecting valid adjacent native DWords.
 `readNamed` emits exactly one Random Read request or rejects the complete plan
 before transport. Counted word values, strings, DWord arrays, and packable bit
 entries are expanded into Random Read entries and deduplicated within the
-selected profile's one-request limit. A long-timer route that requires Direct
+selected profile's one-request limit. That expansion and each result index are
+compiled once into a private immutable plan reused by send and result mapping;
+the plan is not exposed for caller mutation. A long-timer route that requires Direct
 Read is never selected implicitly; use `readTyped` or an explicit long-timer
 helper. `writeNamed` also must fit exactly one request and rejects the complete
 update before I/O otherwise.
@@ -198,8 +208,10 @@ length, and exact echo. `clearError` always uses the fixed empty payload.
 | Bit-in-word write | `writeBitInWord` |
 
 `writeBitInWord` validates and snapshots the complete operation before it enters
-the client queue. It then holds one ordinary-client FIFO turn while it sends one
-word read followed by one word write. This prevents another operation on the
+the client queue, including both request routes and capacity. It then holds one
+ordinary-client FIFO turn and one absolute procedure deadline while it sends one
+word read followed by one word write. The write is still sent when the requested
+bit already has the desired value. This prevents another operation on the
 same client from interleaving between those requests, but it is not an atomic
 PLC operation: another connection or PLC program logic can change the word in
 the race window, and the read and write can occur in different PLC scans. A

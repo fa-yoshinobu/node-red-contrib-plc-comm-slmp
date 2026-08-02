@@ -337,6 +337,42 @@ test("readNamed batches word and dword requests like the Python helper layer", a
   assert.equal(calls.length, 1);
 });
 
+test("readNamed keeps its immutable deduplicated wire expansion private", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const plan = slmp.compileReadPlan(["M15:BIT,3", "M16:BIT", "D0:D"], { client });
+
+  assert.equal(Object.isFrozen(plan), true);
+  assert.equal(Object.hasOwn(plan, "randomPlan"), false);
+  assert.equal(Object.hasOwn(plan.entries[0], "randomPlan"), false);
+  assert.throws(() => {
+    plan.entries[0].device.number = 999;
+  }, TypeError);
+
+  const fakeClient = {
+    plcProfile: "melsec:iq-r",
+    plcSeries: "iqr",
+    async readRandom({ wordDevices, dwordDevices }) {
+      assert.deepEqual(wordDevices.map((device) => device.number), [0, 16]);
+      assert.deepEqual(dwordDevices.map((device) => device.number), [0]);
+      return {
+        word: { M0: 0x8000, M16: 0x0001 },
+        dword: { D0: 0x12345678 },
+      };
+    },
+  };
+  assert.deepEqual(await readNamed(fakeClient, ["M15:BIT,3", "M16:BIT", "D0:D"]), {
+    "M15:BIT,3": [true, true, false],
+    "M16:BIT": true,
+    "D0:D": 0x12345678,
+  });
+});
+
 test("readNamed rejects a Random Read plan that exceeds one request", async () => {
   const calls = [];
   const fakeClient = {
@@ -957,13 +993,17 @@ test("writeBitInWord snapshots options and retains one FIFO turn across read and
   });
   const commands = [];
   const targets = [];
+  const payloads = [];
+  const deadlines = [];
   let releaseBlocker;
   const blockerGate = new Promise((resolve) => {
     releaseBlocker = resolve;
   });
-  client._requestInternal = async (command, _subcommand, _payload, requestOptions) => {
+  client._requestInternal = async (command, _subcommand, payload, requestOptions, _internalContext, inheritedDeadline) => {
     commands.push(command);
     targets.push(requestOptions.target);
+    payloads.push(Buffer.from(payload));
+    deadlines.push(inheritedDeadline);
     return command === slmp.Command.DEVICE_READ
       ? { endCode: 0, data: Buffer.from([0x00, 0x00]) }
       : { endCode: 0, data: Buffer.alloc(0) };
@@ -987,10 +1027,52 @@ test("writeBitInWord snapshots options and retains one FIFO turn across read and
     slmp.Command.DEVICE_WRITE,
     slmp.Command.READ_TYPE_NAME,
   ]);
+  assert.equal(payloads[0].length + 2, payloads[1].length);
+  assert.equal(payloads[1].readUInt16LE(payloads[1].length - 2), 0x0008);
+  assert.equal(deadlines[0], deadlines[1]);
+  assert.equal(typeof deadlines[0], "number");
   assert.deepEqual(targets.slice(0, 2), [
     { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 },
     { network: 1, station: 2, moduleIO: 0x03e0, multidrop: 3 },
   ]);
+});
+
+test("writeBitInWord keeps exactly two requests for every bit index including an unchanged bit", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const commands = [];
+  const writtenWords = [];
+  client._requestInternal = async (command, _subcommand, payload) => {
+    commands.push(command);
+    if (command === slmp.Command.DEVICE_READ) {
+      return { endCode: 0, data: Buffer.from([0xaa, 0xaa]) };
+    }
+    writtenWords.push(payload.readUInt16LE(payload.length - 2));
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  for (let bitIndex = 0; bitIndex < 16; bitIndex += 1) {
+    const value = bitIndex % 2 === 0;
+    await writeBitInWord(client, "D0", bitIndex, value);
+    const mask = 1 << bitIndex;
+    const expected = value ? (0xaaaa | mask) : (0xaaaa & ~mask);
+    assert.equal(writtenWords[bitIndex], expected & 0xffff);
+  }
+  await writeBitInWord(client, "D0", 1, true);
+
+  assert.equal(commands.length, 34);
+  for (let index = 0; index < commands.length; index += 2) {
+    assert.deepEqual(commands.slice(index, index + 2), [
+      slmp.Command.DEVICE_READ,
+      slmp.Command.DEVICE_WRITE,
+    ]);
+  }
+  assert.equal(writtenWords.at(-1), 0xaaaa);
 });
 
 test("named count and string reads use one Random request while writes may use one Block request", async () => {
