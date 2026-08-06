@@ -11,8 +11,11 @@ Target contract: `writeBitInWord` prevalidates the exact immutable route and bot
 Compatibility impact: the same helper now accepts qualified U/J addresses; no new low-level Extended Direct API is introduced because this runtime exposes complete-word qualified access through Extended Random Read/Write.
 
 - [x] Direct and qualified route implementation and targeted tests completed.
-- [ ] Full repository release gate completed.
+- [x] Full repository release gate completed.
 - [x] User/API/changelog/migration sources updated.
+
+Release-gate evidence (2026-08-07): `release_check.bat` passed lint, unit, Node-RED runtime,
+generated-document, package/source-archive, and registry-duplicate checks for candidate `5.0.0`.
 
 ## NR-SLMP-OH-001 — Explicit connection and route identity
 
