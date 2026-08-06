@@ -2,6 +2,18 @@
 
 This maintainer record preserves approved target contracts, compatibility impact, acceptance criteria, and verification evidence. User pages describe only the resulting supported behavior.
 
+## SLMP-BIT-RMW-20260807 — Complete-route bit-in-word contract
+
+Scope: Direct complete-word operations and the already-public Extended Random complete-word route used for qualified U module-buffer and J link-direct addresses.
+
+Target contract: `writeBitInWord` prevalidates the exact immutable route and both requests, owns one FIFO turn, and uses one absolute post-admission deadline. A successful read always produces one write even when unchanged. The pair is non-PLC-atomic, never retries, and an unconfirmed possibly transmitted write is outcome unknown.
+
+Compatibility impact: the same helper now accepts qualified U/J addresses; no new low-level Extended Direct API is introduced because this runtime exposes complete-word qualified access through Extended Random Read/Write.
+
+- [x] Direct and qualified route implementation and targeted tests completed.
+- [ ] Full repository release gate completed.
+- [x] User/API/changelog/migration sources updated.
+
 ## NR-SLMP-OH-001 — Explicit connection and route identity
 
 Scope: `SlmpClient`, `slmp-connection`, saved example flows, and route overrides.

@@ -316,6 +316,10 @@ not atomic at the PLC: another connection or PLC program logic can update the
 word between them, and they can observe different PLC scans. If the write may
 have been sent, its outcome is unknown after timeout, close, or transport
 failure. The helper does not retry automatically; verify PLC state first.
+Direct words use Direct Read/Write. Qualified U module-buffer and J link-direct
+words use the already-supported Extended Random Read/Write route. The selected
+route and qualification remain identical for both requests, and an unsupported
+profile/route combination fails before the read.
 
 Direct write values are not coerced: word/DWord values must be exact in-range
 native JavaScript Numbers, float values must be finite and remain finite after

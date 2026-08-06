@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-08-07
+
 - Library: Added `prepareReadNamed(client, addresses, options)` for repeated named reads. Its immutable client-bound plan owns the validated Random Read payload and decode indexes, executes with fresh FIFO/deadline/serial/lifecycle checks, accepts cancellation through `plan.execute({ signal })`, and releases retained planning references with `plan.dispose()` without corrupting an already-active execution.
 - Node-RED: The read node now retains at most one exact-match prepared named-read plan and replaces it whenever the client, addresses, target, profile, frame, or compatibility changes.
 - Library: TCP response assembly now uses a growable accumulator with linear fragment-copy work and one owned complete frame; metadata and internal response decode use views of that owned frame without full-frame recopying.
@@ -44,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- Library: `writeBitInWord` now covers Direct and qualified U module-buffer / J link-direct complete-word routes through the runtime's existing Direct and Extended Random commands, prevalidates the immutable route, owns one FIFO turn, and uses one absolute post-admission deadline for the mandatory read followed by write. The write is sent even when the bit is unchanged; the pair is not PLC-atomic, never retries, and a possibly transmitted unconfirmed write uses the outcome-unknown error contract.
 - Library: Present nine-byte PLC error information must identify the active request's route, command, and subcommand. A mismatch now invalidates the transport and raises a malformed `SlmpError`; a possibly sent state-changing command reports outcome unknown with reason `malformed-response` instead of a definitive PLC error. Matching prefixes still permit and retain additional PLC error data.
 - Library: Standard acknowledgement-only write, monitor-registration, remote-control, clear-error, password, memory, extend-unit, and label APIs now require an empty successful response body. Unexpected data after end code zero is malformed and outcome-unknown; maintainer-level `rawCommand()` remains the arbitrary-response surface.
 - Library: High-level `U`, `S`, `D`, `L`, and `F` writes now require primitive JavaScript Numbers and never coerce numeric strings, boxed values, `BigInt`, Booleans, null, arrays, or objects. Callers with configuration text must convert it explicitly before the write API.

@@ -985,6 +985,83 @@ test("writeBitInWord preflights the complete read/write operation before transpo
   assert.equal(calls, 0);
 });
 
+test("writeBitInWord preserves qualified module and link routes under one deadline", async () => {
+  for (const [address, expectedSubcommand] of [
+    [String.raw`U1\G0`, 0x0082],
+    [String.raw`J2\SW10`, 0x0080],
+  ]) {
+    const client = new slmp.SlmpClient({
+      host: "127.0.0.1",
+      port: 1025,
+      transport: "tcp",
+      plcProfile: "melsec:iq-r",
+      target: TEST_TARGET,
+    });
+    const commands = [];
+    const subcommands = [];
+    const payloads = [];
+    const deadlines = [];
+    client._requestInternal = async (
+      command,
+      subcommand,
+      data,
+      _options,
+      _internalContext,
+      inheritedDeadline,
+    ) => {
+      commands.push(command);
+      subcommands.push(subcommand);
+      payloads.push(Buffer.from(data));
+      deadlines.push(inheritedDeadline);
+      return command === slmp.Command.DEVICE_READ_RANDOM
+        ? { endCode: 0, data: Buffer.from([0x08, 0x00]) }
+        : { endCode: 0, data: Buffer.alloc(0) };
+    };
+
+    await assert.rejects(
+      () => writeBitInWord(client, address, 16, true),
+      /bitIndex must be 0-15/i,
+    );
+    assert.deepEqual(commands, []);
+
+    await writeBitInWord(client, address, 3, true);
+
+    assert.deepEqual(commands, [
+      slmp.Command.DEVICE_READ_RANDOM,
+      slmp.Command.DEVICE_WRITE_RANDOM,
+    ]);
+    assert.deepEqual(subcommands, [expectedSubcommand, expectedSubcommand]);
+    assert.equal(payloads[1].length, payloads[0].length + 2);
+    assert.deepEqual(payloads[1].subarray(0, -2), payloads[0]);
+    assert.deepEqual(payloads[1].subarray(-2), Buffer.from([0x08, 0x00]));
+    assert.equal(typeof deadlines[0], "number");
+    assert.equal(deadlines[0], deadlines[1]);
+  }
+});
+
+test("writeBitInWord rejects blocked qualified routes before transport", async () => {
+  for (const [address, plcProfile] of [
+    [String.raw`U2\G100`, "melsec:qnudv"],
+    [String.raw`J1\W0`, "melsec:iq-f"],
+  ]) {
+    const client = new slmp.SlmpClient({
+      host: "127.0.0.1",
+      port: 1025,
+      transport: "tcp",
+      plcProfile,
+      target: TEST_TARGET,
+    });
+    let calls = 0;
+    client._requestInternal = async () => {
+      calls += 1;
+      return { endCode: 0, data: Buffer.alloc(0) };
+    };
+
+    await assert.rejects(() => writeBitInWord(client, address, 3, true), /blocked/i);
+    assert.equal(calls, 0);
+  }
+});
+
 test("writeBitInWord snapshots options and retains one FIFO turn across read and write", async () => {
   const client = new slmp.SlmpClient({
     host: "127.0.0.1",

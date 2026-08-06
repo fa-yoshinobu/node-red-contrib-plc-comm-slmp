@@ -225,7 +225,7 @@ length, and exact echo. `clearError` always uses the fixed empty payload.
 | Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
 | Named one-request reads and writes | `compileReadPlan`, `prepareReadNamed`, `readNamed`, `writeNamed` |
-| Bit-in-word write | `writeBitInWord` |
+| Bit-in-word write | `writeBitInWord` (direct or qualified U/J Extended Device route) |
 
 `writeBitInWord` validates and snapshots the complete operation before it enters
 the client queue, including both request routes and capacity. It then holds one
@@ -238,6 +238,9 @@ the race window, and the read and write can occur in different PLC scans. A
 failure after the write may have been sent is outcome-unknown. The helper never
 retries automatically; verify PLC state before deciding whether to issue a new
 operation.
+Direct words use Direct Read/Write. Qualified U module-buffer and J link-direct
+words use Extended Random Read/Write, with the exact same qualified route in
+both requests. Unsupported profile/route combinations fail before the read.
 
 All public address-to-number and number-to-address helpers require the
 canonical `plcProfile`. `parseDevice` returns an immutable semantic object that
