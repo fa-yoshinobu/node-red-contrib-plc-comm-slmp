@@ -16,12 +16,16 @@ const {
   parseAddress,
   prepareReadNamed,
   readBits,
+  readBitsSingleRequest,
   readNamed,
   readTyped,
   writeBitInWord,
   writeBits,
+  writeBitsSingleRequest,
   writeNamed,
   writeTyped,
+  readWordsSingleRequest,
+  writeWordsSingleRequest,
 } = slmp;
 const TEST_TARGET = Object.freeze({ network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 });
 
@@ -248,6 +252,30 @@ test("all typed DeviceRef helpers reject a mismatched plcProfile before client I
     await assert.rejects(invoke, /does not match requested plcProfile/);
   }
   assert.equal(calls, 0);
+});
+
+test("canonical contiguous word and bit helpers issue one direct request and reject before I/O", async () => {
+  const calls = [];
+  const client = {
+    plcProfile: "melsec:iq-r",
+    async readDevices(device, count, options) { calls.push(["read", device.code, count, options.bitUnit]); return Array(count).fill(options.bitUnit); },
+    async writeDevices(device, values, options) { calls.push(["write", device.code, values.length, options.bitUnit]); },
+  };
+
+  assert.deepEqual(await readWordsSingleRequest(client, "D0", 2), [false, false]);
+  await writeWordsSingleRequest(client, "D0", [1, 2]);
+  assert.deepEqual(await readBitsSingleRequest(client, "M0", 2), [true, true]);
+  await writeBitsSingleRequest(client, "M0", [true, false]);
+  assert.deepEqual(calls, [
+    ["read", "D", 2, false], ["write", "D", 2, false],
+    ["read", "M", 2, true], ["write", "M", 2, true],
+  ]);
+
+  await assert.rejects(() => readBitsSingleRequest(client, "D0", 1), /requires a bit device/i);
+  await assert.rejects(() => writeWordsSingleRequest(client, "M0", [1]), /requires a word device/i);
+  await assert.rejects(() => readBitsSingleRequest(client, "M0", 7169), /1\.\.7168/);
+  await assert.rejects(() => writeWordsSingleRequest(client, "D0", Array(961).fill(0)), /1\.\.960/);
+  assert.equal(calls.length, 4);
 });
 
 test("typed, named, and convenience helpers enforce exact semantic device units", async () => {
@@ -559,7 +587,7 @@ test("writeNamed applies canonical long-current and random-bit limits", async ()
 test("writeNamed and low-level Random Write boundaries agree for every connectable profile", async () => {
   for (const descriptor of slmp.profileDescriptors().filter((item) => item.connectable)) {
     const profile = descriptor.canonicalName;
-    const maximum = slmp.getProfileLimit(profile, "random_write_word").max;
+    const maximum = slmp.getProfileLimit(profile, slmp.SlmpProfileLimitKey.RandomWriteWord).maxPoints;
     const client = new slmp.SlmpClient({
       host: "127.0.0.1",
       port: 5000,

@@ -289,6 +289,34 @@ It never hides a long-timer Direct Read fallback; use `readTyped` or an explicit
 long-timer helper for those routes. `writeNamed` must also fit one protocol
 request and rejects mixed command families before transport.
 
+For programmatic contiguous access, use `readWordsSingleRequest` /
+`writeWordsSingleRequest` or `readBitsSingleRequest` /
+`writeBitsSingleRequest`. Each validates the complete operation before sending
+exactly one Direct request and never splits, retries, or changes command. The
+older `readBits` / `writeBits` names are deprecated one-release delegates. The
+Node-RED Read and Write node names are unchanged.
+
+Programmatic batch planners can read the selected profile's canonical request
+limit without creating a client or communicating with a PLC:
+
+```javascript
+const {
+  SlmpProfileLimitKey,
+  getProfileLimit,
+} = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp");
+
+const limit = getProfileLimit(
+  "melsec:qnudv",
+  SlmpProfileLimitKey.RandomReadWord,
+);
+console.log(limit.maxPoints); // 192
+```
+
+`weightedMaxPoints` is non-null only for commands, such as random Word/DWord
+writes, that enforce an encoded-entry weight in addition to the point count.
+The lookup returns `null` when no canonical profile/key value exists and does
+not invent a family fallback.
+
 For repeated reads with the same client, addresses, and request options, create
 one `prepareReadNamed(client, addresses, options)` plan and call
 `await plan.execute({ signal })` each cycle. Preparation owns and validates the

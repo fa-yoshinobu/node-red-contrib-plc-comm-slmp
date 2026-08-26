@@ -9,11 +9,13 @@ const publicApi = require("../lib/slmp");
 const {
   BUILTIN_CAPABILITY_PROFILES,
   Command,
+  SlmpProfileLimitKey,
   SlmpClient: StrictSlmpClient,
   SlmpProfileFeatureError,
   ValueError,
   displayName,
   ensureProfileFeatureAllowed,
+  getProfileLimit,
   profileDescriptors,
 } = publicApi;
 const fixture = require("./fixtures/slmp_ethernet_profiles.json");
@@ -45,6 +47,36 @@ test("profile descriptors match canonical profile metadata", () => {
     assert.equal(descriptor.connectable, profile.role !== "base");
     assert.equal(descriptor.baseProfile, profile.base_profile || null);
   }
+});
+
+test("public profile limit lookup exposes operational values only", () => {
+  assert.equal(Object.keys(SlmpProfileLimitKey).length, 12);
+  assert.equal(Object.isFrozen(SlmpProfileLimitKey), true);
+  for (const key of Object.values(SlmpProfileLimitKey)) {
+    assert.notEqual(getProfileLimit("melsec:iq-r", key), null);
+  }
+  assert.deepEqual(
+    getProfileLimit("melsec:iq-r", SlmpProfileLimitKey.RandomReadWord),
+    { maxPoints: 96, weightedMaxPoints: null },
+  );
+  assert.deepEqual(
+    getProfileLimit("melsec:qnudv", SlmpProfileLimitKey.RandomReadWord),
+    { maxPoints: 192, weightedMaxPoints: null },
+  );
+  assert.deepEqual(
+    getProfileLimit("melsec:iq-r", SlmpProfileLimitKey.RandomWriteWord),
+    { maxPoints: 80, weightedMaxPoints: 960 },
+  );
+  assert.equal(getProfileLimit(null, SlmpProfileLimitKey.RandomReadWord), null);
+  assert.equal(getProfileLimit("melsec:iq-r", "unknown"), null);
+  assert.equal(
+    Object.isFrozen(getProfileLimit("melsec:iq-r", SlmpProfileLimitKey.RandomWriteWord)),
+    true,
+  );
+  assert.deepEqual(
+    Object.keys(getProfileLimit("melsec:iq-r", SlmpProfileLimitKey.RandomWriteWord)).sort(),
+    ["maxPoints", "weightedMaxPoints"],
+  );
 });
 
 test("Node-RED editor shows display_name labels and keeps canonical PLC profile values", () => {

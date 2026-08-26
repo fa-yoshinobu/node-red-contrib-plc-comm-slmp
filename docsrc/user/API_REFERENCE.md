@@ -84,6 +84,8 @@ absolute transaction deadline.
 | Operation | Public API |
 | --- | --- |
 | Direct device read/write | `readDevices`, `writeDevices` |
+| Single-request contiguous words | `readWordsSingleRequest`, `writeWordsSingleRequest` |
+| Single-request contiguous bits | `readBitsSingleRequest`, `writeBitsSingleRequest` |
 | Random read | `readRandom` |
 | Extended random read | `readRandomExt` |
 | Random word/dword write | `writeRandomWords` |
@@ -317,6 +319,13 @@ modifying the returned array does not change the library's profile registry.
 availability, and base-profile metadata for every profile. The base-only
 `melsec:qcpu` entry is included with `connectable: false`; the editor filters
 that entry from connection selections.
+
+`getProfileLimit(profile, key)` accepts a canonical value from
+`SlmpProfileLimitKey` and returns a frozen `{ maxPoints, weightedMaxPoints }`
+object from the same capability table used by request validation. The weighted
+value is `null` when that command has no second weighted limit. An unknown
+profile/key pair returns `null`; the lookup performs no PLC communication and
+does not expose capability evidence fields.
 
 ## Target Module I/O Constants
 
