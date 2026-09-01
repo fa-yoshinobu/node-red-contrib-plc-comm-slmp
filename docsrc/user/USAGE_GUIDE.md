@@ -141,6 +141,10 @@ identifies a different CPU or Own Station; cross-CPU reads remain valid. No
 automatic target fallback, resend, readback, or retry is performed. See the
 shared [iQ-R target guidance](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/iq-r/#multi-cpu-cpu-buffer-target).
 
+CPU buffer memory uses `U3En\G...` and CPU periodic buffer memory uses
+`U3En\HG...`, where `n` is `0` through `3`. Thus `U3E0\HG...` through
+`U3E3\HG...` are valid, while `U0\HG...` and `U3E4\HG...` are invalid.
+
 Low-level `SlmpClient` users can register Word/DWord monitor devices with
 `registerMonitorDevices` or `registerMonitorDevicesExt`, then execute one cycle
 with explicit `wordPoints` and `dwordPoints`. `selfTestLoopback(Buffer)` and
@@ -150,8 +154,9 @@ selected profile's monitor-registration limit. These low-level operations are
 not additional Node-RED node types.
 
 `slmp-read` and `slmp-write` use the public high-level address parser for normal
-device addresses. They do not expose `Un\G`, `Un\HG`, or `Jn\...` extended
-device access as user-facing address forms.
+device addresses. They do not expose qualified unit-buffer `Un\G`, CPU-buffer
+`U3En\G`, CPU periodic-buffer `U3En\HG`, or `Jn\...` extended device
+access as user-facing address forms.
 
 ## slmp-read node
 
