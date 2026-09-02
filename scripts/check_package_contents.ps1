@@ -125,6 +125,70 @@ const installedRoot = path.join(process.cwd(), "node_modules", "@fa_yoshinobu", 
 assert.ok(require.resolve("@fa_yoshinobu/node-red-contrib-plc-comm-slmp").startsWith(installedRoot));
 assert.equal(typeof slmp.SlmpClient, "function");
 assert.equal(typeof slmp.writeBitInWord, "function");
+for (const name of [
+  "plcProfileDisplayName",
+  "readDWordsSingleRequest",
+  "readFloat32s",
+  "readLongTimer",
+  "readLongRetentiveTimer",
+]) {
+  assert.equal(typeof slmp[name], "function", name);
+}
+const addressOptions = { plcProfile: "melsec:iq-r" };
+for (const text of ["D100", "X10"]) {
+  const device = slmp.parseDevice(text, addressOptions);
+  assert.equal(slmp.deviceToString(device, addressOptions), text);
+}
+assert.equal(
+  slmp.formatParsedAddress(slmp.parseAddress("d100:u"), addressOptions),
+  "D100:U",
+);
+assert.equal(slmp.normalizeAddress("d50.a", addressOptions), "D50.A");
+for (const name of [
+  "readWordsExtended",
+  "writeWordsExtended",
+  "readBitsExtended",
+  "writeBitsExtended",
+  "readRandomExtended",
+  "registerMonitorDevicesExtended",
+  "writeRandomWordsExtended",
+  "writeRandomBitsExtended",
+  "readLatestSelfDiagnosisErrorCode",
+  "readRandomExt",
+  "registerMonitorDevicesExt",
+  "writeRandomWordsExt",
+  "writeRandomBitsExt",
+]) {
+  assert.equal(typeof slmp.SlmpClient.prototype[name], "function", name);
+}
+for (const name of [
+  "memoryReadWords",
+  "memoryWriteWords",
+  "extendUnitReadBytes",
+  "extendUnitReadWords",
+  "extendUnitWriteBytes",
+  "extendUnitWriteWords",
+]) {
+  assert.equal(slmp.SlmpClient.prototype[name], undefined, name);
+}
+for (const name of [
+  "DeviceAddress",
+  "AddressSpec",
+  "parseDeviceAddress",
+  "formatDeviceAddress",
+  "normalizeDeviceAddress",
+  "parseAddressSpec",
+  "formatAddressSpec",
+  "normalizeAddressSpec",
+]) {
+  assert.equal(slmp[name], undefined, name);
+}
+const installedManifest = require(path.join(installedRoot, "package.json"));
+assert.deepEqual(Object.keys(installedManifest["node-red"].nodes).sort(), [
+  "slmp-connection",
+  "slmp-read",
+  "slmp-write",
+]);
 const target = { network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 };
 const client = new slmp.SlmpClient({
   host: "127.0.0.1",

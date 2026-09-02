@@ -2987,7 +2987,7 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
     return { endCode: 0, data: Buffer.alloc(0) };
   };
 
-  const read = await client.readRandomExt({
+  const read = await client.readRandomExtended({
     wordDevices: [new SlmpExtendedDevice("D100", new SlmpIndexZ(4))],
     dwordDevices: [new SlmpExtendedDevice(String.raw`U01\G10`, new SlmpIndirect())],
   });
@@ -2996,11 +2996,11 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
     dword: { [String.raw`U01\G10+INDIRECT`]: 0x89abcdef },
   });
 
-  await client.writeRandomWordsExt({
+  await client.writeRandomWordsExtended({
     wordValues: [[String.raw`U1\D10`, 0x1234]],
     dwordValues: [[String.raw`U1\G20`, 0x89abcdef]],
   });
-  await client.writeRandomBitsExt({
+  await client.writeRandomBitsExtended({
     bitValues: [
       [new SlmpExtendedDevice("M7", new SlmpIndexZ(3)), true],
       [new SlmpExtendedDevice("M8", new SlmpIndirect()), false],
@@ -3031,6 +3031,83 @@ test("extended random APIs derive iQR payloads from qualified devices and typed 
     () => client.readRandomExt({ wordDevices: [new SlmpExtendedDevice(String.raw`J1\D0`, new SlmpIndexZ(1))] }),
     /link-direct devices do not support/
   );
+});
+
+test("Extended Direct APIs issue one semantic request for Word and Bit access", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push([command, subcommand, Buffer.from(data).toString("hex")]);
+    if (calls.length === 1) return { endCode: 0, data: Buffer.from([0x34, 0x12, 0x78, 0x56]) };
+    if (calls.length === 3) return { endCode: 0, data: Buffer.from([0x10]) };
+    return { endCode: 0, data: Buffer.alloc(0) };
+  };
+
+  assert.deepEqual(await client.readWordsExtended(String.raw`U1\G10`, 2), [0x1234, 0x5678]);
+  await client.writeWordsExtended(String.raw`U1\G10`, [1, 2]);
+  assert.deepEqual(await client.readBitsExtended(String.raw`J1\X10`, 2), [true, false]);
+  await client.writeBitsExtended(String.raw`J1\X10`, [true, false]);
+
+  assert.deepEqual(calls, [
+    [Command.DEVICE_READ, 0x0082, "00000a000000ab0000000100f80200"],
+    [Command.DEVICE_WRITE, 0x0082, "00000a000000ab0000000100f8020001000200"],
+    [Command.DEVICE_READ, 0x0081, "00001000009c00000100f90200"],
+    [Command.DEVICE_WRITE, 0x0081, "00001000009c00000100f9020010"],
+  ]);
+  await assert.rejects(() => client.readWordsExtended(String.raw`J1\X10`, 1), /requires a word device/i);
+  await assert.rejects(() => client.writeWordsExtended(String.raw`J1\X10`, [1]), /requires a word device/i);
+  await assert.rejects(() => client.readBitsExtended(String.raw`U1\G10`, 1), /requires a bit device/i);
+  await assert.rejects(() => client.writeBitsExtended(String.raw`U1\G10`, [true]), /requires a bit device/i);
+  await assert.rejects(() => client.readWordsExtended("D10", 1), /qualified U\/J address or SlmpExtendedDevice/i);
+  await assert.rejects(() => client.writeWordsExtended("D10", [1]), /qualified U\/J address or SlmpExtendedDevice/i);
+  await assert.rejects(() => client.readBitsExtended("M10", 1), /qualified U\/J address or SlmpExtendedDevice/i);
+  await assert.rejects(() => client.writeBitsExtended("M10", [true]), /qualified U\/J address or SlmpExtendedDevice/i);
+  assert.equal(calls.length, 4);
+
+  const typedClient = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  let typedCalls = 0;
+  typedClient._request = async () => {
+    typedCalls += 1;
+    return { endCode: 0, data: Buffer.from([0x34, 0x12]) };
+  };
+  assert.deepEqual(
+    await typedClient.readWordsExtended(new SlmpExtendedDevice("D10", new SlmpIndexZ(1)), 1),
+    [0x1234],
+  );
+  assert.equal(typedCalls, 1);
+});
+
+test("latest self-diagnosis helper reads SD0 once and returns the raw word", async () => {
+  const client = new SlmpClient({ host: "127.0.0.1", plcProfile: "melsec:iq-r" });
+  const calls = [];
+  client._request = async (command, subcommand, data) => {
+    calls.push([command, subcommand, Buffer.from(data).toString("hex")]);
+    return { endCode: 0, data: Buffer.from([0x34, 0x12]) };
+  };
+
+  assert.equal(await client.readLatestSelfDiagnosisErrorCode(), 0x1234);
+  assert.deepEqual(calls, [[Command.DEVICE_READ, 0x0002, "00000000a9000100"]]);
+});
+
+test("legacy Ext method names directly delegate to canonical Extended methods", async () => {
+  const options = Object.freeze({ marker: Symbol("options") });
+  for (const [legacy, canonical] of [
+    ["readRandomExt", "readRandomExtended"],
+    ["registerMonitorDevicesExt", "registerMonitorDevicesExtended"],
+    ["writeRandomWordsExt", "writeRandomWordsExtended"],
+    ["writeRandomBitsExt", "writeRandomBitsExtended"],
+  ]) {
+    const receiver = {};
+    const resultMarker = Symbol(canonical);
+    let received;
+    receiver[canonical] = async (value) => {
+      received = value;
+      return resultMarker;
+    };
+    const result = await StrictSlmpClient.prototype[legacy].call(receiver, options);
+    assert.equal(received, options, legacy);
+    assert.equal(result, resultMarker, legacy);
+  }
 });
 
 test("extended aggregate builders allocate exactly one final payload buffer", async () => {
@@ -3319,12 +3396,6 @@ test("iQ-R manual point limits reject overruns before transport", async () => {
   await assert.rejects(() => client.writeRandomBits({ bitValues }), /1\.\.94/);
   await assert.rejects(() => client.readBlock({ wordBlocks: [["D0", 961]] }), /total device points/);
   await assert.rejects(() => client.writeBlock({ wordBlocks: [["D8000", new Array(952).fill(0)]] }), /total device points/);
-  await assert.rejects(() => client.memoryReadWords(0, 481), /1\.\.480/);
-  await assert.rejects(() => client.memoryWriteWords(0, new Array(481).fill(0)), /1\.\.480/);
-  await assert.rejects(() => client.extendUnitReadWords(0, 961, 0x03e0), /1\.\.960/);
-  await assert.rejects(() => client.extendUnitWriteWords(0, 0x03e0, new Array(961).fill(0)), /1\.\.960/);
-  await assert.rejects(() => client.extendUnitReadBytes(0, 1921, 0x03e0), /2\.\.1920/);
-  await assert.rejects(() => client.extendUnitWriteBytes(0, 0x03e0, Buffer.alloc(1921)), /2\.\.1920/);
   assert.equal(calls, 0);
 });
 
@@ -3700,34 +3771,26 @@ test("qualified packed-bit Random and Monitor routes use the link-direct 24-bit 
   assert.deepEqual(client.trafficStats(), { requestCount: 0, txBytes: 0, rxBytes: 0 });
 });
 
-test("remote and memory helpers build expected commands", async () => {
+test("remote helpers build expected commands", async () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
   const calls = [];
   client._request = async (command, subcommand, data, options = {}) => {
     calls.push({ command, subcommand, data: Buffer.from(data), expectResponse: options.expectResponse });
     return {
       endCode: 0,
-      data: command === Command.MEMORY_READ
-        ? Buffer.from([0x64, 0x00, 0xc8, 0x00])
-        : Buffer.alloc(0),
+      data: Buffer.alloc(0),
     };
   };
 
   await client.remoteRun({ force: false, clearMode: RemoteClearMode.NO_CLEAR });
   await client.remoteStop();
   await client.remoteReset();
-  const values = await client.memoryReadWords(0x100, 2);
-  await client.memoryWriteWords(0x100, [100, 200]);
-
-  assert.deepEqual(values, [100, 200]);
   assert.deepEqual(
     calls.map((call) => [call.command, call.subcommand, call.data.toString("hex"), call.expectResponse]),
     [
       [Command.REMOTE_RUN, 0x0000, "01000000", undefined],
       [Command.REMOTE_STOP, 0x0000, "0100", undefined],
       [Command.REMOTE_RESET, 0x0000, "0100", false],
-      [Command.MEMORY_READ, 0x0000, "000100000200", undefined],
-      [Command.MEMORY_WRITE, 0x0000, "0001000002006400c800", undefined],
     ]
   );
 });
@@ -4088,30 +4151,18 @@ test("remote password authentication retry delay codes keep numeric diagnostics"
   }
 });
 
-test("extend unit helpers build expected commands", async () => {
+test("Memory and Extend Unit command helpers are not public", () => {
   const client = new SlmpClient({ host: "127.0.0.1", frameType: "3e", _allowManualProfile: true });
-  const calls = [];
-  client._request = async (command, subcommand, data) => {
-    calls.push({ command, subcommand, data: Buffer.from(data) });
-    return {
-      endCode: 0,
-      data: command === Command.EXTEND_UNIT_READ
-        ? Buffer.from([0x6f, 0x00, 0xde, 0x00])
-        : Buffer.alloc(0),
-    };
-  };
-
-  const values = await client.extendUnitReadWords(0x10, 2, 0x03e0);
-  await client.extendUnitWriteWords(0x10, 0x03e0, [111, 222]);
-
-  assert.deepEqual(values, [111, 222]);
-  assert.deepEqual(
-    calls.map((call) => [call.command, call.subcommand, call.data.toString("hex")]),
-    [
-      [Command.EXTEND_UNIT_READ, 0x0000, "100000000400e003"],
-      [Command.EXTEND_UNIT_WRITE, 0x0000, "100000000400e0036f00de00"],
-    ]
-  );
+  for (const name of [
+    "memoryReadWords",
+    "memoryWriteWords",
+    "extendUnitReadBytes",
+    "extendUnitReadWords",
+    "extendUnitWriteBytes",
+    "extendUnitWriteWords",
+  ]) {
+    assert.equal(client[name], undefined, name);
+  }
 });
 
 test("label helpers build payloads and parse responses", async () => {
@@ -4998,8 +5049,6 @@ test("standard acknowledgement APIs reject successful response data while rawCom
     () => client.remotePause({ force: false }),
     () => client.remoteLatchClear(),
     () => client.clearError(),
-    () => client.memoryWriteWords(0, [1]),
-    () => client.extendUnitWriteBytes(0, 0, Buffer.from([1, 2])),
     () => client.writeArrayLabels([{ label: "A", unitSpecification: 1, arrayDataLength: 2, data: Buffer.from([1, 2]) }]),
     () => client.writeRandomLabels([{ label: "A", data: Buffer.from([1, 2]) }]),
     () => client.remotePasswordUnlock("secret1"),

@@ -1384,10 +1384,53 @@ separate exact-type contracts.
 
 ### SLMP-NODE-ADDRESS-COUNT-001
 
-Address count suffixes must be complete ASCII-decimal values from `1` through
-`Number.MAX_SAFE_INTEGER`. Applications must remove signs, embedded spaces,
-fractions, exponent notation, non-ASCII digits, and suffix text instead of
-depending on partial parsing. Hand-built objects passed to
-`formatParsedAddress()` must provide a primitive positive safe-integer Number
-when `hasCount` is true. Command/profile point limits still apply after this
-syntax and representation check.
+`parseAddress`, `formatParsedAddress`, and `normalizeAddress` now accept
+count-free AddressSpec values only. Count remains valid only inside
+`readNamed` / `writeNamed` request entries, where it must be complete
+ASCII-decimal text from `1` through `Number.MAX_SAFE_INTEGER`. Applications
+that previously parsed or formatted `,count` through the AddressSpec functions
+must keep the count in the Named request entry instead.
+
+## 2026-09-03 cross-library API alignment
+
+### SLMP-NODE-PUBLIC-API-001
+
+The six Memory / Extend Unit command methods were removed from the public
+client without aliases. Applications must use a supported semantic device
+route; raw command construction is not a replacement high-level contract.
+
+### SLMP-NODE-NAME-001
+
+Canonical Extended random/monitor names now end in `Extended`, and the PLC
+profile label helper is `plcProfileDisplayName`. The former `...Ext` methods
+and `displayName` remain direct delegates during the approved migration period.
+The descriptor field named `displayName` is unchanged.
+
+### SLMP-NODE-API-001
+
+The public client now exposes semantic Extended Direct Word/Bit operations,
+one-request DWord/float reads, structured multi-point long-timer reads, and a
+one-word `SD0` self-diagnosis read. These APIs do not split, retry, change
+command family, add Node-RED nodes, or enforce static catalog ranges.
+
+Verification evidence (2026-09-03): `run_ci.bat` passed 298 tests and
+`npm pack --dry-run`; `scripts/check_package_contents.ps1` passed against an
+isolated install of the generated tarball. Live PLC verification is not required
+because the new wire paths are covered by exact command/subcommand and payload
+tests and the renamed APIs are direct delegates.
+
+### SLMP-NODE-ADDRESS-NAMING-001
+
+The existing `parseDevice` / `deviceToString` pair is the JavaScript
+DeviceAddress surface, and the existing count-free `parseAddress` /
+`formatParsedAddress` / `normalizeAddress` family is the AddressSpec surface.
+Tests fix direct `D100` / `X10` and typed `D100:U` / `D50.A` round-trips,
+cross-grammar rejection, qualified-route separation, private Named count
+retention, and the absence of duplicate public naming APIs. `parseAddress`
+now rejects qualified routes at its own boundary instead of leaving rejection
+to a later formatter/planner. No device, route, request, or wire value changes,
+so live PLC verification is not required.
+
+The updated 298-test full CI and isolated npm tarball consumer check passed
+after this classification was fixed; the tarball contains 34 files and all
+eight packaged flows.

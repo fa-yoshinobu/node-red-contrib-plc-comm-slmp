@@ -16,6 +16,7 @@ const {
   displayName,
   ensureProfileFeatureAllowed,
   getProfileLimit,
+  plcProfileDisplayName,
   profileDescriptors,
 } = publicApi;
 const fixture = require("./fixtures/slmp_ethernet_profiles.json");
@@ -31,6 +32,7 @@ function SlmpClient(options) {
 test("built-in capability profile table matches the canonical fixture", () => {
   assert.deepEqual(BUILTIN_CAPABILITY_PROFILES, fixture);
   for (const [profileId, profile] of Object.entries(fixture.profiles)) {
+    assert.equal(plcProfileDisplayName(profileId), profile.display_name);
     assert.equal(displayName(profileId), profile.display_name);
   }
 });

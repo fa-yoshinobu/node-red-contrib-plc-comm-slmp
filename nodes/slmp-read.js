@@ -7,6 +7,7 @@ const {
   normalizeTarget,
   prepareReadNamed,
   readNamed,
+  ValueError,
 } = slmp;
 const {
   hasOwn,
@@ -228,7 +229,27 @@ function fail(node, msg, send, done, error) {
 
 function validateAddressesForConnection(addresses, profile) {
   const options = profile && profile.plcProfile ? { plcProfile: profile.plcProfile } : {};
-  return addresses.map((address) => normalizeAddress(address, options));
+  return addresses.map((address) => normalizeNamedEntryAddress(address, options));
+}
+
+function normalizeNamedEntryAddress(address, options) {
+  const text = String(address || "").trim();
+  const commaIndex = text.indexOf(",");
+  if (commaIndex === -1) {
+    return normalizeAddress(text, options);
+  }
+  if (commaIndex !== text.lastIndexOf(",")) {
+    throw new ValueError(`Address '${address}' has more than one count separator ','.`);
+  }
+  const countText = text.slice(commaIndex + 1);
+  if (!/^[0-9]+$/.test(countText)) {
+    throw new ValueError(`Address '${address}' has an invalid count suffix.`);
+  }
+  const count = Number(countText);
+  if (!Number.isSafeInteger(count) || count <= 0) {
+    throw new ValueError(`Address '${address}' count must be a positive safe integer.`);
+  }
+  return `${normalizeAddress(text.slice(0, commaIndex), options)},${count}`;
 }
 
 function normalizeTargetSource(value) {

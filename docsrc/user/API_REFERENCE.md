@@ -86,24 +86,28 @@ absolute transaction deadline.
 | Direct device read/write | `readDevices`, `writeDevices` |
 | Single-request contiguous words | `readWordsSingleRequest`, `writeWordsSingleRequest` |
 | Single-request contiguous bits | `readBitsSingleRequest`, `writeBitsSingleRequest` |
+| Single-request DWords / float32 | `readDWordsSingleRequest`, `readFloat32s` |
+| Extended Direct words | `readWordsExtended`, `writeWordsExtended` |
+| Extended Direct bits | `readBitsExtended`, `writeBitsExtended` |
 | Random read | `readRandom` |
-| Extended random read | `readRandomExt` |
+| Extended random read | `readRandomExtended` |
 | Random word/dword write | `writeRandomWords` |
-| Extended random word/dword write | `writeRandomWordsExt` |
+| Extended random word/dword write | `writeRandomWordsExtended` |
 | Random bit write | `writeRandomBits` |
-| Extended random bit write | `writeRandomBitsExt` |
+| Extended random bit write | `writeRandomBitsExtended` |
 | Block read/write | `readBlock`, `writeBlock` |
 | Type name | `readTypeName` |
 
-Extended random APIs use the 008x subcommands. Use qualified device notation
+Extended Direct and Extended random APIs use the 008x subcommands. Use qualified device notation
 such as `U1\G0`, `U3E0\HG0`, or `J2\SW10` where the route requires it. Raw
 extension fields are not public. When index or indirect modification is needed,
 wrap the address in `new SlmpExtendedDevice(address, modification)` with
 `SlmpIndexZ`, `SlmpIndexLz`, or `SlmpIndirect`. Extended write tuples are exact
 `[device, value]` pairs; the device may be a qualified string or the typed wrapper.
 
-The current Node-RED low-level client does not expose separate extended direct
-device helpers. Use the extended random APIs for routed random access.
+The former `readRandomExt`, `writeRandomWordsExt`, `writeRandomBitsExt`, and
+`registerMonitorDevicesExt` names remain temporary direct delegates. New code
+uses the `...Extended` names.
 
 `readDevices` and `writeDevices` require a Boolean `bitUnit`. With
 `bitUnit: true`, the device must be a canonical bit device. Explicit
@@ -180,15 +184,13 @@ object.
 
 | Operation | Public API |
 | --- | --- |
-| Memory command words | `memoryReadWords`, `memoryWriteWords` |
-| Extend-unit command bytes | `extendUnitReadBytes`, `extendUnitWriteBytes` |
-| Extend-unit command words | `extendUnitReadWords`, `extendUnitWriteWords` |
-| Monitor registration/cycle | `registerMonitorDevices`, `registerMonitorDevicesExt`, `runMonitorCycle` |
+| Monitor registration/cycle | `registerMonitorDevices`, `registerMonitorDevicesExtended`, `runMonitorCycle` |
 | Label array access | `readArrayLabels`, `writeArrayLabels` |
 | Label random access | `readRandomLabels`, `writeRandomLabels` |
 | Remote CPU control | `remoteRun`, `remoteStop`, `remotePause`, `remoteLatchClear`, `remoteReset` |
 | Remote password | `remotePasswordUnlock`, `remotePasswordLock` |
 | CPU operation state | `readCpuOperationState` |
+| Latest self-diagnosis error code | `readLatestSelfDiagnosisErrorCode` |
 | Self-test loopback | `selfTestLoopback` |
 | Clear PLC error | `clearError` |
 
@@ -227,6 +229,7 @@ length, and exact echo. `clearError` always uses the fixed empty payload.
 | Extended-device model | `SlmpExtendedDevice`, `SlmpIndexZ`, `SlmpIndexLz`, `SlmpIndirect` |
 | Typed values | `readTyped`, `writeTyped` |
 | Named one-request reads and writes | `compileReadPlan`, `prepareReadNamed`, `readNamed`, `writeNamed` |
+| Structured long-timer reads | `readLongTimer`, `readLongRetentiveTimer` |
 | Bit-in-word write | `writeBitInWord` (direct or qualified U/J Extended Device route) |
 
 `writeBitInWord` validates and snapshots the complete operation before it enters
@@ -258,13 +261,22 @@ valid only for canonical word devices; use the `.0` through `.F` selector for a
 semantic bit inside a word device. This semantic rule is separate from explicit
 low-level packed word-unit access to a bit-device family.
 
-Public address counts are positive safe integers. `parseAddress()` accepts a
-complete ASCII-decimal suffix from `1` through `Number.MAX_SAFE_INTEGER` with
-no sign, whitespace, fraction, exponent, non-ASCII digit, or trailing text and
-preserves the exact Number. `formatParsedAddress()` accepts a count on a
-hand-built object only when `hasCount` is true and `count` is a primitive
-positive safe-integer Number; it performs no coercion. Syntax/safe-integer
-validation precedes and is separate from each command/profile point limit.
+`parseAddress()`, `formatParsedAddress()`, and `normalizeAddress()` accept
+count-free AddressSpec values only. The `,count` grammar remains part of
+`readNamed` / `writeNamed` request entries, where it accepts complete ASCII
+decimal text from `1` through `Number.MAX_SAFE_INTEGER`. Signs, whitespace,
+fractions, exponents, non-ASCII digits, trailing text, and zero are rejected
+before the command/profile point limit is applied.
+
+`parseDevice()` and `deviceToString()` are the existing DeviceAddress surface
+for direct devices such as `D100` and `X10`. The count-free `parseAddress()`,
+`formatParsedAddress()`, and `normalizeAddress()` family is the existing
+AddressSpec surface for dtype/bit-selected expressions such as `D100:U` and
+`D50.A`. DeviceAddress parsing rejects typed expressions and qualified routes;
+AddressSpec parsing rejects plain devices and qualified `U...\\...` /
+`J...\\...` routes. Qualified routes remain the separate
+`SlmpExtendedDevice` contract. No synonymous `parseDeviceAddress` or
+`parseAddressSpec` API is exported.
 
 Numeric fields in runtime extension objects also require primitive finite safe
 integer Numbers. An explicitly present `null` is invalid; only an omitted
@@ -319,6 +331,10 @@ modifying the returned array does not change the library's profile registry.
 availability, and base-profile metadata for every profile. The base-only
 `melsec:qcpu` entry is included with `connectable: false`; the editor filters
 that entry from connection selections.
+
+`plcProfileDisplayName(profile)` returns one display label for a canonical
+profile. The former `displayName(profile)` name remains a temporary direct
+delegate; profile descriptor `displayName` fields are unchanged.
 
 `getProfileLimit(profile, key)` accepts a canonical value from
 `SlmpProfileLimitKey` and returns a frozen `{ maxPoints, weightedMaxPoints }`

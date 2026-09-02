@@ -1,6 +1,6 @@
 "use strict";
 
-const { normalizeAddress, normalizeTarget, writeNamed } = require("../lib/slmp");
+const { normalizeAddress, normalizeTarget, ValueError, writeNamed } = require("../lib/slmp");
 const {
   hasOwn,
   normalizeConfiguredRouteTarget,
@@ -300,7 +300,7 @@ function validateUpdatesForConnection(updates, profile) {
   const normalized = {};
   const sourceByNormalized = new Map();
   for (const [address, value] of Object.entries(updates || {})) {
-    const key = normalizeAddress(address, options);
+    const key = normalizeNamedEntryAddress(address, options);
     if (sourceByNormalized.has(key)) {
       throw new Error(`Duplicate write address after normalization: '${sourceByNormalized.get(key)}' and '${address}'`);
     }
@@ -308,6 +308,26 @@ function validateUpdatesForConnection(updates, profile) {
     normalized[key] = value;
   }
   return normalized;
+}
+
+function normalizeNamedEntryAddress(address, options) {
+  const text = String(address || "").trim();
+  const commaIndex = text.indexOf(",");
+  if (commaIndex === -1) {
+    return normalizeAddress(text, options);
+  }
+  if (commaIndex !== text.lastIndexOf(",")) {
+    throw new ValueError(`Address '${address}' has more than one count separator ','.`);
+  }
+  const countText = text.slice(commaIndex + 1);
+  if (!/^[0-9]+$/.test(countText)) {
+    throw new ValueError(`Address '${address}' has an invalid count suffix.`);
+  }
+  const count = Number(countText);
+  if (!Number.isSafeInteger(count) || count <= 0) {
+    throw new ValueError(`Address '${address}' count must be a positive safe integer.`);
+  }
+  return `${normalizeAddress(text.slice(0, commaIndex), options)},${count}`;
 }
 
 function getControlAction(msg) {

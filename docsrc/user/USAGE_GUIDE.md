@@ -146,7 +146,7 @@ CPU buffer memory uses `U3En\G...` and CPU periodic buffer memory uses
 `U3E3\HG...` are valid, while `U0\HG...` and `U3E4\HG...` are invalid.
 
 Low-level `SlmpClient` users can register Word/DWord monitor devices with
-`registerMonitorDevices` or `registerMonitorDevicesExt`, then execute one cycle
+`registerMonitorDevices` or `registerMonitorDevicesExtended`, then execute one cycle
 with explicit `wordPoints` and `dwordPoints`. `selfTestLoopback(Buffer)` and
 `clearError()` provide fixed semantic system commands without raw command
 numbers. The combined monitor count must be nonzero and cannot exceed the
@@ -259,15 +259,24 @@ manual opt-in, random format-valid test values, and best-effort snapshot restora
 
 Named addresses must include the intended type suffix, for example `D100:U` or `M1000:BIT`. The `.bit` form, such as `D50.3`, already declares bit-in-word access.
 
-A textual `,count` suffix contains ASCII decimal digits only and must represent
+A textual `,count` suffix is a `readNamed` / `writeNamed` request-entry feature.
+Public `parseAddress`, `formatParsedAddress`, and `normalizeAddress` values are
+count-free. The suffix contains ASCII decimal digits only and must represent
 an exact positive JavaScript safe integer. Signs, embedded whitespace,
 fractions, exponent notation, non-ASCII digits, suffix junk, zero, and values
 above `Number.MAX_SAFE_INTEGER` are rejected instead of being rounded or
 partially parsed. This syntax rule is separate from the lower command/profile
-point limit, which is applied afterward. Code calling `formatParsedAddress`
-with a hand-built parsed object must likewise provide a primitive positive
-safe-integer Number when `hasCount` is true; numeric strings and coercible
-objects are not accepted.
+point limit, which is applied afterward.
+
+Direct DeviceAddress values and typed AddressSpec expressions use separate
+existing APIs. `parseDevice("D100", { plcProfile })` and
+`deviceToString(ref, { plcProfile })` round-trip direct `D100` / `X10` values.
+`parseAddress("D100:U")`, `D50.A`, `formatParsedAddress`, and
+`normalizeAddress` round-trip count-free AddressSpec values. DeviceAddress
+parsing rejects dtype/bit suffixes and qualified routes; AddressSpec parsing
+rejects plain devices and qualified `U...\\...` / `J...\\...` routes.
+Qualified routes continue to use `SlmpExtendedDevice`, and no duplicate
+`parseDeviceAddress` or `parseAddressSpec` aliases are provided.
 
 The complete accessed span must fit the selected SLMP device-number field:
 24 bits for Q/L or 32 bits for ordinary iQ-R entries. A link-direct
@@ -301,6 +310,21 @@ exactly one Direct request and never splits, retries, or changes command. The
 older `readBits` / `writeBits` names are deprecated one-release delegates. The
 Node-RED Read and Write node names are unchanged.
 
+Use `readDWordsSingleRequest` or `readFloat32s` to decode adjacent word pairs
+from one Direct Read. For qualified `Un\G`, `U3En\G`, `U3En\HG`, or `Jn\...`
+routes, use `readWordsExtended` / `writeWordsExtended` or
+`readBitsExtended` / `writeBitsExtended`; each call sends exactly one Extended
+Direct request. `readLongTimer` and `readLongRetentiveTimer` return structured
+four-word points in one Direct Read. `readLatestSelfDiagnosisErrorCode()` reads
+one raw unsigned word from `SD0`.
+
+```javascript
+const dwords = await readDWordsSingleRequest(client, "D100", 2);
+const timers = await readLongTimer(client, 100, 4);
+const routedWords = await client.readWordsExtended(String.raw`U0\G100`, 8);
+const diagnosisCode = await client.readLatestSelfDiagnosisErrorCode();
+```
+
 Programmatic batch planners can read the selected profile's canonical request
 limit without creating a client or communicating with a PLC:
 
@@ -308,8 +332,10 @@ limit without creating a client or communicating with a PLC:
 const {
   SlmpProfileLimitKey,
   getProfileLimit,
+  plcProfileDisplayName,
 } = require("@fa_yoshinobu/node-red-contrib-plc-comm-slmp");
 
+const profileLabel = plcProfileDisplayName("melsec:qnudv");
 const limit = getProfileLimit(
   "melsec:qnudv",
   SlmpProfileLimitKey.RandomReadWord,
@@ -363,6 +389,11 @@ admission. `STR` still requires a string and `BIT` still requires a Boolean.
 Convert configuration text explicitly before calling a numeric write helper.
 Named writes also reject overlapping destinations. Extended random-read result
 keys append `+Zn`, `+LZn`, or `+INDIRECT` when a modifier is present.
+
+The canonical Extended random/monitor names end in `Extended`, such as
+`readRandomExtended`, `writeRandomWordsExtended`, `writeRandomBitsExtended`,
+and `registerMonitorDevicesExtended`. Their former `...Ext` spellings remain
+temporary direct delegates.
 
 `remoteReset` confirms that the request frame was transmitted, closes the
 current transport generation, and does not confirm PLC execution. Reconnect
@@ -485,7 +516,7 @@ PLC data following a matching nine-byte error-information prefix remains
 available on the structured PLC error.
 
 Standard write, monitor-registration, remote-control, clear-error, password,
-memory, extend-unit, and label APIs require an empty successful
+and label APIs require an empty successful
 acknowledgement. Any data after end code zero is malformed and produces the
 same outcome-unknown classification and connection invalidation. The
 maintainer-level `rawCommand()` API remains the explicit surface for commands

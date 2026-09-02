@@ -18,7 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-09-03
+
+- Release: Bumped npm package and lockfile metadata to `5.2.0` for the approved high-level API overhaul.
 - Docs: Corrected qualified CPU-buffer notation: CPU buffer memory uses `U3En\G` and CPU periodic buffer memory uses only `U3En\HG` with `n` from `0` through `3`; `Un\HG` is not a valid general module form.
+- Library: Added one-request `readDWordsSingleRequest`, `readFloat32s`, `readLongTimer`, and `readLongRetentiveTimer` high-level helpers.
+- Library: Added semantic Extended Direct `readWordsExtended`, `writeWordsExtended`, `readBitsExtended`, and `writeBitsExtended` client methods.
+- Library: Added `readLatestSelfDiagnosisErrorCode()` as a one-word `SD0` Direct Read.
+- Library: Added canonical `...Extended` Random/Monitor method names and `plcProfileDisplayName`; the former `...Ext` methods and `displayName` remain temporary direct delegates.
+- Tests: Added one-request wire and result coverage for the new Direct, Extended Direct, long-timer, DWord/float, and self-diagnosis APIs.
+
+### BREAKING
+
+- Library: Removed the six public Memory / Extend Unit client methods for commands `0x0601`, `0x0613`, `0x1601`, and `0x1613`; no compatibility aliases are provided.
+- Library: `parseAddress`, `formatParsedAddress`, and `normalizeAddress` now use count-free AddressSpec values. The existing `readNamed` / `writeNamed` `,count` grammar remains supported through their private request-entry parser.
+- Library: Fixed the existing `parseDevice` / `deviceToString` functions as the DeviceAddress API and the count-free `parseAddress` / `formatParsedAddress` / `normalizeAddress` functions as the AddressSpec API. `parseAddress` no longer accepts qualified routes; cross-grammar inputs are rejected without adding duplicate address APIs.
 
 ## [5.1.0] - 2026-08-27
 

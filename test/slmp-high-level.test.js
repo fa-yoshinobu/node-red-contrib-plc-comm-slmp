@@ -10,13 +10,19 @@ const vm = require("node:vm");
 
 const slmp = require("../lib/slmp");
 const {
+  deviceToString,
   formatParsedAddress,
   normalizeAddress,
   normalizeAddressList,
   parseAddress,
+  parseDevice,
   prepareReadNamed,
   readBits,
   readBitsSingleRequest,
+  readDWordsSingleRequest,
+  readFloat32s,
+  readLongRetentiveTimer,
+  readLongTimer,
   readNamed,
   readTyped,
   writeBitInWord,
@@ -80,24 +86,21 @@ test("Node-RED editor validators match runtime dtype and route-target contracts"
   }
 });
 
-test("parseAddress supports count and string forms", () => {
-  assert.deepEqual(parseAddress("D100:U,10"), {
+test("parseAddress is count-free and supports string dtype", () => {
+  assert.deepEqual(parseAddress("D100:U"), {
     base: "D100",
     dtype: "U",
     bitIndex: null,
-    count: 10,
-    hasCount: true,
     explicitDtype: true,
   });
-  assert.deepEqual(parseAddress("D100:STR,10"), {
+  assert.deepEqual(parseAddress("D100:STR"), {
     base: "D100",
     dtype: "STR",
     bitIndex: null,
-    count: 10,
-    hasCount: true,
     explicitDtype: true,
   });
-  assert.throws(() => parseAddress("DSTR200,8"), /explicit dtype/i);
+  assert.throws(() => parseAddress("D100:U,10"), /count-free/i);
+  assert.throws(() => parseAddress("DSTR200,8"), /count-free/i);
 });
 
 test("parseAddress rejects repeated dtype and bit-index separators", () => {
@@ -110,11 +113,15 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   assert.equal(normalizeAddress(" d200:f ", options), "D200:F");
   assert.equal(normalizeAddress("d50.a", options), "D50.A");
   assert.equal(normalizeAddress("d50.d", options), "D50.D");
-  assert.throws(() => normalizeAddress("dstr200,8", options), /explicit dtype/i);
+  assert.throws(() => normalizeAddress("dstr200,8", options), /count-free/i);
   assert.throws(() => normalizeAddress("d100:i", options), /unsupported dtype/i);
   assert.throws(() => normalizeAddress("d100:string", options), /unsupported dtype/i);
-  assert.equal(formatParsedAddress(parseAddress("D100:U,10"), options), "D100:U,10");
-  assert.throws(() => parseAddress("D100,10"), /requires an explicit dtype/i);
+  assert.equal(formatParsedAddress(parseAddress("D100:U"), options), "D100:U");
+  assert.throws(
+    () => formatParsedAddress({ ...parseAddress("D100:U"), count: 10 }, options),
+    /count-free/i,
+  );
+  assert.throws(() => parseAddress("D100,10"), /count-free/i);
   assert.throws(() => parseAddress("D100:BOGUS"), /unsupported dtype/i);
   assert.throws(() => normalizeAddress("D100:BOGUS", options), /unsupported dtype/i);
   assert.throws(() => normalizeAddress("d50.10", options), /invalid bit-in-word/i);
@@ -137,15 +144,51 @@ test("normalizeAddress and formatParsedAddress keep one canonical spelling", () 
   }
 });
 
-test("address counts preserve exact positive safe integers and reject every non-decimal suffix", () => {
+test("DeviceAddress and AddressSpec reuse distinct public surfaces without duplicate aliases", () => {
   const options = { plcProfile: "melsec:iq-r" };
-  for (const count of [1, Number.MAX_SAFE_INTEGER]) {
-    const text = `D0:U,${count}`;
-    const parsed = parseAddress(text);
-    assert.equal(parsed.count, count);
-    assert.equal(formatParsedAddress(parsed, options), text);
+  for (const text of ["D100", "X10"]) {
+    const device = parseDevice(text, options);
+    assert.equal(deviceToString(device, options), text);
+    assert.deepEqual(parseDevice(deviceToString(device, options), options), device);
   }
 
+  for (const [source, canonical] of [["d100:u", "D100:U"], ["d50.a", "D50.A"]]) {
+    const address = parseAddress(source);
+    assert.equal(formatParsedAddress(address, options), canonical);
+    assert.equal(normalizeAddress(source, options), canonical);
+  }
+
+  for (const text of ["D100:U", "D50.A", String.raw`J1\X10`, String.raw`U0\G100`]) {
+    assert.throws(() => parseDevice(text, options), /device|address|invalid/i);
+  }
+  for (const text of ["D100", "X10", String.raw`J1\X10:BIT`, String.raw`U0\G100:U`]) {
+    assert.throws(() => parseAddress(text), /explicit dtype|qualified route/i);
+  }
+
+  for (const name of [
+    "DeviceAddress",
+    "AddressSpec",
+    "parseDeviceAddress",
+    "formatDeviceAddress",
+    "normalizeDeviceAddress",
+    "parseAddressSpec",
+    "formatAddressSpec",
+    "normalizeAddressSpec",
+  ]) {
+    assert.equal(slmp[name], undefined, name);
+  }
+});
+
+test("Named-entry counts preserve exact positive safe integers and reject non-decimal suffixes", async () => {
+  const client = new slmp.SlmpClient({
+    host: "127.0.0.1",
+    port: 1025,
+    transport: "tcp",
+    plcProfile: "melsec:iq-r",
+    target: TEST_TARGET,
+  });
+  const plan = prepareReadNamed(client, ["D0:U,1"]);
+  plan.dispose();
   for (const suffix of [
     `${Number.MAX_SAFE_INTEGER + 1}`,
     "999999999999999999999999999999999999",
@@ -160,28 +203,9 @@ test("address counts preserve exact positive safe integers and reject every non-
     "0",
     "\u0661",
   ]) {
-    assert.throws(() => parseAddress(`D0:U,${suffix}`), /count/i, suffix);
+    assert.throws(() => prepareReadNamed(client, [`D0:U,${suffix}`]), /count/i, suffix);
   }
-  assert.throws(() => parseAddress("D0:U,1,2"), /count separator/i);
-});
-
-test("formatParsedAddress requires a native positive safe-integer count without coercion", () => {
-  const options = { plcProfile: "melsec:iq-r" };
-  const base = { base: "D0", dtype: "U", bitIndex: null, hasCount: true };
-  let coercions = 0;
-  const coercible = {
-    valueOf() { coercions += 1; return 2; },
-    toString() { coercions += 1; return "2"; },
-  };
-  for (const count of ["2", new Number(2), 2n, coercible, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-    assert.throws(() => formatParsedAddress({ ...base, count }, options), /positive safe-integer/i);
-  }
-  assert.equal(coercions, 0);
-  assert.equal(
-    formatParsedAddress({ ...base, hasCount: false, count: coercible }, options),
-    "D0:U",
-  );
-  assert.equal(coercions, 0);
+  assert.throws(() => prepareReadNamed(client, ["D0:U,1,2"]), /count separator/i);
 });
 
 test("named planning applies profile limits after exact count parsing and before client I/O", async () => {
@@ -276,6 +300,57 @@ test("canonical contiguous word and bit helpers issue one direct request and rej
   await assert.rejects(() => readBitsSingleRequest(client, "M0", 7169), /1\.\.7168/);
   await assert.rejects(() => writeWordsSingleRequest(client, "D0", Array(961).fill(0)), /1\.\.960/);
   assert.equal(calls.length, 4);
+});
+
+test("DWord and float32 helpers decode one Direct Read request", async () => {
+  const calls = [];
+  const client = {
+    plcProfile: "melsec:iq-r",
+    async readDevices(device, count, options) {
+      calls.push([device.code, device.number, count, options.bitUnit]);
+      return calls.length === 1 ? [0x5678, 0x1234] : [0x0000, 0x3f80];
+    },
+  };
+
+  assert.deepEqual(await readDWordsSingleRequest(client, "D100", 1), [0x12345678]);
+  assert.deepEqual(await readFloat32s(client, "D200", 1), [1]);
+  assert.deepEqual(calls, [
+    ["D", 100, 2, false],
+    ["D", 200, 2, false],
+  ]);
+  await assert.rejects(() => readDWordsSingleRequest(client, "D100", "1"), /positive safe integer/i);
+  await assert.rejects(() => readFloat32s(client, "D200", 0), /positive safe integer/i);
+  await assert.rejects(() => readDWordsSingleRequest(client, "M0", "1"), /requires a word device/i);
+  await assert.rejects(() => readDWordsSingleRequest(client, "LTN0", 1), /does not support LTN/i);
+  await assert.rejects(() => readFloat32s(client, "LZ0", 1), /does not support LZ/i);
+  await assert.rejects(() => readDWordsSingleRequest(client, "D0", 481), /point count/i);
+  assert.equal(calls.length, 2);
+});
+
+test("long-timer helpers return structured points from one Direct Read", async () => {
+  const calls = [];
+  const client = {
+    plcProfile: "melsec:iq-r",
+    async readDevices(device, count, options) {
+      calls.push([device.code, device.number, count, options.bitUnit]);
+      return [1, 0, 3, 0, 2, 0, 0, 0];
+    },
+  };
+
+  const timers = await readLongTimer(client, 10, 2);
+  const retentive = await readLongRetentiveTimer(client, 20, 2);
+  assert.deepEqual(timers, [
+    { index: 10, device: "LTN10", currentValue: 1, contact: true, coil: true, statusWord: 3, rawWords: [1, 0, 3, 0] },
+    { index: 11, device: "LTN11", currentValue: 2, contact: false, coil: false, statusWord: 0, rawWords: [2, 0, 0, 0] },
+  ]);
+  assert.equal(retentive[0].device, "LSTN20");
+  assert.deepEqual(calls, [
+    ["LTN", 10, 8, false],
+    ["LSTN", 20, 8, false],
+  ]);
+  await assert.rejects(() => readLongTimer(client, -1, 1), /non-negative safe integer/i);
+  await assert.rejects(() => readLongTimer(client, 0, 241), /wire point count/i);
+  assert.equal(calls.length, 2);
 });
 
 test("typed, named, and convenience helpers enforce exact semantic device units", async () => {
@@ -2457,7 +2532,7 @@ test("slmp-read can return an array payload in address order", async () => {
     const node = create("slmp-read", {
       id: "read-array",
       connection: "cfg-array-read",
-      addresses: "D100:U,3\nD200:F\nM1000:BIT",
+      addresses: "d100:u,003\nD200:F\nM1000:BIT",
       outputMode: "array",
     });
 
@@ -3037,7 +3112,7 @@ test("slmp-write inserts dtype before a count suffix when msg.address uses ',cou
     });
 
     const result = await invokeNode(node, {
-      address: "D200,2",
+      address: "d200,02",
       dtype: "F",
       value: [1.5, -2.25],
     });
