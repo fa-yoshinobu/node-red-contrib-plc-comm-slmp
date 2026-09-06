@@ -41,6 +41,12 @@ jobs:
         shell: pwsh
         run: ./scripts/update_slmp_profile_jsons.ps1 -FailIfChanged
 
+      # The GitHub-generated source zip is a release artifact, so it is verified
+      # here rather than on every push.
+      - name: Verify self-contained source archive
+        shell: pwsh
+        run: ./scripts/check_source_archive.ps1
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
