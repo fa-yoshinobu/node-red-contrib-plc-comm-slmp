@@ -86,7 +86,7 @@ Trigger the node with any message. A successful response sets `msg.payload["D300
 
 1. The flow deploys without editor validation errors.
 2. The `slmp-connection` node has PLC profile `melsec:iq-r`.
-3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC SLMP PLC Setup Guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/).
+3. The PLC-side communication data code is Binary and the port/open setting matches your transport; see the [MELSEC SLMP PLC Setup Guide](https://plc-comm-docs-site.fa-labo.com/plc-setup/slmp/).
 4. PLC-side RUN-time write permission is enabled before you run a write flow where the PLC exposes that setting, and every write address is a controlled test address.
 5. The read inject node produces a debug message.
 6. `msg.payload` contains a `D300:U` key.

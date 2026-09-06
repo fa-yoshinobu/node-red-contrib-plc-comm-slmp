@@ -9,7 +9,7 @@ availability, and base-profile relationship in one list. The abstract
 `melsec:qcpu` entry is included with `connectable: false`. This descriptor list
 is the stable source for selectors; store `canonicalName`, not `displayName`.
 
-For cross-profile capability and device-range details, see the [SLMP Profile Reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/).
+For cross-profile capability and device-range details, see the [SLMP Profile Reference](https://plc-comm-docs-site.fa-labo.com/slmp/profile-reference/).
 
 The node intentionally does not infer this value from `ReadTypeName`, model
 text, or model code. Some PLCs or communication paths cannot return a reliable

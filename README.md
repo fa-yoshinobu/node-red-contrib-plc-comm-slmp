@@ -8,11 +8,11 @@ Node-RED nodes for MELSEC SLMP (Binary 3E/4E) PLC communication.
 
 ## PLC Comm Family
 
-This library is part of the plc-comm family. See the [package matrix](https://fa-yoshinobu.github.io/plc-comm-docs-site/package-matrix/) for protocol, language, registry, and install-command mapping.
+This library is part of the plc-comm family. See the [package matrix](https://plc-comm-docs-site.fa-labo.com/package-matrix/) for protocol, language, registry, and install-command mapping.
 
 ## Supported PLC profiles
 
-The maintained profile table is in [PLC profiles](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/PROFILES/). Choose one exact canonical PLC profile from that table.
+The maintained profile table is in [PLC profiles](https://plc-comm-docs-site.fa-labo.com/slmp/nodered/PROFILES/). Choose one exact canonical PLC profile from that table.
 
 ## Profile enforcement
 
@@ -26,7 +26,7 @@ If a flow needs real parallel PLC communication, create separate `slmp-connectio
 
 ## Supported device types
 
-The maintained device and range tables are in the [SLMP Profile Reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/). Use that page for supported device families, address syntax, and profile-specific notes.
+The maintained device and range tables are in the [SLMP Profile Reference](https://plc-comm-docs-site.fa-labo.com/slmp/profile-reference/). Use that page for supported device families, address syntax, and profile-specific notes.
 
 ## Installation
 
@@ -61,15 +61,15 @@ Start with the basic flow before importing the device-matrix flow.
 
 | Page | Use it for |
 | --- | --- |
-| [Full documentation site](https://fa-yoshinobu.github.io/plc-comm-docs-site/) | Unified docs for all PLC communication libraries. |
-| [Getting started](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/GETTING_STARTED/) | Install the nodes, configure a connection, and run your first SLMP read. |
-| [Usage guide](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/USAGE_GUIDE/) | Use read/write nodes, routing fields, typed values, and flow patterns. |
-| [API reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/API_REFERENCE/) | Find public client methods, helpers, profile APIs, and error types. |
-| [SLMP profile reference](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/profile-reference/) | Check profile parameters, device families, address syntax, and numbering rules. |
-| [PLC profiles](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/PROFILES/) | Choose the canonical MELSEC profile and frame behavior. |
-| [Gotchas](https://fa-yoshinobu.github.io/plc-comm-docs-site/slmp/nodered/GOTCHAS/) | Check whether this library has any current library-specific caveats. |
-| [Performance](https://fa-yoshinobu.github.io/plc-comm-docs-site/performance/) | See measured latency, throughput, and long-run soak results from real PLC hardware. |
-| [Choosing a Language](https://fa-yoshinobu.github.io/plc-comm-docs-site/choosing-a-language/) | Compare the .NET, Python, Rust, C++, and Node-RED implementations before you pick one. |
+| [Full documentation site](https://plc-comm-docs-site.fa-labo.com/) | Unified docs for all PLC communication libraries. |
+| [Getting started](https://plc-comm-docs-site.fa-labo.com/slmp/nodered/GETTING_STARTED/) | Install the nodes, configure a connection, and run your first SLMP read. |
+| [Usage guide](https://plc-comm-docs-site.fa-labo.com/slmp/nodered/USAGE_GUIDE/) | Use read/write nodes, routing fields, typed values, and flow patterns. |
+| [API reference](https://plc-comm-docs-site.fa-labo.com/slmp/nodered/API_REFERENCE/) | Find public client methods, helpers, profile APIs, and error types. |
+| [SLMP profile reference](https://plc-comm-docs-site.fa-labo.com/slmp/profile-reference/) | Check profile parameters, device families, address syntax, and numbering rules. |
+| [PLC profiles](https://plc-comm-docs-site.fa-labo.com/slmp/nodered/PROFILES/) | Choose the canonical MELSEC profile and frame behavior. |
+| [Gotchas](https://plc-comm-docs-site.fa-labo.com/slmp/nodered/GOTCHAS/) | Check whether this library has any current library-specific caveats. |
+| [Performance](https://plc-comm-docs-site.fa-labo.com/performance/) | See measured latency, throughput, and long-run soak results from real PLC hardware. |
+| [Choosing a Language](https://plc-comm-docs-site.fa-labo.com/choosing-a-language/) | Compare the .NET, Python, Rust, C++, and Node-RED implementations before you pick one. |
 | [Example flows](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md) | Import maintained Node-RED example flows. |
 
 For a zero-code connectivity check, see [PLC Scope](https://github.com/fa-yoshinobu/plc-scope-dotnet) (Windows).

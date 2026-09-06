@@ -87,7 +87,7 @@ local transport. If the PLC rejects the final lock or the lock times out, the di
 reports that failure and does not claim that the PLC is locked.
 
 For `C200`-series password end codes, see the shared
-[SLMP Troubleshooting & Codes](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/troubleshooting-codes/)
+[SLMP Troubleshooting & Codes](https://plc-comm-docs-site.fa-labo.com/plc-setup/slmp/troubleshooting-codes/)
 page.
 
 ## Routing / target station
@@ -139,7 +139,7 @@ CPU when a write must be reflected there. A write can return a normal end code
 without changing the intended CPU buffer when the selected request target
 identifies a different CPU or Own Station; cross-CPU reads remain valid. No
 automatic target fallback, resend, readback, or retry is performed. See the
-shared [iQ-R target guidance](https://fa-yoshinobu.github.io/plc-comm-docs-site/plc-setup/slmp/iq-r/#multi-cpu-cpu-buffer-target).
+shared [iQ-R target guidance](https://plc-comm-docs-site.fa-labo.com/plc-setup/slmp/iq-r/#multi-cpu-cpu-buffer-target).
 
 CPU buffer memory uses `U3En\G...` and CPU periodic buffer memory uses
 `U3En\HG...`, where `n` is `0` through `3`. Thus `U3E0\HG...` through
