@@ -28,17 +28,19 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check release workflows do not auto-publish
+        if: matrix.node-version == '18'
         shell: pwsh
         run: ./scripts/check_no_auto_publish.ps1
       - name: Check canonical SLMP profile JSONs
+        if: matrix.node-version == '18'
         shell: pwsh
         run: ./scripts/update_slmp_profile_jsons.ps1 -FailIfChanged
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -64,10 +66,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
@@ -88,10 +90,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up representative Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
 
