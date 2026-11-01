@@ -5,3 +5,5 @@ require("./slmp-capability-profiles.test");
 require("./slmp-high-level.test");
 require("./slmp-cpu-operation-state.test");
 require("./example-flows.test");
+
+require("./clock-and-editor.test");

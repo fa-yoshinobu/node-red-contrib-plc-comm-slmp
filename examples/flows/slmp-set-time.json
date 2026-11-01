@@ -1,0 +1,366 @@
+[
+  {
+    "id": "slmp-clock-iqr-clock",
+    "type": "tab",
+    "label": "slmp Set PLC Time (iQ-R readback)",
+    "disabled": false,
+    "info": "Configure the iQ-R connection before manual use. Set host local time once, then refresh SD210..SD216 through SM213 and compare with the host clock. Tested on R16CPU. SM213 must initially be OFF, and the PLC program/other clients must not use SM210/SM213 or SD210..SD216 during this test. CPU END processing is required. Adjust the 0.2 s read and 0.5 s set delays for the scan time. SM213 is restored OFF after reading and on caught errors; if cleanup fails, inspect and restore it manually. No automatic injection, retry, or rollback of the clock."
+  },
+  {
+    "id": "slmp-clock-iqr-cfg",
+    "type": "slmp-connection",
+    "name": "iQ-R (configure endpoint)",
+    "host": "127.0.0.1",
+    "port": "1025",
+    "transport": "tcp",
+    "timeout": "3000",
+    "plcProfile": "melsec:iq-r",
+    "useRemotePassword": false,
+    "monitoringTimer": "16",
+    "network": "0",
+    "station": "255",
+    "moduleIO": "03FF",
+    "multidrop": "0"
+  },
+  {
+    "id": "slmp-clock-comment",
+    "type": "comment",
+    "z": "slmp-clock-iqr-clock",
+    "name": "iQ-R clock / manual / SM213 initially OFF",
+    "x": 490,
+    "y": 40,
+    "wires": [],
+    "info": "Configure the iQ-R connection before manual use. Set host local time once, then refresh SD210..SD216 through SM213 and compare with the host clock. Tested on R16CPU. SM213 must initially be OFF, and the PLC program/other clients must not use SM210/SM213 or SD210..SD216 during this test. CPU END processing is required. Adjust the 0.2 s read and 0.5 s set delays for the scan time. SM213 is restored OFF after reading and on caught errors; if cleanup fails, inspect and restore it manually. No automatic injection, retry, or rollback of the clock."
+  },
+  {
+    "id": "slmp-clock-read-button",
+    "type": "inject",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Read clock (uses SM213)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "payloadType": "date",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "x": 150,
+    "y": 100,
+    "wires": [
+      [
+        "slmp-clock-read-request"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-read-request",
+    "type": "function",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Request clock read",
+    "func": "msg.updates = {\"SM213:BIT\": true};\nreturn msg;",
+    "outputs": 1,
+    "x": 370,
+    "y": 100,
+    "wires": [
+      [
+        "slmp-clock-on"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-on",
+    "type": "slmp-write",
+    "z": "slmp-clock-iqr-clock",
+    "name": "SM213 ON",
+    "connection": "slmp-clock-iqr-cfg",
+    "updates": "{}",
+    "updatesType": "str",
+    "errorHandling": "throw",
+    "metadataMode": "minimal",
+    "outputs": 1,
+    "x": 580,
+    "y": 100,
+    "wires": [
+      [
+        "slmp-clock-read-delay"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-read-delay",
+    "type": "delay",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Wait for END (0.2 s)",
+    "pauseType": "delay",
+    "timeout": "0.2",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "x": 800,
+    "y": 100,
+    "wires": [
+      [
+        "slmp-clock-read"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-read",
+    "type": "slmp-read",
+    "z": "slmp-clock-iqr-clock",
+    "name": "SD210..216 and status",
+    "connection": "slmp-clock-iqr-cfg",
+    "addresses": "SD210:U,7\nSM210:BIT\nSM211:BIT\nSD203:U",
+    "addressesType": "str",
+    "outputMode": "object",
+    "errorHandling": "throw",
+    "metadataMode": "minimal",
+    "outputs": 1,
+    "x": 1040,
+    "y": 100,
+    "wires": [
+      [
+        "slmp-clock-save-snapshot"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-save-snapshot",
+    "type": "function",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Save clock; clear SM213",
+    "func": "msg.snapshot = msg.payload;\nmsg.updates = {\"SM213:BIT\": false};\nreturn msg;",
+    "outputs": 1,
+    "x": 1030,
+    "y": 210,
+    "wires": [
+      [
+        "slmp-clock-off"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-off",
+    "type": "slmp-write",
+    "z": "slmp-clock-iqr-clock",
+    "name": "SM213 OFF (restore)",
+    "connection": "slmp-clock-iqr-cfg",
+    "updates": "{}",
+    "updatesType": "str",
+    "errorHandling": "throw",
+    "metadataMode": "minimal",
+    "outputs": 1,
+    "x": 760,
+    "y": 210,
+    "wires": [
+      [
+        "slmp-clock-compare"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-compare",
+    "type": "function",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Compare PLC and host time",
+    "func": "if (msg.error) {\n    msg.payload = {result: \"FAIL\", error: msg.error.message, readRequestRestored: true};\n    return msg;\n}\nconst o = msg.snapshot;\nconst v = o[\"SD210:U,7\"];\nif (!Array.isArray(v) || v.length !== 7) {\n    node.error(\"Unexpected clock readback\", msg);\n    return null;\n}\nconst [year, month, day, hour, minute, second, week] = v;\nconst plc = new Date(year, month - 1, day, hour, minute, second);\nconst pc = new Date();\nconst delta = plc.getTime() - pc.getTime();\nmsg.payload = {\n    result: Math.abs(delta) < 3000 && plc.getDay() === week &&\n        o[\"SM210:BIT\"] === false && o[\"SM211:BIT\"] === false ? \"PASS\" : \"CHECK\",\n    plc: plc.toLocaleString(\"ja-JP\", {hour12: false}),\n    pc: pc.toLocaleString(\"ja-JP\", {hour12: false}),\n    deltaMs: delta, clock: v, SM210: o[\"SM210:BIT\"], SM211: o[\"SM211:BIT\"],\n    SD203: o[\"SD203:U\"], requested: msg.requestedLocal || \"read only\",\n    readRequestRestored: true\n};\nreturn msg;",
+    "outputs": 1,
+    "x": 490,
+    "y": 210,
+    "wires": [
+      [
+        "slmp-clock-result"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-result",
+    "type": "debug",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Clock readback result",
+    "active": true,
+    "tosidebar": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 210,
+    "y": 210,
+    "wires": []
+  },
+  {
+    "id": "slmp-clock-set-button",
+    "type": "inject",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Set host local time (manual)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "payloadType": "date",
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "x": 170,
+    "y": 340,
+    "wires": [
+      [
+        "slmp-clock-date"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-date",
+    "type": "function",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Explicit local Date",
+    "func": "msg.payload=new Date(msg.payload);msg.requestedLocal=msg.payload.toLocaleString(\"ja-JP\",{hour12:false});return msg;",
+    "outputs": 1,
+    "x": 420,
+    "y": 340,
+    "wires": [
+      [
+        "slmp-clock-settime"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-settime",
+    "type": "slmp-set-time",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Set PLC time",
+    "connection": "slmp-clock-iqr-cfg",
+    "x": 660,
+    "y": 340,
+    "wires": [
+      [
+        "slmp-clock-ack-format",
+        "slmp-clock-set-delay"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-ack-format",
+    "type": "function",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Write acknowledgements",
+    "func": "msg.payload={status:\"clock request acknowledged\",requested:msg.requestedLocal};return msg;",
+    "outputs": 1,
+    "x": 910,
+    "y": 340,
+    "wires": [
+      [
+        "slmp-clock-ack"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-ack",
+    "type": "debug",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Clock request acknowledged",
+    "active": true,
+    "tosidebar": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 1130,
+    "y": 340,
+    "wires": []
+  },
+  {
+    "id": "slmp-clock-set-delay",
+    "type": "delay",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Wait for clock update (0.5 s)",
+    "pauseType": "delay",
+    "timeout": "0.5",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "x": 660,
+    "y": 440,
+    "wires": [
+      [
+        "slmp-clock-read-request"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-catch",
+    "type": "catch",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Clock error (no retry)",
+    "scope": [
+      "slmp-clock-on",
+      "slmp-clock-read",
+      "slmp-clock-settime",
+      "slmp-clock-compare"
+    ],
+    "uncaught": false,
+    "x": 160,
+    "y": 540,
+    "wires": [
+      [
+        "slmp-clock-cleanup-error"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-cleanup-error",
+    "type": "function",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Clear SM213 on error",
+    "func": "msg.updates = {\"SM213:BIT\": false};\nreturn msg;",
+    "outputs": 1,
+    "x": 420,
+    "y": 540,
+    "wires": [
+      [
+        "slmp-clock-off"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-cleanup-catch",
+    "type": "catch",
+    "z": "slmp-clock-iqr-clock",
+    "name": "SM213 cleanup failed",
+    "scope": [
+      "slmp-clock-off"
+    ],
+    "uncaught": false,
+    "x": 180,
+    "y": 620,
+    "wires": [
+      [
+        "slmp-clock-cleanup-failed-debug"
+      ]
+    ]
+  },
+  {
+    "id": "slmp-clock-cleanup-failed-debug",
+    "type": "debug",
+    "z": "slmp-clock-iqr-clock",
+    "name": "Inspect SM213 manually (no retry)",
+    "active": true,
+    "tosidebar": true,
+    "complete": "true",
+    "targetType": "full",
+    "x": 480,
+    "y": 620,
+    "wires": []
+  }
+]

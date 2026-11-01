@@ -1,0 +1,34 @@
+<script type="text/javascript">
+  RED.nodes.registerType("slmp-set-time", {
+    category: "SLMP",
+    color: "#D9EAD3",
+    defaults: {
+      name: { value: "" },
+      connection: { value: "", type: "slmp-connection", required: true }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: "font-awesome/fa-clock-o",
+    label: function () { return this.name || "SLMP Set Time"; }
+  });
+</script>
+
+<script type="text/html" data-template-name="slmp-set-time">
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" />
+  </div>
+  <div class="form-row">
+    <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
+    <input type="text" id="node-input-connection" />
+  </div>
+  <p>Input: msg.payload = Date or [YY, month, day, hour, minute, second, weekday].</p>
+</script>
+
+<script type="text/html" data-help-name="slmp-set-time">
+  <p>Sets the PLC clock using an explicit <code>msg.payload</code>.</p>
+  <p>Use a Function node with <code>msg.payload = new Date(); return msg;</code> for the Node-RED host's current local time, or an Inject JSON array such as <code>[26, 10, 31, 12, 34, 56, 6]</code>. YY is the year minus 2000. Weekday is 0 (Sunday) through 6 (Saturday). All seven array fields must be integers and match a real calendar date.</p>
+  <p>Dates use the Node-RED host's local timezone. Arrays represent the desired PLC wall-clock time without timezone conversion. Strings, timestamps, missing values, and invalid dates are rejected; no implicit current-time default is used.</p>
+  <p>Uses SlmpClient.setTime(): SM210 OFF, clock words at SD210, SM210 ON, without interleaving other operations on this client. Supports iQ-R/iQ-F/iQ-L/MX-F/MX-R (seven BIN words) and Q/QnU/QnUDV/L (four packed BCD words), including their Ethernet module profiles. Unknown clock layouts fail before sending. Years 1980..2079 for Date inputs; array YY is 0..79.</p>
+  <p>The original message is sent on the single output after all write requests are acknowledged. This does not verify that the PLC clock has changed. Follow the CPU's clock-processing requirements; Q/L and iQ-R/iQ-F require END processing. Coordinate SM210/SM213 and SD210 clock registers with the PLC program and other clients. On failure, use a Catch node. Do not automatically retry a failed clock write; part of the operation may already have reached the PLC.</p>
+</script>

@@ -364,3 +364,21 @@ field; omitted route targets still use the own-station route `0x03FF`.
 
 `SlmpClient.trafficStats()` returns a frozen `{ requestCount, txBytes, rxBytes }` snapshot.
 Counters are cumulative for the client lifetime and are not reset by close or reconnect.
+
+## PLC clock setting
+
+`SlmpClient.setTime(value, options = {})` writes SM210 OFF, SD210 clock words, then SM210 ON under one client operation lock. Q/QnU/QnUDV/L use four packed BCD words; iQ-R/iQ-F/iQ-L/MX-F/MX-R use seven BIN words. Ethernet module profiles use the CPU's clock layout. Unknown layouts reject before sending. `Date` uses host local fields (1980..2079). Seven-integer arrays use `[YY, month, day, hour, minute, second, weekday]`, YY 0..79, Sunday 0. Target options are forwarded to every write. The return value confirms write acknowledgements only; follow the target CPU's clock-processing requirements and verify actual clock application separately. Q/L and iQ-R/iQ-F require END processing. Do not automatically retry partial failures.
+
+| Series / profiles | Clock registers | Encoding | Clock specification reference |
+| --- | --- | --- | --- |
+| QCPU, QnU, QnUDV, including QJ71E71-100 | SD210..SD213 | Four packed BCD words: YY/month, day/hour, minute/second, century/weekday | QCPU User's Manual (Hardware Design, Maintenance and Inspection), SH-080483ENG-BB, Appendix 2 (SM210/SM213), Appendix 3 (SD210..SD213); QnUCPU Function Explanation, SH-080807ENG-AF, 3.5 |
+| LCPU, including LJ71E71-100 | SD210..SD213 | Same four-word BCD layout | SH-080483ENG-BB, Appendix 2 and 3, corresponding CPU columns for LCPU |
+| iQ-R, including RJ71EN71 | SD210..SD216 | Seven BIN words: year, month, day, hour, minute, second, weekday | MELSEC iQ-R Programmable Controller CPU Module User's Manual, SH-082488ENG-G, Clock Function and special register list |
+| iQ-F (FX5) | SD210..SD216 | Same seven-word BIN layout | MELSEC iQ-F FX5 User's Manual (Application), JY997D54301AF, 18.1 |
+| iQ-L | SD210..SD216 | Same seven-word BIN layout | MELSEC iQ-L CPU Module User Manual (Application), SH-082170CHN-H, 4.1 and Appendix 5 (SD210..SD216) |
+| MX-F | SD210..SD216 | Same seven-word BIN layout | MELSEC MX Controller MX-F Model User's Manual, SH-082633-E, Appendix 4 (Clock Data), Appendix 7 (SD210..SD216) |
+| MX-R, including RJ71EN71 | SD210..SD216 | Same seven-word BIN layout | MELSEC MX Controller MX-R Model User's Manual, SH-082640-D, Appendix 4 (Clock Data), Appendix 7 (SD210..SD216) |
+
+All listed series use SM210 OFF-to-ON to request setting and SM213 ON to refresh the clock registers for reading. Q/L and iQ-F do not document the automatic SM210 reset used by iQ-R/iQ-L/MX-F/MX-R; an acknowledged write alone does not guarantee that SM210 is OFF. The iQ-R example's SM210-OFF completion check is specific to that example. Coordinate these special devices with the PLC program and other clients.
+
+Clock layout references: [FX5 clock setting (SD210..SD216)](https://fa-faq.mitsubishielectric.com/faq/show/44365), [QnU clock function (SD210..SD213)](https://dl.mitsubishielectric.com/dl/fa/document/manual/plc/sh080807eng/sh080807engaf.pdf), and [iQ-R CPU clock function](https://www.mitsubishielectric.com/dl/fa/document/manual/plc/sh082488eng/sh082488engf.pdf). This helper uses Device Write (1401), not a dedicated SLMP clock command.

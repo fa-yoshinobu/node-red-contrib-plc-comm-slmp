@@ -87,7 +87,7 @@
     },
     oneditprepare: function () {
       const select = $("#node-config-input-plcProfile");
-      const current = select.val();
+      const current = this.plcProfile;
       $.getJSON("plc-comm/slmp/profiles", function (profiles) {
         select.find("option:not(:first)").remove();
         profiles.filter(function (profile) { return profile.connectable; }).forEach(function (profile) {
@@ -96,7 +96,7 @@
             .text(profile.displayName)
             .appendTo(select);
         });
-        select.val(current);
+        select.val(current).trigger("change");
       });
       const usePassword = $("#node-config-input-useRemotePassword");
       const password = $("#node-config-input-remotePassword");

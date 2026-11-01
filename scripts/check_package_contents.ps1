@@ -91,7 +91,10 @@ try {
         "package.json",
         "lib/index.js",
         "examples/flows/README.md",
-        "examples/flows/slmp-basic-read-write.json"
+        "examples/flows/slmp-basic-read-write.json",
+        "examples/flows/slmp-set-time.json",
+        "nodes/slmp-set-time.js",
+        "nodes/slmp-set-time.html"
     )
     $missing = @($required | Where-Object { $_ -notin $files })
     if ($missing.Count -ne 0) { throw "npm package is missing required files: $($missing -join ', ')" }
@@ -187,8 +190,15 @@ const installedManifest = require(path.join(installedRoot, "package.json"));
 assert.deepEqual(Object.keys(installedManifest["node-red"].nodes).sort(), [
   "slmp-connection",
   "slmp-read",
+  "slmp-set-time",
   "slmp-write",
 ]);
+assert.equal(typeof slmp.SlmpClient.prototype.setTime, "function");
+const registeredNodeTypes = [];
+require(path.join(installedRoot, "nodes/slmp-set-time.js"))({
+  nodes: { registerType: name => registeredNodeTypes.push(name) },
+});
+assert.deepEqual(registeredNodeTypes, ["slmp-set-time"]);
 const target = { network: 0, station: 0xff, moduleIO: 0x03ff, multidrop: 0 };
 const client = new slmp.SlmpClient({
   host: "127.0.0.1",

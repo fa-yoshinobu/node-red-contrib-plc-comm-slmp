@@ -2,7 +2,7 @@
 
 ## What is in this directory
 
-This directory contains importable Node-RED JSON flow files for the public `slmp-connection`, `slmp-read`, and `slmp-write` nodes. Start with the basic TCP flow, then use the other flows for arrays, strings, error routing, UDP, route overrides, and broader device coverage.
+This directory contains importable Node-RED JSON flow files for the public `slmp-connection`, `slmp-read`, `slmp-write`, and `slmp-set-time` nodes. Start with the basic TCP flow, then use the other flows for arrays, strings, error routing, UDP, route overrides, and broader device coverage.
 
 Write controls are manual and opt-in. Use only controlled test addresses. The basic, array/string,
 UDP, and combined demo flows save the original values, write random format-valid values, restore
@@ -49,8 +49,25 @@ To persist CSV-equivalent rows, route the long-form row messages through a CSV n
 | [`slmp-array-string.json`](slmp-array-string.json) | TCP array access with `,count`, float arrays, and `:STR` plus an optional random write/restore check. | 2 |
 | [`slmp-control-error.json`](slmp-control-error.json) | Connection control messages, `msg`-provided addresses, and second-output error routing. | 3 |
 | [`slmp-routing.json`](slmp-routing.json) | Per-request route override with `msg.target`. | 4 |
+| [`slmp-set-time.json`](slmp-set-time.json) | Manual host-local clock setting and iQ-R clock readback through SM213 / SD210..SD216; tested on R16CPU. | After connection settings are known |
 | [`slmp-udp-read-write.json`](slmp-udp-read-write.json) | UDP read plus an optional random write/restore check. Set port `1035`; an unknown UDP write outcome requires manual reconciliation. | 5 |
 | [`slmp-device-matrix.json`](slmp-device-matrix.json) | Read-only one-by-one and run-all high-level coverage with status feedback, explicit error routing, timeout tracking, and JSONL logging. Broad writes are disabled; use a dedicated restore flow. | 6 |
 | [`slmp-demo.json`](slmp-demo.json) | Combined demo with connection controls, reads, an optional random write/restore check, and error outputs. | 7 |
 
 The device-matrix flow is for verification after your first simple read works. Do not use it as the first smoke test.
+
+## Clock setting and readback
+
+Import `slmp-set-time.json`, configure the iQ-R endpoint (the file defaults to loopback), and deploy.
+Click **Set host local time (manual)** once to set the PLC clock. The flow waits 0.5 seconds,
+refreshes `SD210..SD216` using `SM213`, waits 0.2 seconds for END processing, and compares the
+clock with the Node-RED host. **Read clock (uses SM213)** repeats only the readback sequence.
+The debug output separates write acknowledgements from the readback result: `PASS` requires
+a difference below 3 seconds, a matching weekday, and `SM210` / `SM211` both OFF.
+
+This readback example is for iQ-R's seven BIN words. Q/L use a different clock layout.
+Before use, ensure `SM213` is OFF and that the PLC program and other clients are not using
+`SM210`, `SM213`, or `SD210..SD216`. The CPU must execute END processing; adjust the delays
+for the scan time. The flow restores `SM213` to OFF after reading and on caught errors.
+If that cleanup fails, its separate Catch/Debug path reports the error for manual recovery.
+There is no automatic injection, retry, or restoration of the old clock.

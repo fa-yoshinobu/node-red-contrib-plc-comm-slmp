@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0] - 2026-11-01
+
+- Release: Bump package and lockfile versions to `5.3.0`.
+- Fix: Restore saved PLC profile selection when reopening connection settings.
+- Feature: Add `slmp-set-time` with explicit clock input and Catch error handling. Add SlmpClient.setTime() for Q/L BCD and iQ-R/iQ-F/iQ-L/MX-F/MX-R BIN clock layouts, including Ethernet module profiles.
+- Docs: Document clock registers and manufacturer manual references for every supported MELSEC series.
+- Samples: Add manual clock setting with iQ-R clock readback, SM213 cleanup, and host-time comparison.
+- Tests: Verify the new node and clock example in package-consumer and editor smoke checks.
+
 ## [5.2.0] - 2026-09-03
 
 - Release: Bumped npm package and lockfile metadata to `5.2.0` for the approved high-level API overhaul.
