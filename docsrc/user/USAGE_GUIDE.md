@@ -4,9 +4,10 @@
 
 | Node | Purpose |
 | --- | --- |
-| `slmp-connection` | Shared MELSEC SLMP connection profile for `slmp-read` and `slmp-write`. |
+| `slmp-connection` | Shared MELSEC SLMP connection profile for read, write, and clock-setting nodes. |
 | `slmp-read` | Reads one or more device addresses and writes the result to `msg.payload`. |
 | `slmp-write` | Writes one or more device values from static configuration or incoming messages. |
+| `slmp-set-time` | Sets the PLC clock from an explicit Date or clock-field array. |
 
 ## slmp-connection config node
 
@@ -241,6 +242,41 @@ manual opt-in, random format-valid test values, and best-effort snapshot restora
 | `msg.slmp.targetSource` | Full and minimal metadata modes: selected route source. |
 | `msg.slmp.itemCount` | Minimal metadata mode only: number of update addresses. |
 | `msg.error` | Error object when Errors is `msg.error`, or on the second output when Errors is second output. |
+
+## slmp-set-time node
+
+Select the shared `slmp-connection` and send the desired time in `msg.payload`.
+To use the Node-RED host's current local time, connect a manual Inject node to a
+Function node containing:
+
+```javascript
+msg.payload = new Date();
+return msg;
+```
+
+Alternatively, send a JSON array such as `[26, 10, 31, 12, 34, 56, 6]`:
+`[YY, month, day, hour, minute, second, weekday]`, with Sunday = 0.
+Date inputs use the host's local timezone and accept years 1980..2079; arrays
+specify PLC wall-clock time with YY = 0..79 (2000..2079).
+Missing or invalid input is rejected.
+
+The same input format works for iQ-R/iQ-F/iQ-L/MX-F/MX-R and Q/QnU/QnUDV/L,
+including their Ethernet module profiles. The selected profile determines the
+PLC register encoding; callers do not pack BIN or BCD words themselves.
+See the [clock layout table and client API](API_REFERENCE.md#plc-clock-setting).
+
+The single output preserves the input message after write acknowledgements;
+it does not verify a clock change. Route failures to a Catch node and check the
+PLC state before deciding whether to repeat a failed write. Coordinate `SM210`,
+`SM213`, and the `SD210` clock registers with the PLC program and other clients.
+Follow the target CPU's clock-processing requirements, including END processing.
+
+Import the [clock-setting sample](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/slmp-set-time.json)
+for manual setting, iQ-R readback through `SM213` / `SD210..SD216`, and clock
+comparison. It also has a manual readback button. This readback sequence is for
+iQ-R; Q/L use a different register layout. Configure the endpoint and follow the
+[sample prerequisites](https://github.com/fa-yoshinobu/node-red-contrib-plc-comm-slmp/blob/main/examples/flows/README.md#clock-setting-and-readback)
+before use.
 
 ## Address syntax
 

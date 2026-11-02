@@ -367,6 +367,9 @@ Counters are cumulative for the client lifetime and are not reset by close or re
 
 ## PLC clock setting
 
+For Node-RED input examples and the readback flow, see the
+[slmp-set-time node usage](USAGE_GUIDE.md#slmp-set-time-node).
+
 `SlmpClient.setTime(value, options = {})` writes SM210 OFF, SD210 clock words, then SM210 ON under one client operation lock. Q/QnU/QnUDV/L use four packed BCD words; iQ-R/iQ-F/iQ-L/MX-F/MX-R use seven BIN words. Ethernet module profiles use the CPU's clock layout. Unknown layouts reject before sending. `Date` uses host local fields (1980..2079). Seven-integer arrays use `[YY, month, day, hour, minute, second, weekday]`, YY 0..79, Sunday 0. Target options are forwarded to every write. The return value confirms write acknowledgements only; follow the target CPU's clock-processing requirements and verify actual clock application separately. Q/L and iQ-R/iQ-F require END processing. Do not automatically retry partial failures.
 
 | Series / profiles | Clock registers | Encoding | Clock specification reference |
